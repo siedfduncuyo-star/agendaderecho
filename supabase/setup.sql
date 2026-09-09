@@ -9,6 +9,7 @@ create table if not exists public.activities (
   start_time time not null,
   end_time time not null,
   name text not null check (char_length(name) between 1 and 160),
+  secretary text not null default '',
   responsible text not null check (char_length(responsible) between 1 and 100),
   classroom text not null check (char_length(classroom) between 1 and 80),
   activity_type text not null default '',
@@ -17,10 +18,17 @@ create table if not exists public.activities (
   platform text not null default '',
   account_used text not null default '',
   recording_required boolean not null default false,
+  source_uid text,
   observations text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- También actualiza una instalación creada con la primera versión.
+alter table public.activities add column if not exists secretary text not null default '';
+alter table public.activities add column if not exists source_uid text;
+drop index if exists public.activities_source_uid_unique;
+create unique index activities_source_uid_unique on public.activities (source_uid);
 
 create table if not exists public.editor_allowlist (
   email text primary key check (email = lower(email)),
@@ -99,8 +107,8 @@ for each row execute function public.set_updated_at();
 
 -- Registros de ejemplo ubicados en la semana actual.
 insert into public.activities
-  (date, start_time, end_time, name, responsible, classroom, activity_type, requirements, meeting_url, platform, account_used, recording_required, observations)
+  (date, start_time, end_time, name, secretary, responsible, classroom, activity_type, requirements, meeting_url, platform, account_used, recording_required, observations)
 values
-  (date_trunc('week', current_date)::date, '09:00', '11:00', 'Jornada de actualización en Derecho Procesal', 'Mariana López', 'Aula Magna', 'Jornada', 'Dos micrófonos, cámara fija y presentación', 'https://meet.google.com/', 'Google Meet', 'Cuenta institucional Posgrado', true, 'Realizar prueba técnica 30 minutos antes.'),
-  ((date_trunc('week', current_date) + interval '1 day')::date, '16:00', '18:00', 'Defensa de trabajo final', 'Lucas Fernández', 'Sala de Posgrado 2', 'Defensa', 'Notebook, proyector y audio bidireccional', 'https://zoom.us/', 'Zoom', 'Licencia Zoom Facultad', true, ''),
-  ((date_trunc('week', current_date) + interval '3 days')::date, '10:30', '12:00', 'Reunión de coordinación académica', 'Sofía Martínez', 'Sala de Consejo', 'Reunión', 'Pantalla y cámara móvil', 'https://teams.microsoft.com/', 'Microsoft Teams', 'Secretaría Académica', false, 'Participan autoridades de dos sedes.');
+  (date_trunc('week', current_date)::date, '09:00', '11:00', 'Jornada de actualización en Derecho Procesal', 'Secretaría de Posgrado', 'Mariana López', 'Aula Magna', 'Jornada', 'Dos micrófonos, cámara fija y presentación', 'https://meet.google.com/', 'Google Meet', 'Cuenta institucional Posgrado', true, 'Realizar prueba técnica 30 minutos antes.'),
+  ((date_trunc('week', current_date) + interval '1 day')::date, '16:00', '18:00', 'Defensa de trabajo final', 'Secretaría Académica', 'Lucas Fernández', 'Sala de Posgrado 2', 'Defensa', 'Notebook, proyector y audio bidireccional', 'https://zoom.us/', 'Zoom', 'Licencia Zoom Facultad', true, ''),
+  ((date_trunc('week', current_date) + interval '3 days')::date, '10:30', '12:00', 'Reunión de coordinación académica', 'Educación a Distancia', 'Sofía Martínez', 'Sala de Consejo', 'Reunión', 'Pantalla y cámara móvil', 'https://teams.microsoft.com/', 'Microsoft Teams', 'Secretaría Académica', false, 'Participan autoridades de dos sedes.');

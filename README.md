@@ -1,59 +1,53 @@
 # Agenda de Hibridaciones — Facultad de Derecho
 
-Agenda semanal responsive para consultar y coordinar actividades híbridas desde un único enlace. La web se aloja gratuitamente en GitHub Pages y utiliza Supabase para compartir datos y proteger las modificaciones.
+Agenda institucional responsive para consultar y coordinar actividades híbridas desde un único enlace.
 
-## Arquitectura elegida
+## Qué incluye
 
-- **Interfaz:** HTML, CSS y JavaScript sin frameworks ni proceso de compilación.
+- Vista semanal compacta: día, horario, actividad y aula.
+- Detalle desplegable con Secretaría, responsable, plataforma, cuenta, aula, grabación y requerimientos/observaciones.
+- Botones para abrir o copiar el enlace de la reunión.
+- Vista mensual en calendario; en celular se transforma en una lista cómoda de leer.
+- Carga manual, edición, duplicación y eliminación.
+- Importación de archivos `.ics` exportados desde Google Calendar.
+- Consulta pública y modificación restringida a correos autorizados.
+- Tipografía Montserrat, color institucional `#014a7d` y logo oficial.
+
+## Arquitectura
+
+- **Interfaz:** HTML, CSS y JavaScript sin compilación.
 - **Alojamiento:** GitHub Pages.
-- **Datos:** tabla PostgreSQL gratuita de Supabase.
-- **Acceso:** consulta pública; altas, cambios, duplicaciones y eliminaciones sólo para correos incluidos en la lista de editores.
-- **Autenticación:** enlace mágico enviado por correo; no hay contraseñas que administrar.
+- **Datos y acceso:** Supabase gratuito.
+- **Importación:** el navegador lee el archivo `.ics` y guarda sus eventos en Supabase. No se entrega acceso a la cuenta de Google.
 
-Un archivo JSON o `localStorage` no permitirían compartir cambios entre celulares. Guardar datos en GitHub obligaría a editar archivos o administrar permisos y tokens. Google Sheets suele requerir una capa adicional para escribir con seguridad. Firebase también sirve, pero sus reglas y su estructura resultan menos directas para esta agenda. Supabase ofrece en un mismo servicio la tabla, la autenticación y las reglas de acceso.
-
-## Estructura del proyecto
+## Estructura
 
 ```text
 agenda-hibrida-derecho/
-├── index.html            Página y formularios
-├── styles.css            Diseño responsive
-├── app.js                Agenda, filtros, acceso y operaciones
-├── config.js             Conexión pública con Supabase
-├── .nojekyll             Publicación directa en GitHub Pages
+├── assets/
+│   └── logo-fd-blanco.png
 ├── supabase/
-│   └── setup.sql         Tablas, seguridad y datos de ejemplo
-└── README.md             Estas instrucciones
+│   └── setup.sql
+├── index.html
+├── styles.css
+├── app.js
+├── config.js
+├── .nojekyll
+└── README.md
 ```
 
-## 1. Probarla inmediatamente
+## Probar la aplicación
 
-Abrí `index.html` con doble clic. Como `config.js` todavía no tiene credenciales, la aplicación inicia en **modo de prueba**:
+Abrí `index.html`. Mientras `config.js` esté vacío funcionará en modo de prueba, con tres actividades de ejemplo y datos guardados únicamente en ese navegador.
 
-- muestra tres actividades en la semana actual;
-- permite crear, editar, duplicar y eliminar;
-- guarda los cambios sólo en ese navegador.
+## Configuración inicial con Supabase
 
-Este modo sirve para probar la interfaz. Para que varias personas compartan los mismos datos, completá la configuración siguiente.
-
-## 2. Crear y preparar Supabase
-
-1. Entrá en [supabase.com](https://supabase.com/) y creá una cuenta.
-2. Elegí **New project**, asignale un nombre y una contraseña de base de datos.
-3. En el proyecto, abrí **SQL Editor** y luego **New query**.
-4. Abrí `supabase/setup.sql` de esta carpeta.
-5. Antes de ejecutarlo, reemplazá estos dos correos de ejemplo por los correos reales de quienes podrán modificar la agenda:
-
-   ```sql
-   ('coordinacion@facultad.edu.ar'),
-   ('hibridaciones@facultad.edu.ar')
-   ```
-
-6. Copiá todo el SQL, pegalo en el editor y presioná **Run**. Esto crea las tablas, las reglas de seguridad y tres actividades de ejemplo.
-7. En Supabase, entrá en **Project Settings → API**. Copiá:
-   - **Project URL**
-   - **anon public key** o **publishable key**
-8. Abrí `config.js` y pegá ambos valores:
+1. Crear una cuenta y un proyecto gratuito en [Supabase](https://supabase.com/).
+2. Abrir **SQL Editor → New query**.
+3. Abrir `supabase/setup.sql` y reemplazar los dos correos de ejemplo por los correos reales del equipo autorizado.
+4. Copiar todo el contenido del archivo, pegarlo en el editor y presionar **Run**.
+5. Abrir **Project Settings → API** y copiar **Project URL** y la clave **anon public** o **publishable**.
+6. Pegarlas en `config.js`:
 
    ```js
    window.AGENDA_CONFIG = {
@@ -62,93 +56,68 @@ Este modo sirve para probar la interfaz. Para que varias personas compartan los 
    };
    ```
 
-La clave `anon`/`publishable` está diseñada para usarse en una página pública. La seguridad real la aplican las políticas RLS incluidas en `setup.sql`. No uses ni publiques la clave `service_role` o `secret`.
+Nunca colocar aquí una clave `service_role` o `secret`.
 
-## 3. Configurar los enlaces de acceso
+### Si ya estaba instalada la versión anterior
 
-Después de publicar la web, Supabase debe reconocer su dirección:
+Volver a ejecutar el archivo actualizado `supabase/setup.sql`. Agrega los campos **Secretaría** e **identificador de importación** sin borrar las actividades existentes. Como el archivo también contiene datos de ejemplo, se pueden borrar manualmente desde **Table Editor → activities** si se duplican.
 
-1. En Supabase, abrí **Authentication → URL Configuration**.
-2. En **Site URL**, colocá la URL definitiva de GitHub Pages, por ejemplo:
+### Autorizar o quitar integrantes
 
-   `https://usuario.github.io/agenda-hibrida-derecho/`
+En Supabase abrir **Table Editor → editor_allowlist**:
 
-3. En **Redirect URLs**, agregá la misma URL, incluyendo la barra final.
-4. Guardá los cambios.
+- Para autorizar: **Insert row**, escribir el correo en minúsculas y guardar.
+- Para quitar el permiso: eliminar la fila correspondiente.
 
-Cuando un editor escriba su correo en “Acceso del equipo”, recibirá un enlace mágico. Aunque otra persona cree una sesión, las reglas de la base sólo permiten modificar a los correos incluidos en `editor_allowlist`.
+## Publicar en GitHub Pages
 
-### Agregar o quitar editores
+1. Crear un repositorio público en GitHub, por ejemplo `agenda-hibrida-derecho`.
+2. Elegir **Add file → Upload files** y subir todo el contenido de esta carpeta, incluida `assets` y `supabase`.
+3. Abrir **Settings → Pages**.
+4. En **Build and deployment**, seleccionar **Deploy from a branch**.
+5. Elegir la rama `main` y la carpeta `/ (root)`, y presionar **Save**.
+6. GitHub mostrará una dirección similar a `https://USUARIO.github.io/agenda-hibrida-derecho/`.
 
-No se modifica el código de la web. En Supabase, abrí **Table Editor → editor_allowlist**:
+En Supabase abrir **Authentication → URL Configuration** y colocar esa dirección completa tanto en **Site URL** como en **Redirect URLs**.
 
-- **Agregar:** `Insert row`, escribir el correo en minúsculas y guardar.
-- **Quitar:** seleccionar la fila del correo y eliminarla.
+## Carga manual
 
-El cambio de permiso es inmediato.
+1. Abrir la agenda y presionar **Acceso del equipo**.
+2. Ingresar un correo autorizado y abrir el enlace recibido.
+3. Presionar **+ Cargar actividad**.
+4. Completar el formulario y presionar **Guardar actividad**.
 
-## 4. Subir el proyecto a GitHub
+## Importar desde Google Calendar
 
-1. Iniciá sesión en [github.com](https://github.com/).
-2. Presioná **New repository**.
-3. Usá, por ejemplo, el nombre `agenda-hibrida-derecho`.
-4. Para mantenerlo totalmente gratuito con GitHub Pages, elegí **Public**. La agenda ya es pública por diseño y la clave de `config.js` es la clave pública de Supabase.
-5. Presioná **Create repository**.
-6. Dentro del repositorio, elegí **Add file → Upload files**.
-7. Subí todos los archivos y la carpeta `supabase` manteniendo esta estructura.
-8. Escribí un mensaje como `Primera versión de la agenda` y presioná **Commit changes**.
+### Descargar el calendario
 
-Alternativa con Git instalado:
+1. Abrir Google Calendar desde una computadora.
+2. Entrar en **Configuración → Importar y exportar**.
+3. En **Exportar**, presionar **Exportar**.
+4. Google descargará un archivo `.zip`. Descomprimirlo y localizar el archivo `.ics` del calendario deseado.
 
-```bash
-git init
-git add .
-git commit -m "Primera versión de la agenda"
-git branch -M main
-git remote add origin https://github.com/USUARIO/agenda-hibrida-derecho.git
-git push -u origin main
-```
+### Importarlo en la agenda
 
-## 5. Publicar con GitHub Pages
+1. Iniciar sesión en la agenda con un correo autorizado.
+2. Presionar **Importar calendario**.
+3. Seleccionar el archivo `.ics`.
+4. Completar los datos comunes: Secretaría, responsable, plataforma, cuenta, requerimientos y grabación.
+5. Presionar **Importar actividades**.
 
-1. En el repositorio, abrí **Settings → Pages**.
-2. En **Build and deployment**, elegí **Deploy from a branch**.
-3. En **Branch**, seleccioná `main` y la carpeta `/ (root)`.
-4. Presioná **Save**.
-5. Esperá uno o dos minutos. GitHub mostrará la dirección pública, normalmente:
+La aplicación toma del calendario:
 
-   `https://USUARIO.github.io/agenda-hibrida-derecho/`
+- título del evento → nombre de la actividad;
+- fecha y horario → fecha, inicio y finalización;
+- ubicación → aula/lugar;
+- enlace o descripción → enlace de reunión y observaciones.
 
-6. Copiá esa misma dirección en la configuración de autenticación de Supabase explicada en el punto 3.
-7. Abrí la dirección desde un celular y compartila por WhatsApp.
+Si el enlace corresponde a Zoom, Google Meet, Teams o YouTube, la plataforma se reconoce automáticamente cuando ese campo se deja vacío. Las repeticiones diarias y semanales se expanden hasta la fecha de finalización indicada por Google o, si no existe, hasta doce meses. El identificador del calendario evita volver a cargar el mismo evento en importaciones posteriores.
 
-## Uso cotidiano: cargar una actividad
+## Uso cotidiano
 
-1. Abrir el enlace de la agenda.
-2. Presionar **Acceso del equipo**.
-3. Escribir un correo autorizado y abrir el enlace recibido por correo.
-4. Presionar **+ Nueva actividad**.
-5. Completar fecha, horario, nombre, responsable, aula y los demás datos.
-6. Marcar **Requiere grabación** cuando corresponda.
-7. Presionar **Guardar actividad**.
-
-La actividad aparecerá en el día y horario correctos. No hay que editar archivos ni volver a publicar la página.
-
-## Editar, duplicar y eliminar
-
-Al iniciar sesión como editor, cada tarjeta muestra tres acciones:
-
-- **Editar:** cambia cualquier dato del registro.
-- **Duplicar:** abre una copia con la fecha desplazada siete días; permite revisarla antes de guardar.
-- **Eliminar:** pide confirmación y borra la actividad.
-
-## Campos incluidos
-
-Fecha; día de la semana calculado automáticamente; inicio; finalización; nombre; responsable; aula; tipo; requerimientos técnicos; enlace; plataforma; cuenta utilizada; requiere grabación; observaciones.
-
-## Mantenimiento
-
-- Las actividades se gestionan enteramente desde el formulario.
-- Los permisos se gestionan desde `editor_allowlist` en Supabase.
-- Los filtros se actualizan automáticamente según las actividades de la semana visible.
-- Para cambiar colores o textos institucionales puede editarse `styles.css` o `index.html`, pero no hace falta hacerlo para el uso normal.
+- Para ampliar una actividad, tocar su fila.
+- Para abrir la reunión, elegir **Abrir enlace**.
+- Para enviarlo por WhatsApp u otro medio, elegir **Copiar enlace**.
+- Para cambiar de período, usar las flechas y **Hoy**.
+- Para alternar entre agenda semanal y mensual, usar **Semana / Mes**.
+- Las acciones **Editar**, **Duplicar** y **Eliminar** aparecen sólo al ingresar como editor.
