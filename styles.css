@@ -42,6 +42,7 @@ main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 56
 .period-actions, .editor-actions { display: flex; gap: 7px; }
 .button, .icon-button { min-height: 40px; padding: 8px 13px; border: 1px solid transparent; border-radius: 6px; font-size: .83rem; font-weight: 600; }
 .icon-button { width: 40px; padding: 0; background: white; border-color: #c6d1d9; color: var(--blue); font-size: 1.1rem; }
+.icon-button:disabled { cursor: not-allowed; opacity: .38; }
 .button-primary { background: var(--blue); color: white; }
 .button-primary:hover { background: var(--blue-dark); }
 .button-secondary { background: white; color: var(--blue); border-color: #c6d1d9; }
@@ -53,6 +54,7 @@ main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 56
 .day-heading { padding: 9px 0; }
 .day-heading h3 { margin: 0; color: var(--blue); font-size: 1rem; line-height: 1.3; font-weight: 700; text-transform: capitalize; }
 .day-heading p { margin: 2px 0 0; color: var(--muted); font-size: .76rem; }
+.holiday-badge { display: inline-block; margin-top: 5px; padding: 3px 7px; border-radius: 999px; background: #f9e7e7; color: #9b3030; font-size: .65rem; font-weight: 700; }
 .day-list { display: grid; gap: 6px; }
 .empty-day { margin: 0; padding: 12px 15px; border: 1px dashed #c6d1d9; border-radius: 6px; color: #78848d; background: rgba(255,255,255,.55); font-size: .83rem; }
 
@@ -79,17 +81,25 @@ main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 56
 .card-actions button { border: 0; background: var(--blue-soft); color: var(--blue); }
 .card-actions .danger { color: var(--danger); background: #faeeee; }
 
-.month-calendar { overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: white; }
-.month-weekdays, .month-grid { display: grid; grid-template-columns: repeat(7,1fr); }
+.month-calendar { display: none; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: white; }
+.month-weekdays, .month-grid { display: grid; grid-template-columns: repeat(6,1fr); }
 .month-weekdays div { padding: 9px; border-bottom: 1px solid var(--line); background: var(--blue-soft); color: var(--blue); font-size: .7rem; font-weight: 700; text-align: center; text-transform: uppercase; }
 .month-day { min-width: 0; min-height: 116px; padding: 7px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.month-day:nth-child(7n) { border-right: 0; }
+.month-day:nth-child(6n) { border-right: 0; }
 .month-day.other-month { background: #f7f9fa; color: #9aa5ad; }
 .month-day.today { box-shadow: inset 0 0 0 2px var(--blue); }
+.month-day.holiday { background: #fff5f5; }
 .month-number { display: block; margin-bottom: 5px; font-size: .76rem; font-weight: 700; }
+.month-holiday { display: block; margin: -2px 0 5px; color: #9b3030; font-size: .6rem; font-weight: 700; text-transform: uppercase; }
 .month-event { width: 100%; margin-bottom: 4px; padding: 5px 6px; border: 0; border-left: 3px solid var(--blue); border-radius: 3px; background: #edf5f9; color: var(--ink); text-align: left; font-size: .66rem; line-height: 1.3; }
 .month-event strong { display: block; color: var(--blue); font-size: .64rem; }
-.mobile-month-list { display: none; }
+.mobile-month-list { display: grid; gap: 11px; }
+.holiday-empty { margin: 0; padding: 11px 13px; border: 1px solid #efd1d1; border-radius: 6px; background: #fff8f8; color: #9b5555; font-size: .78rem; }
+
+@media (min-width: 901px) {
+  .month-calendar { display: block; }
+  .mobile-month-list { display: none; }
+}
 
 .dialog { width: min(730px,calc(100% - 24px)); max-height: calc(100vh - 28px); padding: 0; border: 0; border-radius: 9px; box-shadow: 0 24px 80px rgba(0,32,54,.3); }
 .dialog::backdrop { background: rgba(0,32,54,.65); }
@@ -151,8 +161,6 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   .summary-room { grid-column: 2; text-align: left; font-size: .69rem; margin-top: -5px; }
   .summary-chevron { grid-column: 3; grid-row: 1/3; }
   .activity-details, .detail-dialog .activity-details { grid-template-columns: 1fr; gap: 9px; }
-  .month-calendar { display: none; }
-  .mobile-month-list { display: grid; gap: 11px; }
   .form-grid { grid-template-columns: 1fr; }
   .wide, .recording-field { grid-column: auto; }
   .dialog form, .detail-dialog-content { padding: 17px; }

@@ -6,6 +6,8 @@
   const db = configured ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
   const locale = "es-AR";
   const demoStorageKey = "agenda-hibrida-demo-v2";
+  const calendarEnd = new Date(2026, 11, 28);
+  const holidays = new Set(["2026-10-12", "2026-11-23", "2026-12-07", "2026-12-08"]);
 
   const state = {
     view: "week",
@@ -41,6 +43,8 @@
   function weekday(date, format = "long") { return titleCase(new Intl.DateTimeFormat(locale, { weekday: format }).format(date)); }
   function formatDate(date, options) { return new Intl.DateTimeFormat(locale, options).format(date); }
   function cleanTime(value) { return (value || "").slice(0, 5); }
+  function isHoliday(date) { return holidays.has(toISODate(date)); }
+  function isAfterCalendarEnd(date) { return localDate(date) > calendarEnd; }
 
   function demoRecords() {
     const monday = startOfWeek(new Date());
@@ -167,20 +171,27 @@
   }
 
   function movePeriod(direction) {
-    state.cursor = state.view === "week" ? addDays(state.cursor, direction * 7) : addMonths(state.cursor, direction);
+    const candidate = state.view === "week" ? addDays(state.cursor, direction * 7) : addMonths(state.cursor, direction);
+    const candidateStart = state.view === "week" ? startOfWeek(candidate) : startOfMonth(candidate);
+    if (direction > 0 && candidateStart > calendarEnd) return;
+    state.cursor = candidate;
     loadPeriod();
   }
 
   function periodRange() {
     if (state.view === "week") {
       const start = startOfWeek(state.cursor);
-      return { start, end: addDays(start, 6), visibleStart: start, visibleEnd: addDays(start, 6) };
+      const naturalEnd = addDays(start, 5);
+      const end = naturalEnd > calendarEnd ? calendarEnd : naturalEnd;
+      return { start, end, visibleStart: start, visibleEnd: end };
     }
     const monthStart = startOfMonth(state.cursor);
     const gridStart = startOfWeek(monthStart);
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-    const gridEnd = addDays(startOfWeek(monthEnd), 6);
-    return { start: gridStart, end: gridEnd, visibleStart: monthStart, visibleEnd: monthEnd };
+    const naturalGridEnd = addDays(startOfWeek(monthEnd), 5);
+    const visibleEnd = monthEnd > calendarEnd ? calendarEnd : monthEnd;
+    const gridEnd = naturalGridEnd > calendarEnd ? calendarEnd : naturalGridEnd;
+    return { start: gridStart, end: gridEnd, visibleStart: monthStart, visibleEnd };
   }
 
   async function loadPeriod() {
@@ -196,7 +207,13 @@
       state.activities = loadDemoData().filter((item) => item.date >= toISODate(start) && item.date <= toISODate(end));
     }
     updatePeriodTitle();
+    updateNavigationState();
     render();
+  }
+
+  function updateNavigationState() {
+    const nextCandidate = state.view === "week" ? startOfWeek(addDays(state.cursor, 7)) : startOfMonth(addMonths(state.cursor, 1));
+    el("nextPeriod").disabled = nextCandidate > calendarEnd;
   }
 
   function updatePeriodTitle() {
@@ -204,8 +221,7 @@
       el("periodTitle").textContent = titleCase(formatDate(state.cursor, { month: "long", year: "numeric" }));
       return;
     }
-    const start = startOfWeek(state.cursor);
-    const end = addDays(start, 6);
+    const { start, end } = periodRange();
     const sameMonth = start.getMonth() === end.getMonth();
     const left = formatDate(start, sameMonth ? { day: "numeric" } : { day: "numeric", month: "long" });
     const right = formatDate(end, { day: "numeric", month: "long", year: "numeric" });
@@ -216,14 +232,15 @@
     agenda.replaceChildren();
     if (state.view === "week") renderWeek(); else renderMonth();
     const { visibleStart, visibleEnd } = periodRange();
-    const count = state.activities.filter((item) => item.date >= toISODate(visibleStart) && item.date <= toISODate(visibleEnd)).length;
+    const count = state.activities.filter((item) => item.date >= toISODate(visibleStart) && item.date <= toISODate(visibleEnd) && fromISODate(item.date).getDay() !== 0).length;
     status.textContent = `${count} ${count === 1 ? "actividad" : "actividades"}`;
   }
 
   function renderWeek() {
     const start = startOfWeek(state.cursor);
-    for (let index = 0; index < 7; index += 1) {
+    for (let index = 0; index < 6; index += 1) {
       const date = addDays(start, index);
+      if (isAfterCalendarEnd(date)) break;
       const section = document.createElement("section");
       section.className = "day-section";
       const heading = document.createElement("div");
@@ -231,6 +248,7 @@
       const h3 = document.createElement("h3"); h3.textContent = weekday(date);
       const p = document.createElement("p"); p.textContent = formatDate(date, { day: "numeric", month: "long" });
       heading.append(h3, p);
+      if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "holiday-badge"; badge.textContent = "Feriado"; heading.append(badge); }
       const list = document.createElement("div"); list.className = "day-list";
       const items = activitiesForDate(date);
       if (!items.length) {
@@ -300,14 +318,17 @@
     const { start, end, visibleStart, visibleEnd } = periodRange();
     const calendar = document.createElement("div"); calendar.className = "month-calendar";
     const weekdays = document.createElement("div"); weekdays.className = "month-weekdays";
-    ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].forEach((name) => { const node = document.createElement("div"); node.textContent = name; weekdays.append(node); });
+    ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].forEach((name) => { const node = document.createElement("div"); node.textContent = name; weekdays.append(node); });
     const grid = document.createElement("div"); grid.className = "month-grid";
     const todayKey = toISODate(new Date());
     for (let date = new Date(start); date <= end; date = addDays(date, 1)) {
+      if (date.getDay() === 0 || isAfterCalendarEnd(date)) continue;
       const cell = document.createElement("div"); cell.className = "month-day";
       if (date < visibleStart || date > visibleEnd) cell.classList.add("other-month");
       if (toISODate(date) === todayKey) cell.classList.add("today");
+      if (isHoliday(date)) cell.classList.add("holiday");
       const number = document.createElement("span"); number.className = "month-number"; number.textContent = date.getDate(); cell.append(number);
+      if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "month-holiday"; badge.textContent = "Feriado"; cell.append(badge); }
       activitiesForDate(date).forEach((item) => {
         const button = document.createElement("button"); button.type = "button"; button.className = "month-event";
         const time = document.createElement("strong"); time.textContent = cleanTime(item.start_time);
@@ -318,8 +339,9 @@
     }
     calendar.append(weekdays, grid);
     const mobileList = document.createElement("div"); mobileList.className = "mobile-month-list";
-    const monthItems = state.activities.filter((item) => item.date >= toISODate(visibleStart) && item.date <= toISODate(visibleEnd));
-    const dates = [...new Set(monthItems.map((item) => item.date))].sort();
+    const monthItems = state.activities.filter((item) => item.date >= toISODate(visibleStart) && item.date <= toISODate(visibleEnd) && fromISODate(item.date).getDay() !== 0);
+    const holidayDates = [...holidays].filter((date) => date >= toISODate(visibleStart) && date <= toISODate(visibleEnd));
+    const dates = [...new Set([...monthItems.map((item) => item.date), ...holidayDates])].sort();
     if (!dates.length) {
       const empty = document.createElement("p"); empty.className = "empty-day"; empty.textContent = "Sin actividades este mes"; mobileList.append(empty);
     } else dates.forEach((dateValue) => {
@@ -328,7 +350,9 @@
       const heading = document.createElement("div"); heading.className = "day-heading";
       const h3 = document.createElement("h3"); h3.textContent = weekday(date);
       const p = document.createElement("p"); p.textContent = formatDate(date, { day: "numeric", month: "long" }); heading.append(h3, p);
+      if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "holiday-badge"; badge.textContent = "Feriado"; heading.append(badge); }
       const list = document.createElement("div"); list.className = "day-list"; activitiesForDate(date).forEach((item) => list.append(createActivityRow(item)));
+      if (!activitiesForDate(date).length) { const empty = document.createElement("p"); empty.className = "holiday-empty"; empty.textContent = "Sin actividades"; list.append(empty); }
       section.append(heading, list); mobileList.append(section);
     });
     agenda.append(calendar, mobileList);
@@ -386,6 +410,8 @@
   async function saveActivity(event) {
     event.preventDefault(); if (!state.canEdit) return;
     const payload = activityPayload(); const id = el("activityId").value; const errorBox = el("formError");
+    if (fromISODate(payload.date) > calendarEnd) { errorBox.textContent = "La agenda finaliza el 28 de diciembre de 2026."; errorBox.hidden = false; return; }
+    if (fromISODate(payload.date).getDay() === 0) { errorBox.textContent = "Los domingos no forman parte de esta agenda."; errorBox.hidden = false; return; }
     if (payload.end_time <= payload.start_time) { errorBox.textContent = "La hora de finalización debe ser posterior a la de inicio."; errorBox.hidden = false; return; }
     const button = el("saveActivity"); button.disabled = true; button.textContent = "Guardando…";
     let error = null;
@@ -426,7 +452,7 @@
         secretary: el("importSecretary").value.trim(), responsible: el("importResponsible").value.trim(), platform: el("importPlatform").value.trim(),
         account_used: el("importAccount").value.trim(), requirements: el("importRequirements").value.trim(), recording_required: el("importRecording").checked
       };
-      const events = parseICS(await file.text(), defaults);
+      const events = parseICS(await file.text(), defaults).filter((item) => fromISODate(item.date) <= calendarEnd && fromISODate(item.date).getDay() !== 0);
       if (!events.length) throw new Error("No se encontraron eventos con fecha y horario en el archivo.");
       let imported = 0;
       if (configured) {

@@ -8,6 +8,8 @@ Agenda institucional responsive para consultar y coordinar actividades híbridas
 - Detalle desplegable con Secretaría, responsable, plataforma, cuenta, aula, grabación y requerimientos/observaciones.
 - Botones para abrir o copiar el enlace de la reunión.
 - Vista mensual en calendario; en celular se transforma en una lista cómoda de leer.
+- Agenda de lunes a sábado, con cierre el 28 de diciembre de 2026.
+- Feriados señalados: 12 de octubre, 23 de noviembre y 7 y 8 de diciembre.
 - Carga manual, edición, duplicación y eliminación.
 - Importación de archivos `.ics` exportados desde Google Calendar.
 - Consulta pública y modificación restringida a correos autorizados.
