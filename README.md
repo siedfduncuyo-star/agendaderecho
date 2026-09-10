@@ -1,125 +1,133 @@
 # Agenda de Hibridaciones — Facultad de Derecho
 
-Agenda institucional responsive para consultar y coordinar actividades híbridas desde un único enlace.
+Aplicación web institucional para consultar y administrar las actividades híbridas de la Facultad de Derecho.
 
-## Qué incluye
+## Arquitectura elegida
 
-- Vista semanal compacta: día, horario, actividad y aula.
-- Detalle desplegable con Secretaría, responsable, plataforma, cuenta, aula, grabación y requerimientos/observaciones.
-- Botones para abrir o copiar el enlace de la reunión.
-- Vista mensual en calendario; en celular se transforma en una lista cómoda de leer.
-- Agenda de lunes a sábado, con cierre el 28 de diciembre de 2026.
-- Feriados señalados: 12 de octubre, 23 de noviembre y 7 y 8 de diciembre.
+- **Página:** HTML, CSS y JavaScript, sin compilación.
+- **Publicación:** GitHub Pages gratuito.
+- **Datos:** Cloud Firestore de Firebase, plan Spark gratuito.
+- **Acceso de administración:** Google, limitado a `facultad@derecho.uncu.edu.ar`.
+- **Consulta:** pública, sin iniciar sesión.
+- **Importación inicial:** archivo `.ics` exportado desde Google Calendar.
+
+El proyecto ya contiene la configuración del proyecto Firebase `agenda-hibridaciones-derecho`. La clave web incluida en `config.js` es una identificación pública del proyecto; la modificación de los datos está protegida por las reglas de Firestore.
+
+## Funciones incluidas
+
+- Vistas por día, semana y mes; en celular se transforman en listas verticales legibles.
+- Día actual destacado visualmente en las vistas diaria, semanal y mensual.
+- Agenda de lunes a sábado, sin domingos.
+- Cierre de agenda el 28 de diciembre de 2026.
+- Feriados marcados: 12 de octubre, 23 de noviembre, 7 y 8 de diciembre.
+- Tarjetas compactas con horario, actividad, aula y logo de plataforma; el resto se despliega.
+- Identificación por color de las diez áreas organizadoras y referencia desplegable en la agenda.
+- Logos compactos de Google Meet, Microsoft Teams y Zoom.
+- Botones para abrir o copiar el enlace.
 - Carga manual, edición, duplicación y eliminación.
-- Importación de archivos `.ics` exportados desde Google Calendar.
-- Consulta pública y modificación restringida a correos autorizados.
-- Tipografía Montserrat, color institucional `#014a7d` y logo oficial.
-
-## Arquitectura
-
-- **Interfaz:** HTML, CSS y JavaScript sin compilación.
-- **Alojamiento:** GitHub Pages.
-- **Datos y acceso:** Supabase gratuito.
-- **Importación:** el navegador lee el archivo `.ics` y guarda sus eventos en Supabase. No se entrega acceso a la cuenta de Google.
+- Edición individual o conjunta de todas las actividades que tengan el mismo nombre.
+- Listas desplegables institucionales para área organizadora y aula, con opción de indicar otro lugar.
+- El formulario de edición solo se cierra mediante los botones Cerrar o Cancelar, para evitar cierres accidentales.
+- Para Secretaría Académica: selección dependiente de carrera y materia.
+- Rango de fechas para actividades que duran varios días; se muestran cada día del período, excepto los domingos.
+- Actividades únicas, semanales o cada 15 días.
+- Importación inicial desde Google Calendar mediante `.ics`.
+- Campo de grabación.
+- Tipografía Montserrat, color `#014a7d` y logo institucional.
 
 ## Estructura
 
 ```text
 agenda-hibrida-derecho/
 ├── assets/
-│   └── logo-fd-blanco.png
-├── supabase/
-│   └── setup.sql
+│   ├── logo-fd-blanco.png
+│   ├── platform-google-meet.png
+│   ├── platform-microsoft-teams.png
+│   └── platform-zoom.png
+├── firebase/
+│   └── firestore.rules
+├── .nojekyll
 ├── index.html
 ├── styles.css
 ├── app.js
 ├── config.js
-├── .nojekyll
 └── README.md
 ```
 
-## Probar la aplicación
-
-Abrí `index.html`. Mientras `config.js` esté vacío funcionará en modo de prueba, con tres actividades de ejemplo y datos guardados únicamente en ese navegador.
-
-## Configuración inicial con Supabase
-
-1. Crear una cuenta y un proyecto gratuito en [Supabase](https://supabase.com/).
-2. Abrir **SQL Editor → New query**.
-3. Abrir `supabase/setup.sql` y reemplazar los dos correos de ejemplo por los correos reales del equipo autorizado.
-4. Copiar todo el contenido del archivo, pegarlo en el editor y presionar **Run**.
-5. Abrir **Project Settings → API** y copiar **Project URL** y la clave **anon public** o **publishable**.
-6. Pegarlas en `config.js`:
-
-   ```js
-   window.AGENDA_CONFIG = {
-     supabaseUrl: "https://TU-PROYECTO.supabase.co",
-     supabaseAnonKey: "TU-CLAVE-PUBLICA"
-   };
-   ```
-
-Nunca colocar aquí una clave `service_role` o `secret`.
-
-### Si ya estaba instalada la versión anterior
-
-Volver a ejecutar el archivo actualizado `supabase/setup.sql`. Agrega los campos **Secretaría** e **identificador de importación** sin borrar las actividades existentes. Como el archivo también contiene datos de ejemplo, se pueden borrar manualmente desde **Table Editor → activities** si se duplican.
-
-### Autorizar o quitar integrantes
-
-En Supabase abrir **Table Editor → editor_allowlist**:
-
-- Para autorizar: **Insert row**, escribir el correo en minúsculas y guardar.
-- Para quitar el permiso: eliminar la fila correspondiente.
-
 ## Publicar en GitHub Pages
 
-1. Crear un repositorio público en GitHub, por ejemplo `agenda-hibrida-derecho`.
-2. Elegir **Add file → Upload files** y subir todo el contenido de esta carpeta, incluida `assets` y `supabase`.
-3. Abrir **Settings → Pages**.
-4. En **Build and deployment**, seleccionar **Deploy from a branch**.
-5. Elegir la rama `main` y la carpeta `/ (root)`, y presionar **Save**.
-6. GitHub mostrará una dirección similar a `https://USUARIO.github.io/agenda-hibrida-derecho/`.
+1. Ingresar en GitHub y crear un repositorio público llamado `agenda-hibrida-derecho`.
+2. Dentro del repositorio, elegir **Add file → Upload files**.
+3. Subir **el contenido de esta carpeta**, no el archivo ZIP: `index.html`, `app.js`, `styles.css`, `config.js`, `.nojekyll` y las carpetas `assets` y `firebase`.
+4. Presionar **Commit changes**.
+5. Abrir **Settings → Pages**.
+6. En **Build and deployment**, seleccionar **Deploy from a branch**.
+7. Elegir la rama `main`, la carpeta `/ (root)` y presionar **Save**.
+8. Esperar unos minutos. GitHub mostrará una dirección similar a `https://USUARIO.github.io/agenda-hibrida-derecho/`.
 
-En Supabase abrir **Authentication → URL Configuration** y colocar esa dirección completa tanto en **Site URL** como en **Redirect URLs**.
+## Autorizar GitHub Pages en Firebase
 
-## Carga manual
+Este paso habilita el botón **Administrar agenda** en el sitio publicado.
 
-1. Abrir la agenda y presionar **Acceso del equipo**.
-2. Ingresar un correo autorizado y abrir el enlace recibido.
-3. Presionar **+ Cargar actividad**.
-4. Completar el formulario y presionar **Guardar actividad**.
+1. Copiar únicamente el dominio de la dirección de GitHub, por ejemplo `USUARIO.github.io` (sin `https://` y sin `/agenda-hibrida-derecho/`).
+2. En Firebase abrir **Authentication → Configuración → Dominios autorizados**.
+3. Presionar **Agregar dominio**.
+4. Pegar `USUARIO.github.io` y guardar.
 
-## Importar desde Google Calendar
+## Cargar una actividad
 
-### Descargar el calendario
+1. Abrir el enlace público de la agenda.
+2. Presionar **Administrar agenda**.
+3. Ingresar con la cuenta `facultad@derecho.uncu.edu.ar`.
+4. Presionar **+ Cargar actividad**.
+5. Completar fecha de inicio, fecha de finalización, horario, actividad, Secretaría, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones. Si dura un solo día, colocar la misma fecha en ambos campos.
+6. Si se elige **Secretaría Académica**, seleccionar también la carrera y la materia. Si el lugar no figura en la lista, elegir **Otro (especificar)**.
+7. En **Repetición**, elegir **No se repite**, **Todas las semanas** o **Cada 15 días**. Para una repetición, indicar hasta qué fecha debe generarse.
+8. Presionar **Guardar actividad**.
+
+No se edita ningún archivo para el uso cotidiano.
+
+## Editar, duplicar o eliminar
+
+1. Ingresar como responsable.
+2. Desplegar la tarjeta de una actividad.
+3. Elegir **Editar**, **Duplicar** o **Eliminar**.
+
+Al duplicar, la copia se prepara automáticamente para la semana siguiente. Se puede modificar la fecha antes de guardarla.
+
+Al editar, se puede marcar **Aplicar estos cambios a todas las actividades con el mismo nombre**. Esta opción actualiza el nombre, horario, área organizadora, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones de todas las coincidencias, pero conserva las fechas propias de cada actividad.
+
+## Importación inicial desde Google Calendar
+
+La importación inicial ya fue realizada. En la versión publicada, el botón de importación queda oculto para evitar cargas duplicadas.
+
+### Exportar el calendario
 
 1. Abrir Google Calendar desde una computadora.
 2. Entrar en **Configuración → Importar y exportar**.
 3. En **Exportar**, presionar **Exportar**.
-4. Google descargará un archivo `.zip`. Descomprimirlo y localizar el archivo `.ics` del calendario deseado.
+4. Descomprimir el archivo `.zip` descargado y localizar el archivo `.ics` del calendario correspondiente.
 
-### Importarlo en la agenda
+### Importar en la agenda
 
-1. Iniciar sesión en la agenda con un correo autorizado.
+1. Ingresar en la agenda con la cuenta responsable.
 2. Presionar **Importar calendario**.
 3. Seleccionar el archivo `.ics`.
-4. Completar los datos comunes: Secretaría, responsable, plataforma, cuenta, requerimientos y grabación.
+4. Completar los datos comunes que no estaban en Calendar: Secretaría, responsable, plataforma, cuenta, grabación y observaciones.
 5. Presionar **Importar actividades**.
 
-La aplicación toma del calendario:
+La aplicación toma automáticamente el título, la fecha, el horario, la ubicación y los enlaces reconocibles. Evita volver a importar el mismo evento si se usa nuevamente el mismo archivo.
 
-- título del evento → nombre de la actividad;
-- fecha y horario → fecha, inicio y finalización;
-- ubicación → aula/lugar;
-- enlace o descripción → enlace de reunión y observaciones.
+## Probar los ejemplos
 
-Si el enlace corresponde a Zoom, Google Meet, Teams o YouTube, la plataforma se reconoce automáticamente cuando ese campo se deja vacío. Las repeticiones diarias y semanales se expanden hasta la fecha de finalización indicada por Google o, si no existe, hasta doce meses. El identificador del calendario evita volver a cargar el mismo evento en importaciones posteriores.
+Agregar `?demo=1` al final de la dirección publicada, por ejemplo:
 
-## Uso cotidiano
+```text
+https://USUARIO.github.io/agenda-hibrida-derecho/?demo=1
+```
 
-- Para ampliar una actividad, tocar su fila.
-- Para abrir la reunión, elegir **Abrir enlace**.
-- Para enviarlo por WhatsApp u otro medio, elegir **Copiar enlace**.
-- Para cambiar de período, usar las flechas y **Hoy**.
-- Para alternar entre agenda semanal y mensual, usar **Semana / Mes**.
-- Las acciones **Editar**, **Duplicar** y **Eliminar** aparecen sólo al ingresar como editor.
+Esta modalidad muestra tres actividades de ejemplo y permite probar carga, repetición, edición, duplicación y eliminación en ese navegador, sin modificar la base real.
+
+## Seguridad
+
+La copia exacta de las reglas está en `firebase/firestore.rules`. Las reglas permiten la lectura pública de la colección `actividades` y solo permiten crear, modificar o eliminar cuando Firebase verifica el correo `facultad@derecho.uncu.edu.ar`.

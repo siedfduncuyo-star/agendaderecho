@@ -38,6 +38,7 @@
         </div>
         <div class="toolbar-right">
           <div class="view-switch" role="group" aria-label="Tipo de vista">
+            <button id="dayView" class="view-button" type="button" aria-pressed="false">Día</button>
             <button id="weekView" class="view-button active" type="button" aria-pressed="true">Semana</button>
             <button id="monthView" class="view-button" type="button" aria-pressed="false">Mes</button>
           </div>
@@ -47,11 +48,16 @@
             <button id="nextPeriod" class="icon-button" type="button" aria-label="Período siguiente">→</button>
           </div>
           <div class="editor-actions editor-only" hidden>
-            <button id="importCalendar" class="button button-secondary" type="button">Importar calendario</button>
+            <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
             <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
           </div>
         </div>
       </section>
+
+      <details class="organizer-legend">
+        <summary>Colores de las áreas organizadoras</summary>
+        <div id="organizerLegendItems" class="organizer-legend-items"></div>
+      </details>
 
       <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
       <section id="agenda" class="agenda" aria-label="Actividades"></section>
@@ -64,21 +70,35 @@
           <button class="close-button" type="button" data-close="activityDialog" aria-label="Cerrar">×</button>
         </div>
         <input id="activityId" type="hidden" />
+        <input id="originalActivityName" type="hidden" />
         <div class="form-grid">
-          <label>Fecha<input id="date" type="date" max="2026-12-28" required /></label>
-          <label>Día<input id="weekdayDisplay" type="text" readonly /></label>
+          <label>Fecha de inicio<input id="date" type="date" max="2026-12-28" required /></label>
+          <label>Fecha de finalización<input id="endDate" type="date" max="2026-12-28" required /></label>
+          <label>Día de inicio<input id="weekdayDisplay" type="text" readonly /></label>
           <label>Hora de inicio<input id="startTime" type="time" required /></label>
           <label>Hora de finalización<input id="endTime" type="time" required /></label>
+          <label id="recurrenceField">Repetición
+            <select id="recurrence">
+              <option value="none">No se repite</option>
+              <option value="weekly">Todas las semanas</option>
+              <option value="biweekly">Cada 15 días</option>
+            </select>
+          </label>
+          <label id="repeatUntilField" hidden>Repetir hasta<input id="repeatUntil" type="date" max="2026-12-28" /></label>
           <label class="wide">Nombre de la actividad<input id="name" type="text" maxlength="160" required /></label>
-          <label>Secretaría que organiza<input id="secretary" type="text" maxlength="120" required /></label>
+          <label>Organiza<select id="secretary" required></select></label>
+          <label id="careerField" hidden>Carrera<select id="career"></select></label>
+          <label id="subjectField" class="wide" hidden>Materia<select id="subject"></select></label>
           <label>Responsable<input id="responsible" type="text" maxlength="100" required /></label>
-          <label>Aula / lugar<input id="classroom" type="text" maxlength="100" required /></label>
+          <label>Aula / lugar<select id="classroom" required></select></label>
+          <label id="otherClassroomField" hidden>Otro lugar<input id="otherClassroom" type="text" maxlength="100" /></label>
           <label>Plataforma<input id="platform" type="text" list="platformOptions" maxlength="80" placeholder="Zoom, Google Meet…" /></label>
           <datalist id="platformOptions"><option value="Zoom"></option><option value="Google Meet"></option><option value="Microsoft Teams"></option><option value="YouTube"></option></datalist>
           <label class="wide">Cuenta utilizada<input id="accountUsed" type="text" maxlength="160" /></label>
           <label class="wide">Enlace de la actividad<input id="meetingUrl" type="url" maxlength="500" placeholder="https://…" /></label>
           <label class="wide">Requerimientos / observaciones<textarea id="requirements" rows="4" maxlength="1000" placeholder="Micrófonos, cámara, presentación, indicaciones especiales…"></textarea></label>
           <label class="recording-field"><input id="recordingRequired" type="checkbox" /><span><strong>Requiere grabación</strong><small>Marcar si la actividad debe registrarse.</small></span></label>
+          <label id="bulkEditField" class="recording-field wide" hidden><input id="updateSameName" type="checkbox" /><span><strong>Aplicar estos cambios a todas las actividades con el mismo nombre</strong><small>Se conservarán las fechas propias de cada actividad.</small></span></label>
         </div>
         <div id="formError" class="form-error" role="alert" hidden></div>
         <div class="dialog-actions">
@@ -99,7 +119,7 @@
         <fieldset>
           <legend>Datos comunes para los eventos importados</legend>
           <div class="form-grid">
-            <label>Secretaría que organiza<input id="importSecretary" type="text" maxlength="120" required /></label>
+            <label>Organiza<input id="importSecretary" type="text" maxlength="120" required /></label>
             <label>Responsable<input id="importResponsible" type="text" maxlength="100" required /></label>
             <label>Plataforma<input id="importPlatform" type="text" list="platformOptions" maxlength="80" /></label>
             <label>Cuenta utilizada<input id="importAccount" type="text" maxlength="160" /></label>
@@ -125,26 +145,9 @@
       </div>
     </dialog>
 
-    <dialog id="authDialog" class="dialog auth-dialog">
-      <form id="authForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Acceso restringido</p><h2>Ingreso del equipo</h2></div>
-          <button class="close-button" type="button" data-close="authDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Ingresá tu correo autorizado. Recibirás un enlace seguro para entrar, sin contraseña.</p>
-        <label>Correo electrónico<input id="authEmail" type="email" autocomplete="email" required placeholder="nombre@facultad.edu.ar" /></label>
-        <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="authDialog">Cancelar</button>
-          <button id="sendMagicLink" class="button button-primary" type="submit">Enviar enlace</button>
-        </div>
-      </form>
-    </dialog>
-
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

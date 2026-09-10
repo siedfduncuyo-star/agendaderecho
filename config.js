@@ -1,6 +1,11 @@
-// Pegá aquí los dos valores de Project Settings > API de tu proyecto Supabase.
-// La clave anon/publishable es pública y está protegida por las reglas RLS del archivo setup.sql.
 window.AGENDA_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: ""
+  firebaseConfig: {
+    apiKey: "AIzaSyBZZxVshGClmKTnUjx88wlt8oNpNByVVYs",
+    authDomain: "agenda-hibridaciones-derecho.firebaseapp.com",
+    projectId: "agenda-hibridaciones-derecho",
+    storageBucket: "agenda-hibridaciones-derecho.firebasestorage.app",
+    messagingSenderId: "198192296311",
+    appId: "1:198192296311:web:ca3e2941064db2c351f172"
+  },
+  adminEmail: "facultad@derecho.uncu.edu.ar"
 };
