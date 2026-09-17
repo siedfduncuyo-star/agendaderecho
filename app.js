@@ -125,14 +125,31 @@ function matchesTypeFilter(item) {
 function normalizedSearch(value) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale).trim(); }
 function matchesSearch(item) {
   const query = normalizedSearch(el("searchActivities").value); if (!query) return true;
-  return normalizedSearch([item.name, item.secretary, item.responsible, item.classroom, item.platform, item.career, item.subject, item.requirements, item.observations].filter(Boolean).join(" ")).includes(query);
+  return normalizedSearch([item.name, item.secretary, item.responsible, item.classroom, item.platform, item.career, item.subject, activityStatusLabel(item), postponedDateLabel(item), item.requirements, item.observations].filter(Boolean).join(" ")).includes(query);
 }
 function academicTypeKey(item) {
   const stored = String(item?.academic_activity_type || "").trim().toLocaleLowerCase(locale);
   if (["class", "exam", "other"].includes(stored)) return stored;
   return organizerName(item?.secretary) === academicSecretary && item?.subject ? "class" : "";
 }
-function academicTypeLabel(item) { return { class: "Clase de grado", exam: "Examen final", other: "Otra actividad académica" }[academicTypeKey(item)] || ""; }
+function academicTypeLabel(item) {
+  if (subjectBaseName(item?.subject) === "Ingreso") return "Ingreso";
+  return { class: "Clase de grado", exam: "Examen final", other: "Otra actividad" }[academicTypeKey(item)] || "";
+}
+function activityDescriptor(item) { return academicTypeLabel(item) || "Actividad"; }
+function isIngreso(item) { return subjectBaseName(item?.subject) === "Ingreso"; }
+function activityStatusKey(item) {
+  const stored = String(item?.activity_status || "scheduled").trim().toLocaleLowerCase(locale);
+  return ["scheduled", "suspended", "postponed"].includes(stored) ? stored : "scheduled";
+}
+function activityStatusLabel(item) { return { scheduled: "Programada", suspended: "Suspendida", postponed: "Postergada" }[activityStatusKey(item)]; }
+function isSuspended(item) { return activityStatusKey(item) === "suspended"; }
+function isPostponed(item) { return activityStatusKey(item) === "postponed"; }
+function postponedDateLabel(item) {
+  if (!isPostponed(item)) return "";
+  if (item?.postponed_date_tbd === true || !item?.postponed_date) return "Fecha a confirmar";
+  return formatDate(fromISODate(item.postponed_date), { day: "numeric", month: "long", year: "numeric" });
+}
 function itemAcademicYear(item) { return item?.academic_year || inferAcademicYear(item?.career, item?.subject); }
 function matchesAdvancedFilters(item) {
   const organizer = el("filterOrganizer").value; const academicType = el("filterAcademicType").value; const career = el("filterCareer").value; const year = el("filterYear").value;
@@ -144,6 +161,7 @@ function matchesAdvancedFilters(item) {
 }
 function minutesFromTime(value) { const [hours, minutes] = cleanTime(value).split(":").map(Number); return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : -1; }
 function isInProgress(item, now = new Date()) {
+  if (isSuspended(item) || isPostponed(item)) return false;
   const today = toISODate(now); if (today < item.date || today > activityEndDate(item)) return false;
   const current = now.getHours() * 60 + now.getMinutes(); const start = minutesFromTime(item.start_time); const end = minutesFromTime(item.end_time);
   return start >= 0 && end >= 0 && current >= start && current < end;
@@ -221,7 +239,6 @@ function bindEvents() {
   el("nextPeriod").addEventListener("click", () => movePeriod(1));
   el("currentPeriod").addEventListener("click", () => { state.cursor = new Date(); loadPeriod(); });
   el("newActivity").addEventListener("click", () => openActivityForm());
-  el("migratePrivacy").addEventListener("click", migrateLegacyPrivateData);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
   el("activityForm").addEventListener("submit", saveActivity);
@@ -229,6 +246,8 @@ function bindEvents() {
   el("date").addEventListener("change", updateDateInputs);
   el("endDate").addEventListener("change", updateDateRangeInputs);
   el("recurrence").addEventListener("change", toggleRecurrenceFields);
+  el("activityStatus").addEventListener("change", toggleActivityStatusFields);
+  el("postponedDateTbd").addEventListener("change", toggleActivityStatusFields);
   el("secretary").addEventListener("change", () => { toggleOtherSecretary(); updateAcademicFields(); });
   el("academicType").addEventListener("change", () => updateAcademicFields());
   el("career").addEventListener("change", () => updateAcademicYearOptions());
@@ -294,7 +313,7 @@ function updateAcademicYearOptions(preferredYear = "", preferredSubject = "") {
 
 function updateSubjectOptions(preferredSubject = "") {
   const subjects = subjectsForPlan(el("career").value, el("academicYear").value);
-  populateSelect(el("subject"), subjects, subjects.length ? "Seleccionar materia o Ingreso" : "Primero seleccioná un año");
+  populateSelect(el("subject"), subjects, subjects.length ? "Seleccionar" : "Primero seleccioná un año");
   if (subjects.includes(preferredSubject)) el("subject").value = preferredSubject;
 }
 
@@ -340,7 +359,7 @@ function toggleRecordKindFields() {
   el("requirementsLabel").textContent = scheduled ? "Requerimientos / observaciones" : "Descripción / información importante";
   el("formTitle").textContent = editing ? (scheduled ? "Editar actividad" : "Editar fecha importante") : (scheduled ? "Nueva actividad" : "Nueva fecha importante");
   el("saveActivity").textContent = scheduled ? "Guardar actividad" : "Guardar fecha importante";
-  toggleRecurrenceFields(); updateAcademicFields(el("subject").value); toggleActivityTypeFields();
+  toggleRecurrenceFields(); updateAcademicFields(el("subject").value); toggleActivityTypeFields(); toggleActivityStatusFields();
 }
 
 function toggleOtherSecretary() {
@@ -419,7 +438,7 @@ function periodRange() {
 }
 
 async function loadPeriod() {
-  status.textContent = "Cargando agenda…"; agenda.replaceChildren();
+  status.className = "status"; status.textContent = "Cargando agenda…"; agenda.replaceChildren();
   const { start, end } = periodRange();
   try {
     if (configured) {
@@ -461,7 +480,10 @@ function render() {
   agenda.replaceChildren(); if (state.view === "day") renderDay(); else if (state.view === "week") renderWeek(); else renderMonth();
   const { visibleStart, visibleEnd } = periodRange();
   const count = state.activities.filter((item) => !isImportantPeriod(item) && overlapsPeriod(item, visibleStart, visibleEnd) && matchesTypeFilter(item) && matchesSearch(item) && matchesAdvancedFilters(item)).length;
-  status.textContent = `${count} ${count === 1 ? "actividad" : "actividades"}`;
+  status.className = "status activity-count";
+  const countNumber = document.createElement("strong"); countNumber.className = "activity-count-number"; countNumber.textContent = String(count);
+  const countText = document.createElement("span"); countText.className = "activity-count-text"; countText.textContent = count === 1 ? "actividad en esta vista" : "actividades en esta vista";
+  status.replaceChildren(countNumber, countText);
 }
 
 function renderImportantPeriods() {
@@ -539,6 +561,8 @@ function createActivityRow(item) {
   const details = document.createElement("details"); details.className = "activity-row";
   details.style.setProperty("--organizer-color", organizerColor(item.secretary));
   if (isTransmission(item)) details.classList.add("transmission");
+  if (isSuspended(item)) details.classList.add("is-suspended");
+  if (isPostponed(item)) details.classList.add("is-postponed");
   const summary = document.createElement("summary"); summary.className = "activity-summary";
   const time = document.createElement("span"); time.className = "summary-time"; time.textContent = `${cleanTime(item.start_time)}–${cleanTime(item.end_time)}`;
   if (state.canEdit && item.recording_required) { const dot = document.createElement("i"); dot.className = "recording-dot"; dot.title = "Requiere grabación"; time.append(dot); }
@@ -553,6 +577,8 @@ function createActivityRow(item) {
   const labels = document.createElement("span"); labels.className = "summary-labels";
   const type = document.createElement("span"); type.className = "summary-type"; type.textContent = activityTypeLabel(item); labels.append(type);
   if (academicTypeLabel(item)) { const academicBadge = document.createElement("span"); academicBadge.className = "academic-type-badge"; academicBadge.textContent = academicTypeLabel(item); labels.append(academicBadge); }
+  if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge suspended"; stateBadge.textContent = "Suspendida"; labels.append(stateBadge); }
+  if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; labels.append(stateBadge); }
   if (isInProgress(item)) { const live = document.createElement("span"); live.className = "in-progress-badge"; live.textContent = "▶ En curso"; labels.append(live); }
   const placePlatform = document.createElement("span"); placePlatform.className = "summary-place-platform";
   if (!isVirtual(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
@@ -567,12 +593,14 @@ function createActivityRow(item) {
 function createDetailsContent(item, includeEditorActions) {
   const wrapper = document.createElement("div"); const details = document.createElement("div"); details.className = "activity-details";
   const combinedNotes = [item.requirements, item.observations].filter(Boolean).join(" · ");
-  const fields = [["Fechas", dateRangeLabel(item)], ["Organiza", organizerName(item.secretary)]];
+  const fields = [["Fecha/as", dateRangeLabel(item)], ["Organiza", organizerName(item.secretary)]];
   if (!isImportantPeriod(item)) {
-    if (academicTypeLabel(item)) fields.push(["Actividad académica", academicTypeLabel(item)]);
+    fields.push(["Tipo de actividad", activityDescriptor(item)]);
     if (item.career) fields.push(["Carrera", item.career]);
     if (itemAcademicYear(item)) fields.push(["Año / tramo", itemAcademicYear(item)]);
-    if (item.subject) fields.push(["Materia / Ingreso", item.subject]);
+    if (item.subject && !isIngreso(item)) fields.push(["Materia", item.subject]);
+    if (isSuspended(item)) fields.push(["Estado", "Suspendida"]);
+    if (isPostponed(item)) fields.push(["Estado", "Postergada"], ["Nueva fecha", postponedDateLabel(item)]);
     if (state.canEdit) fields.push(["Responsable / contacto", item.responsible]);
     if (!isVirtual(item)) fields.push(["Aula/Lugar", item.classroom]);
     if (isInProgress(item)) fields.push(["Estado", "▶ En curso"]);
@@ -586,7 +614,8 @@ function createDetailsContent(item, includeEditorActions) {
     const valueNode = document.createElement("span"); valueNode.className = "detail-value";
     if (label === "Organiza") { valueNode.classList.add("organizer-value"); valueNode.style.color = organizerColor(item.secretary); }
     if (label === "Modalidad") valueNode.classList.add("activity-type-value");
-    if (label === "Actividad académica") valueNode.classList.add("activity-type-value");
+    if (label === "Tipo de actividad") valueNode.classList.add("activity-type-value");
+    if (label === "Nueva fecha") valueNode.classList.add("activity-status-value");
     if (label === "Estado") valueNode.classList.add("activity-type-value");
     if (label === "Plataforma") { const icon = createPlatformIcon(item.platform); if (icon) valueNode.append(icon); }
     if (label === "Grabación" && item.recording_required) { const dot = document.createElement("i"); dot.className = "recording-dot detail-recording-dot"; dot.title = "Requiere grabación"; valueNode.append(dot); }
@@ -650,6 +679,8 @@ function renderMonth() {
       if (isTransmission(item)) button.classList.add("transmission");
       const activityType = activityTypeKey(item);
       const badge = document.createElement("span"); badge.className = `month-${activityType}`; badge.textContent = activityTypeLabel(item); button.append(badge);
+      if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = "Suspendida"; button.append(stateBadge); }
+      if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; button.append(stateBadge); }
       if (isInProgress(item)) { const live = document.createElement("span"); live.className = "month-in-progress"; live.textContent = "▶ En curso"; button.append(live); }
       const time = document.createElement("strong"); time.textContent = cleanTime(item.start_time); button.append(time, document.createTextNode(item.name));
       button.addEventListener("click", () => openDetail(item)); cell.append(button);
@@ -676,7 +707,8 @@ function renderMonth() {
 }
 
 function openDetail(item) {
-  el("detailDate").textContent = `${dateRangeLabel(item)} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)}`;
+  const stateText = isSuspended(item) ? " · Suspendida" : isPostponed(item) ? ` · Postergada · ${postponedDateLabel(item)}` : "";
+  el("detailDate").textContent = `${dateRangeLabel(item)} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)}${stateText}`;
   el("detailTitle").textContent = item.name; el("detailBody").replaceChildren(createDetailsContent(item, true)); detailDialog.showModal();
 }
 
@@ -700,6 +732,9 @@ function openActivityForm(item = null) {
   el("startTime").value = cleanTime(item?.start_time) || "09:00"; el("endTime").value = cleanTime(item?.end_time) || "10:00";
   el("recurrence").value = "none"; el("recurrence").disabled = Boolean(item?.id); el("recurrenceField").hidden = Boolean(item?.id);
   el("repeatUntil").value = toISODate(calendarEnd);
+  el("activityStatus").value = item ? activityStatusKey(item) : "scheduled";
+  el("postponedDate").value = item?.postponed_date || "";
+  el("postponedDateTbd").checked = item?.postponed_date_tbd === true;
   const storedOrganizer = organizerName(item?.secretary);
   el("name").value = item?.name || "";
   if (secretaryOptions.includes(storedOrganizer)) { el("secretary").value = storedOrganizer; el("otherSecretary").value = ""; }
@@ -725,21 +760,37 @@ function updateDateInputs() {
   el("endDate").min = el("date").value;
   if (el("recurrence").value !== "none" && el("repeatUntil").value < el("date").value) el("repeatUntil").value = el("date").value;
   el("repeatUntil").min = el("date").value;
+  el("postponedDate").min = el("date").value;
 }
 function updateDateRangeInputs() {
   if (el("endDate").value < el("date").value) el("endDate").value = el("date").value;
 }
 function toggleRecurrenceFields() { const repeats = el("recordKind").value === "activity" && el("recurrence").value !== "none"; el("repeatUntilField").hidden = !repeats; el("repeatUntil").required = repeats; }
+function toggleActivityStatusFields() {
+  const scheduled = el("recordKind").value === "activity";
+  const postponed = scheduled && el("activityStatus").value === "postponed";
+  const toBeConfirmed = postponed && el("postponedDateTbd").checked;
+  el("activityStatusField").hidden = !scheduled;
+  el("postponedDateField").hidden = !postponed;
+  el("postponedTbdField").hidden = !postponed;
+  el("postponedDate").disabled = !postponed || toBeConfirmed;
+  el("postponedDate").required = postponed && !toBeConfirmed;
+  el("postponedDate").min = el("date").value || "";
+  if (!postponed) { el("postponedDate").value = ""; el("postponedDateTbd").checked = false; }
+  if (toBeConfirmed) el("postponedDate").value = "";
+}
 
 function activityPayload() {
   const academic = el("secretary").value === academicSecretary; const detailedAcademic = academic && ["class", "exam"].includes(el("academicType").value);
   const secretary = el("secretary").value === "__other__" ? el("otherSecretary").value.trim() : el("secretary").value;
   const recordKind = el("recordKind").value;
   if (recordKind === "period") {
-    return { record_kind: "period", date: el("date").value, end_date: el("endDate").value, start_time: "", end_time: "", name: el("name").value.trim(), secretary, academic_activity_type: "", career: "", academic_year: "", subject: "", responsible: "", classroom: "", activity_type: "", platform: "", account_used: "", meeting_url: "", link_is_public: false, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: false };
+    return { record_kind: "period", date: el("date").value, end_date: el("endDate").value, start_time: "", end_time: "", name: el("name").value.trim(), secretary, academic_activity_type: "", career: "", academic_year: "", subject: "", responsible: "", classroom: "", activity_type: "", activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false, platform: "", account_used: "", meeting_url: "", link_is_public: false, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: false };
   }
   const classroom = el("activityType").value === "virtual" ? "" : el("classroom").value === "__other__" ? el("otherClassroom").value.trim() : el("classroom").value;
-  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, academic_activity_type: academic ? el("academicType").value : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? el("academicYear").value : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: el("academicType").value === "exam" ? "presential" : el("activityType").value, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
+  const activityStatus = el("activityStatus").value || "scheduled";
+  const postponedDateTbd = activityStatus === "postponed" && el("postponedDateTbd").checked;
+  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, academic_activity_type: academic ? el("academicType").value : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? el("academicYear").value : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: el("academicType").value === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
 }
 
 function validateActivity(payload) {
@@ -751,11 +802,14 @@ function validateActivity(payload) {
   if (isImportantPeriod(payload)) return "";
   if (fromISODate(payload.date).getDay() === 0) return "Los domingos no forman parte de esta agenda.";
   if (payload.activity_type !== "virtual" && !payload.classroom) return "Seleccioná un aula o completá el campo Otro lugar.";
-  if (payload.secretary === academicSecretary && !payload.academic_activity_type) return "Seleccioná el tipo de actividad académica.";
-  if (["class", "exam"].includes(payload.academic_activity_type) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año o tramo y la materia o Ingreso.";
+  if (payload.secretary === academicSecretary && !payload.academic_activity_type) return "Seleccioná el tipo de actividad.";
+  if (["class", "exam"].includes(payload.academic_activity_type) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año o tramo y la materia.";
   if (payload.end_time <= payload.start_time) return "La hora de finalización debe ser posterior a la de inicio.";
   if (payload.meeting_url && !isSafeUrl(payload.meeting_url)) return "El enlace debe comenzar con http:// o https://.";
   if (payload.link_is_public && !payload.meeting_url) return "Para publicar el enlace, primero completá el enlace de la actividad.";
+  if (payload.activity_status === "postponed" && !payload.postponed_date_tbd && !payload.postponed_date) return "Indicá la nueva fecha o marcá Fecha a confirmar.";
+  if (payload.activity_status === "postponed" && payload.postponed_date && fromISODate(payload.postponed_date) <= fromISODate(payload.date)) return "La nueva fecha de una actividad postergada debe ser posterior a la fecha original.";
+  if (payload.postponed_date && fromISODate(payload.postponed_date) > calendarEnd) return "La nueva fecha no puede ser posterior al 28 de diciembre de 2026.";
   if (el("recurrence").value !== "none" && fromISODate(el("repeatUntil").value) < fromISODate(payload.date)) return "La fecha final de repetición no puede ser anterior a la actividad.";
   return "";
 }
@@ -853,7 +907,7 @@ async function writeNewActivities(records) {
 }
 
 function duplicateActivity(item) {
-  openActivityForm({ ...item, id: null, date: toISODate(addDays(fromISODate(item.date), 7)), end_date: toISODate(addDays(fromISODate(activityEndDate(item)), 7)) });
+  openActivityForm({ ...item, id: null, date: toISODate(addDays(fromISODate(item.date), 7)), end_date: toISODate(addDays(fromISODate(activityEndDate(item)), 7)), activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false });
 }
 async function deleteActivity(item) {
   if (!state.canEdit || !confirm(`¿Eliminar “${item.name}”?`)) return;
@@ -866,51 +920,6 @@ async function deleteActivity(item) {
     } else writeDemoData(loadDemoData().filter((record) => record.id !== item.id));
     if (detailDialog.open) detailDialog.close(); await loadPeriod(); showToast("Actividad eliminada");
   } catch (error) { alert(`No se pudo eliminar. ${friendlyError(error)}`); }
-}
-
-async function migrateLegacyPrivateData() {
-  if (!configured || !state.canEdit) return;
-  const accepted = confirm("Esta acción protegerá Cuenta, Grabación, Responsable, Requerimientos y los enlaces privados de las actividades existentes. No se perderán los datos que ya fueron protegidos. ¿Continuar?");
-  if (!accepted) return;
-  const button = el("migratePrivacy"); button.disabled = true; button.textContent = "Protegiendo…";
-  try {
-    const snapshot = await getDocs(collection(db, activitiesCollection));
-    const privateSnapshot = await getDocs(collection(db, privateActivitiesCollection));
-    const privateById = new Map(privateSnapshot.docs.map((record) => [record.id, record.data()]));
-    const legacy = snapshot.docs.filter((record) => {
-      const data = record.data();
-      return ["account_used", "recording_required", "responsible", "requirements", "observations"].some((field) => Object.prototype.hasOwnProperty.call(data, field)) || (Object.prototype.hasOwnProperty.call(data, "meeting_url") && !Object.prototype.hasOwnProperty.call(data, "link_is_public"));
-    });
-    for (let start = 0; start < legacy.length; start += 225) {
-      const batch = writeBatch(db);
-      legacy.slice(start, start + 225).forEach((record) => {
-        const data = record.data(); const stored = privateById.get(record.id) || {}; const publicLink = data.link_is_public === true;
-        batch.set(doc(db, privateActivitiesCollection, record.id), {
-          account_used: data.account_used ?? stored.account_used ?? "",
-          recording_required: data.recording_required ?? stored.recording_required ?? false,
-          meeting_url: data.meeting_url || stored.meeting_url || "",
-          responsible: data.responsible ?? stored.responsible ?? "",
-          requirements: data.requirements ?? stored.requirements ?? "",
-          observations: data.observations ?? stored.observations ?? "",
-          updated_at: serverTimestamp()
-        }, { merge: true });
-        batch.update(record.ref, {
-          account_used: deleteField(),
-          recording_required: deleteField(),
-          responsible: deleteField(),
-          requirements: deleteField(),
-          observations: deleteField(),
-          link_is_public: publicLink,
-          meeting_url: publicLink ? (data.meeting_url || "") : "",
-          updated_at: serverTimestamp()
-        });
-      });
-      await batch.commit();
-    }
-    await loadPeriod();
-    showToast(legacy.length ? `${legacy.length} actividades protegidas` : "Los datos ya estaban protegidos");
-  } catch (error) { alert(`No se pudo completar la protección. ${friendlyError(error)}`); }
-  finally { button.disabled = false; button.textContent = "Proteger datos anteriores"; }
 }
 
 function openImportForm() { if (!state.canEdit) return; el("importForm").reset(); el("icsFileName").textContent = "Ningún archivo seleccionado"; el("importMessage").hidden = true; importDialog.showModal(); }
@@ -949,7 +958,7 @@ function parseICS(text, defaults) {
     const description = unescapeICS(values.DESCRIPTION?.value || ""); const location = unescapeICS(values.LOCATION?.value || "") || "Lugar a confirmar"; const summary = unescapeICS(values.SUMMARY.value);
     const url = extractEventUrl(unescapeICS(values.URL?.value || ""), description); const platform = defaults.platform || detectPlatform(`${url} ${description}`); const uid = unescapeICS(values.UID?.value || `${summary}-${values.DTSTART.value}`);
     const importedEndDate = start.allDay && end.allDay ? addDays(end.date, -1) : end.date;
-    const base = { record_kind: "activity", date: toISODate(start.date), end_date: toISODate(importedEndDate < start.date ? start.date : importedEndDate), start_time: start.allDay ? "09:00" : timeFromDate(start.date), end_time: end.allDay ? "10:00" : timeFromDate(end.date), name: summary.slice(0, 160), secretary: defaults.secretary, responsible: defaults.responsible, classroom: location.slice(0, 100), activity_type: "hybrid", requirements: [description, defaults.requirements].filter(Boolean).join(" · ").slice(0, 1000), observations: "", meeting_url: url, link_is_public: defaults.link_is_public, more_info_url: "", platform, account_used: defaults.account_used, recording_required: defaults.recording_required, source_uid: `${uid}-${toISODate(start.date)}` };
+    const base = { record_kind: "activity", date: toISODate(start.date), end_date: toISODate(importedEndDate < start.date ? start.date : importedEndDate), start_time: start.allDay ? "09:00" : timeFromDate(start.date), end_time: end.allDay ? "10:00" : timeFromDate(end.date), name: summary.slice(0, 160), secretary: defaults.secretary, responsible: defaults.responsible, classroom: location.slice(0, 100), activity_type: "hybrid", activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false, requirements: [description, defaults.requirements].filter(Boolean).join(" · ").slice(0, 1000), observations: "", meeting_url: url, link_is_public: defaults.link_is_public, more_info_url: "", platform, account_used: defaults.account_used, recording_required: defaults.recording_required, source_uid: `${uid}-${toISODate(start.date)}` };
     result.push(base); expandSimpleRecurrence(base, values.RRULE?.value, start.date, end.date, uid).forEach((item) => result.push(item));
   });
   const unique = new Map(); result.forEach((item) => unique.set(item.source_uid, item)); return [...unique.values()].sort(sortActivities);

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=24" />
+    <link rel="stylesheet" href="styles.css?v=25" />
   </head>
   <body>
     <header class="site-header">
@@ -49,7 +49,6 @@
           </div>
           <div class="editor-actions editor-only" hidden>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
-            <button id="migratePrivacy" class="button button-secondary" type="button">Proteger datos anteriores</button>
             <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
           </div>
         </div>
@@ -70,7 +69,7 @@
       </div>
       <div id="advancedFilters" class="advanced-filters" hidden>
         <label>Área organizadora<select id="filterOrganizer"></select></label>
-        <label>Actividad académica<select id="filterAcademicType"><option value="">Todas</option><option value="class">Clases de grado</option><option value="exam">Exámenes</option></select></label>
+        <label>Tipo de actividad<select id="filterAcademicType"><option value="">Todas</option><option value="class">Clases de grado</option><option value="exam">Exámenes</option></select></label>
         <label>Carrera<select id="filterCareer"></select></label>
         <label>Año / tramo<select id="filterYear"></select></label>
         <button id="clearAdvancedFilters" class="button button-secondary" type="button">Limpiar filtros</button>
@@ -105,13 +104,16 @@
             </select>
           </label>
           <label id="repeatUntilField" data-scheduled-only hidden>Repetir hasta<input id="repeatUntil" type="date" max="2026-12-28" /></label>
+          <label id="activityStatusField" data-scheduled-only>Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
+          <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" max="2026-12-28" /></label>
+          <label id="postponedTbdField" class="recording-field wide" data-scheduled-only hidden><input id="postponedDateTbd" type="checkbox" /><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
           <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option><option value="transmission">Transmisión</option></select></label>
           <label>Organiza<select id="secretary" required></select></label>
           <label id="otherSecretaryField" hidden>Otro organizador<input id="otherSecretary" type="text" maxlength="120" /></label>
-          <label id="academicTypeField" data-scheduled-only hidden>Actividad académica<select id="academicType"><option value="">Seleccionar</option><option value="class">Clase de grado</option><option value="exam">Examen final</option><option value="other">Otra actividad académica</option></select></label>
+          <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option><option value="class">Clase de grado</option><option value="exam">Examen final</option><option value="other">Otra actividad</option></select></label>
           <label id="careerField" data-scheduled-only hidden>Carrera<select id="career"></select></label>
           <label id="academicYearField" data-scheduled-only hidden>Año / tramo<select id="academicYear"></select></label>
-          <label id="subjectField" class="wide" data-scheduled-only hidden>Materia / Ingreso<select id="subject"></select></label>
+          <label id="subjectField" class="wide" data-scheduled-only hidden><span id="subjectLabel">Materia</span><select id="subject"></select></label>
           <label data-scheduled-only>Responsable<input id="responsible" type="text" maxlength="100" required /></label>
           <label id="classroomField" data-scheduled-only>Aula/Lugar<select id="classroom" required></select></label>
           <label id="otherClassroomField" data-scheduled-only hidden>Otro lugar<input id="otherClassroom" type="text" maxlength="100" /></label>
@@ -173,7 +175,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script src="config.js?v=11"></script>
-    <script type="module" src="app.js?v=24"></script>
+    <script type="module" src="app.js?v=25"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

@@ -127,6 +127,17 @@ Al duplicar, la copia se prepara automáticamente para la semana siguiente. Se p
 
 Al editar, se puede marcar **Aplicar estos cambios a las actividades con el mismo nombre y día**. Esta opción actualiza el nombre, horario, tipo, área organizadora, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones únicamente en las coincidencias que comienzan el mismo día de la semana, pero conserva las fechas propias de cada actividad.
 
+
+## Suspender o postergar una actividad
+
+Al cargar o editar una actividad se puede elegir su **Estado**:
+
+- **Programada**: se muestra normalmente.
+- **Suspendida**: permanece visible en su fecha original y aparece destacada como suspendida.
+- **Postergada**: permanece visible en su fecha original e informa la nueva fecha. Si todavía no está definida, se puede marcar **Fecha a confirmar**.
+
+La fecha original no se reemplaza, para conservar el registro de cuándo estaba prevista la actividad.
+
 ## Importación inicial desde Google Calendar
 
 La importación inicial ya fue realizada. En la versión publicada, el botón de importación queda oculto para evitar cargas duplicadas.
@@ -157,16 +168,6 @@ https://USUARIO.github.io/agenda-hibrida-derecho/?demo=1
 ```
 
 Esta modalidad muestra tres actividades de ejemplo y permite probar carga, repetición, edición, duplicación y eliminación en ese navegador, sin modificar la base real.
-
-## Activar la protección de datos privados
-
-1. En Firebase, abrir **Firestore Database → Reglas**.
-2. Reemplazar el contenido por el archivo `firebase/firestore.rules` y presionar **Publicar**.
-3. Subir esta versión de la página a GitHub Pages.
-4. Ingresar a la agenda con la cuenta editora.
-5. Presionar una sola vez **Proteger datos anteriores** y confirmar.
-
-La migración mueve **Responsable/contacto**, **Requerimientos/observaciones**, **Cuenta**, **Grabación** y los enlaces privados existentes a `actividades_privadas`. Conserva los datos que ya habían sido protegidos. Para publicar un enlace, editar la actividad y marcar **El enlace es público**.
 
 ## Seguridad
 
