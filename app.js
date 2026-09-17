@@ -257,7 +257,6 @@ function bindEvents() {
   el("recordKind").addEventListener("change", toggleRecordKindFields);
   document.querySelectorAll("[data-type-filter]").forEach((input) => input.addEventListener("change", render));
   el("searchActivities").addEventListener("input", render);
-  el("toggleAdvancedFilters").addEventListener("click", toggleAdvancedFilters);
   el("clearAdvancedFilters").addEventListener("click", clearAdvancedFilters);
   el("filterOrganizer").addEventListener("change", render);
   el("filterAcademicType").addEventListener("change", render);
@@ -305,7 +304,7 @@ function updateAcademicFields(preferredSubject = "", preferredYear = "") {
 
 function updateAcademicYearOptions(preferredYear = "", preferredSubject = "") {
   const years = Object.keys(academicPlans[el("career").value] || {});
-  populateSelect(el("academicYear"), years, years.length ? "Seleccionar año o tramo" : "Primero seleccioná una carrera");
+  populateSelect(el("academicYear"), years, years.length ? "Seleccionar año" : "Primero seleccioná una carrera");
   const inferred = preferredYear || inferAcademicYear(el("career").value, preferredSubject);
   if (years.includes(inferred)) el("academicYear").value = inferred;
   updateSubjectOptions(preferredSubject);
@@ -320,14 +319,8 @@ function updateSubjectOptions(preferredSubject = "") {
 function updateFilterYears() {
   const career = el("filterCareer").value;
   const years = career ? Object.keys(academicPlans[career] || {}) : [...new Set(Object.values(academicPlans).flatMap((plan) => Object.keys(plan)))];
-  const selected = el("filterYear").value; populateSelect(el("filterYear"), years, "Todos los años / tramos");
+  const selected = el("filterYear").value; populateSelect(el("filterYear"), years, "Todos los años");
   if (years.includes(selected)) el("filterYear").value = selected;
-}
-
-function toggleAdvancedFilters() {
-  const panel = el("advancedFilters"); panel.hidden = !panel.hidden;
-  el("toggleAdvancedFilters").setAttribute("aria-expanded", String(!panel.hidden));
-  el("toggleAdvancedFilters").textContent = panel.hidden ? "Ampliar filtros" : "Ocultar filtros";
 }
 
 function clearAdvancedFilters() {
@@ -482,7 +475,7 @@ function render() {
   const count = state.activities.filter((item) => !isImportantPeriod(item) && overlapsPeriod(item, visibleStart, visibleEnd) && matchesTypeFilter(item) && matchesSearch(item) && matchesAdvancedFilters(item)).length;
   status.className = "status activity-count";
   const countNumber = document.createElement("strong"); countNumber.className = "activity-count-number"; countNumber.textContent = String(count);
-  const countText = document.createElement("span"); countText.className = "activity-count-text"; countText.textContent = count === 1 ? "actividad en esta vista" : "actividades en esta vista";
+  const countText = document.createElement("span"); countText.className = "activity-count-text"; countText.textContent = count === 1 ? "actividad" : "actividades";
   status.replaceChildren(countNumber, countText);
 }
 
@@ -582,7 +575,7 @@ function createActivityRow(item) {
   if (isInProgress(item)) { const live = document.createElement("span"); live.className = "in-progress-badge"; live.textContent = "▶ En curso"; labels.append(live); }
   const placePlatform = document.createElement("span"); placePlatform.className = "summary-place-platform";
   if (!isVirtual(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
-  const platformIcon = createPlatformIcon(item.platform); if (platformIcon) placePlatform.append(platformIcon);
+  if (!isPresential(item)) { const platformIcon = createPlatformIcon(item.platform); if (platformIcon) placePlatform.append(platformIcon); }
   meta.append(labels, placePlatform);
   const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
   summary.append(time, title, meta, chevron);
@@ -597,14 +590,15 @@ function createDetailsContent(item, includeEditorActions) {
   if (!isImportantPeriod(item)) {
     fields.push(["Tipo de actividad", activityDescriptor(item)]);
     if (item.career) fields.push(["Carrera", item.career]);
-    if (itemAcademicYear(item)) fields.push(["Año / tramo", itemAcademicYear(item)]);
+    if (itemAcademicYear(item)) fields.push(["Año", itemAcademicYear(item)]);
     if (item.subject && !isIngreso(item)) fields.push(["Materia", item.subject]);
     if (isSuspended(item)) fields.push(["Estado", "Suspendida"]);
     if (isPostponed(item)) fields.push(["Estado", "Postergada"], ["Nueva fecha", postponedDateLabel(item)]);
     if (state.canEdit) fields.push(["Responsable / contacto", item.responsible]);
     if (!isVirtual(item)) fields.push(["Aula/Lugar", item.classroom]);
     if (isInProgress(item)) fields.push(["Estado", "▶ En curso"]);
-    fields.push(["Modalidad", activityTypeLabel(item)], ["Plataforma", item.platform]);
+    fields.push(["Modalidad", activityTypeLabel(item)]);
+    if (!isPresential(item)) fields.push(["Plataforma", item.platform]);
     if (state.canEdit) fields.push(["Cuenta", item.account_used], ["Grabación", item.recording_required ? "Sí" : "No"]);
   }
   if (state.canEdit) fields.push([isImportantPeriod(item) ? "Descripción / información importante" : "Requerimientos / observaciones", combinedNotes || "Sin indicaciones"]);
@@ -625,7 +619,7 @@ function createDetailsContent(item, includeEditorActions) {
   wrapper.append(details);
   const publicLink = item.link_is_public === true;
   const canOpenLink = isSafeUrl(item.meeting_url) && (state.canEdit || publicLink);
-  if (!isImportantPeriod(item) && canOpenLink) {
+  if (!isImportantPeriod(item) && !isPresential(item) && canOpenLink) {
     const meeting = document.createElement("section"); meeting.className = "meeting-section";
     const heading = document.createElement("h3"); heading.textContent = isTransmission(item) ? "Ver transmisión" : "Unirse a la reunión"; meeting.append(heading);
     if (!publicLink) { const notice = document.createElement("p"); notice.className = "private-link"; notice.textContent = "Link privado · visible solo para edición"; meeting.append(notice); }
@@ -633,7 +627,7 @@ function createDetailsContent(item, includeEditorActions) {
     const open = document.createElement("a"); open.className = "link-button primary"; open.href = item.meeting_url; open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = isTransmission(item) ? "Abrir transmisión ↗" : "Abrir reunión ↗";
     const copy = document.createElement("button"); copy.className = "link-button"; copy.type = "button"; copy.textContent = "Copiar enlace"; copy.addEventListener("click", () => copyLink(item.meeting_url));
     actions.append(open, copy); meeting.append(actions); wrapper.append(meeting);
-  } else if (!isImportantPeriod(item) && !publicLink) {
+  } else if (!isImportantPeriod(item) && !isPresential(item) && !publicLink) {
     const meeting = document.createElement("section"); meeting.className = "meeting-section";
     const heading = document.createElement("h3"); heading.textContent = "Enlace de acceso";
     const notice = document.createElement("p"); notice.className = "private-link"; notice.textContent = "Link privado";
@@ -803,7 +797,7 @@ function validateActivity(payload) {
   if (fromISODate(payload.date).getDay() === 0) return "Los domingos no forman parte de esta agenda.";
   if (payload.activity_type !== "virtual" && !payload.classroom) return "Seleccioná un aula o completá el campo Otro lugar.";
   if (payload.secretary === academicSecretary && !payload.academic_activity_type) return "Seleccioná el tipo de actividad.";
-  if (["class", "exam"].includes(payload.academic_activity_type) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año o tramo y la materia.";
+  if (["class", "exam"].includes(payload.academic_activity_type) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año y la materia.";
   if (payload.end_time <= payload.start_time) return "La hora de finalización debe ser posterior a la de inicio.";
   if (payload.meeting_url && !isSafeUrl(payload.meeting_url)) return "El enlace debe comenzar con http:// o https://.";
   if (payload.link_is_public && !payload.meeting_url) return "Para publicar el enlace, primero completá el enlace de la actividad.";

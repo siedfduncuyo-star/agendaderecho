@@ -64,14 +64,13 @@
         </div>
         <div class="filter-tools">
           <label class="search-field"><span>Buscar</span><input id="searchActivities" type="search" placeholder="Actividad, aula, materia…" autocomplete="off" /></label>
-          <button id="toggleAdvancedFilters" class="button button-secondary filter-toggle" type="button" aria-expanded="false">Ampliar filtros</button>
         </div>
       </div>
-      <div id="advancedFilters" class="advanced-filters" hidden>
+      <div id="advancedFilters" class="advanced-filters">
         <label>Área organizadora<select id="filterOrganizer"></select></label>
         <label>Tipo de actividad<select id="filterAcademicType"><option value="">Todas</option><option value="class">Clases de grado</option><option value="exam">Exámenes</option></select></label>
         <label>Carrera<select id="filterCareer"></select></label>
-        <label>Año / tramo<select id="filterYear"></select></label>
+        <label>Año<select id="filterYear"></select></label>
         <button id="clearAdvancedFilters" class="button button-secondary" type="button">Limpiar filtros</button>
       </div>
 
@@ -112,7 +111,7 @@
           <label id="otherSecretaryField" hidden>Otro organizador<input id="otherSecretary" type="text" maxlength="120" /></label>
           <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option><option value="class">Clase de grado</option><option value="exam">Examen final</option><option value="other">Otra actividad</option></select></label>
           <label id="careerField" data-scheduled-only hidden>Carrera<select id="career"></select></label>
-          <label id="academicYearField" data-scheduled-only hidden>Año / tramo<select id="academicYear"></select></label>
+          <label id="academicYearField" data-scheduled-only hidden>Año<select id="academicYear"></select></label>
           <label id="subjectField" class="wide" data-scheduled-only hidden><span id="subjectLabel">Materia</span><select id="subject"></select></label>
           <label data-scheduled-only>Responsable<input id="responsible" type="text" maxlength="100" required /></label>
           <label id="classroomField" data-scheduled-only>Aula/Lugar<select id="classroom" required></select></label>
