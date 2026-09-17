@@ -1,6 +1,12 @@
-# Agenda de Hibridaciones — Facultad de Derecho
+# Agenda de Actividades — Facultad de Derecho
 
-Aplicación web institucional para consultar y administrar las actividades híbridas de la Facultad de Derecho.
+## Versión 24
+
+- Tipografías: Poppins para títulos y controles; Noto Sans para textos.
+- Se eliminó el rótulo «Consulta pública» del encabezado.
+- Mientras se definen los permisos definitivos, «Administrar agenda» abre un modo de prueba local. Las actividades de prueba no se guardan en Firebase.
+
+Aplicación web institucional para consultar y administrar las actividades presenciales, híbridas, virtuales y transmisiones de la Facultad de Derecho.
 
 ## Arquitectura elegida
 
@@ -20,19 +26,31 @@ El proyecto ya contiene la configuración del proyecto Firebase `agenda-hibridac
 - Agenda de lunes a sábado, sin domingos.
 - Cierre de agenda el 28 de diciembre de 2026.
 - Feriados marcados: 12 de octubre, 23 de noviembre, 7 y 8 de diciembre.
-- Tarjetas compactas con horario, actividad, aula y logo de plataforma; el resto se despliega.
-- Identificación por color de las diez áreas organizadoras y referencia desplegable en la agenda.
+- Tarjetas compactas con horario, actividad, área organizadora identificada por color, aula y logo de plataforma; el resto se despliega.
+- El nombre del área organizadora aparece con su color institucional al desplegar una actividad.
+- Modalidad seleccionable entre Presencial, Híbrida, Virtual y Transmisión. Las cuatro modalidades muestran un rótulo pequeño en azul `#023764`, ubicado sobre Aula/Lugar y la plataforma; las virtuales no solicitan ni muestran Aula/Lugar.
+- Filtro mediante casillas para mostrar u ocultar actividades presenciales, híbridas, virtuales y transmisiones.
+- Panel ampliable para filtrar por área organizadora y, dentro de Académica, por clases de grado, exámenes, carrera y año o tramo.
+- Buscador por nombre de actividad, área organizadora, aula, plataforma, carrera y materia. Al iniciar sesión, también busca en los datos privados.
+- Rótulo automático **▶ En curso** durante el horario de desarrollo de una actividad.
+- Tarjetas identificadas mediante una franja con el color correspondiente al área organizadora.
+- Campo público y opcional **Enlace para más información** en todas las actividades.
+- Carga diferenciada de **Períodos o fechas importantes** para inscripciones, reinscripciones e ingreso. Se muestran una sola vez en una sección compacta y no se repiten cada día.
+- Estados automáticos para los períodos: Próximamente, Período abierto, Últimos días y Finalizada. Los períodos finalizados se ocultan de la consulta pública.
+- Logo de YouTube para las transmisiones realizadas mediante esa plataforma.
 - Logos compactos de Google Meet, Microsoft Teams y Zoom.
-- Botones para abrir o copiar el enlace.
+- Cada enlace puede marcarse como público o privado. La consulta pública solo permite abrir y copiar los enlaces expresamente públicos; en los demás casos muestra **Link privado**.
 - Carga manual, edición, duplicación y eliminación.
-- Edición individual o conjunta de todas las actividades que tengan el mismo nombre.
+- Edición individual o conjunta de las actividades que tengan el mismo nombre y el mismo día de la semana.
 - Listas desplegables institucionales para área organizadora y aula, con opción de indicar otro lugar.
 - El formulario de edición solo se cierra mediante los botones Cerrar o Cancelar, para evitar cierres accidentales.
-- Para Secretaría Académica: selección dependiente de carrera y materia.
+- Para Secretaría Académica: selección de Clase de grado, Examen final u Otra actividad académica. Las clases y exámenes habilitan selecciones dependientes de carrera, año o tramo y materia.
+- Los exámenes finales quedan fijados automáticamente como presenciales.
+- En Abogacía, las materias de los primeros trayectos que se dictan en ambos turnos aparecen diferenciadas como `TM` (turno mañana) y `TT` (turno tarde).
 - Rango de fechas para actividades que duran varios días; se muestran cada día del período, excepto los domingos.
 - Actividades únicas, semanales o cada 15 días.
 - Importación inicial desde Google Calendar mediante `.ics`.
-- Campo de grabación.
+- Los datos **Responsable/contacto**, **Requerimientos/observaciones**, **Cuenta**, **Grabación** y los enlaces privados se guardan en una colección protegida y solo son visibles para la cuenta editora.
 - Tipografía Montserrat, color `#014a7d` y logo institucional.
 
 ## Estructura
@@ -43,7 +61,8 @@ agenda-hibrida-derecho/
 │   ├── logo-fd-blanco.png
 │   ├── platform-google-meet.png
 │   ├── platform-microsoft-teams.png
-│   └── platform-zoom.png
+│   ├── platform-zoom.png
+│   └── platform-youtube.png
 ├── firebase/
 │   └── firestore.rules
 ├── .nojekyll
@@ -80,12 +99,23 @@ Este paso habilita el botón **Administrar agenda** en el sitio publicado.
 2. Presionar **Administrar agenda**.
 3. Ingresar con la cuenta `facultad@derecho.uncu.edu.ar`.
 4. Presionar **+ Cargar actividad**.
-5. Completar fecha de inicio, fecha de finalización, horario, actividad, Secretaría, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones. Si dura un solo día, colocar la misma fecha en ambos campos.
-6. Si se elige **Secretaría Académica**, seleccionar también la carrera y la materia. Si el lugar no figura en la lista, elegir **Otro (especificar)**.
-7. En **Repetición**, elegir **No se repite**, **Todas las semanas** o **Cada 15 días**. Para una repetición, indicar hasta qué fecha debe generarse.
-8. Presionar **Guardar actividad**.
+5. En **Tipo de carga**, elegir **Actividad con fecha y horario**.
+6. Completar fecha de inicio, fecha de finalización, horario, actividad, modalidad, área organizadora, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones. Si dura un solo día, colocar la misma fecha en ambos campos.
+7. Marcar **El enlace es público** solamente cuando cualquier persona que consulta la agenda pueda abrirlo. Si queda desmarcado, el enlace se guarda de forma privada.
+8. Si se elige **Secretaría Académica**, seleccionar el tipo académico. Para clases de grado y exámenes finales, completar también carrera, año o tramo y materia. Si el lugar no figura, elegir **Otro (especificar)**.
+9. En **Repetición**, elegir **No se repite**, **Todas las semanas** o **Cada 15 días**. Para una repetición, indicar hasta qué fecha debe generarse.
+10. Presionar **Guardar actividad**.
 
 No se edita ningún archivo para el uso cotidiano.
+
+## Cargar una fecha o período importante
+
+1. Ingresar como responsable y presionar **+ Cargar actividad**.
+2. En **Tipo de carga**, elegir **Período o fecha importante**.
+3. Completar la fecha de inicio y finalización, el título, el área organizadora, la descripción y, si existe, el enlace público de más información.
+4. Presionar **Guardar fecha importante**.
+
+Los períodos se muestran una sola vez en **Fechas importantes** y no se repiten en cada día de la agenda.
 
 ## Editar, duplicar o eliminar
 
@@ -95,7 +125,7 @@ No se edita ningún archivo para el uso cotidiano.
 
 Al duplicar, la copia se prepara automáticamente para la semana siguiente. Se puede modificar la fecha antes de guardarla.
 
-Al editar, se puede marcar **Aplicar estos cambios a todas las actividades con el mismo nombre**. Esta opción actualiza el nombre, horario, área organizadora, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones de todas las coincidencias, pero conserva las fechas propias de cada actividad.
+Al editar, se puede marcar **Aplicar estos cambios a las actividades con el mismo nombre y día**. Esta opción actualiza el nombre, horario, tipo, área organizadora, responsable, aula, plataforma, cuenta, enlace, grabación y observaciones únicamente en las coincidencias que comienzan el mismo día de la semana, pero conserva las fechas propias de cada actividad.
 
 ## Importación inicial desde Google Calendar
 
@@ -113,7 +143,7 @@ La importación inicial ya fue realizada. En la versión publicada, el botón de
 1. Ingresar en la agenda con la cuenta responsable.
 2. Presionar **Importar calendario**.
 3. Seleccionar el archivo `.ics`.
-4. Completar los datos comunes que no estaban en Calendar: Secretaría, responsable, plataforma, cuenta, grabación y observaciones.
+4. Completar los datos comunes que no estaban en Calendar: área organizadora, responsable, plataforma, cuenta, grabación y observaciones.
 5. Presionar **Importar actividades**.
 
 La aplicación toma automáticamente el título, la fecha, el horario, la ubicación y los enlaces reconocibles. Evita volver a importar el mismo evento si se usa nuevamente el mismo archivo.
@@ -128,6 +158,16 @@ https://USUARIO.github.io/agenda-hibrida-derecho/?demo=1
 
 Esta modalidad muestra tres actividades de ejemplo y permite probar carga, repetición, edición, duplicación y eliminación en ese navegador, sin modificar la base real.
 
+## Activar la protección de datos privados
+
+1. En Firebase, abrir **Firestore Database → Reglas**.
+2. Reemplazar el contenido por el archivo `firebase/firestore.rules` y presionar **Publicar**.
+3. Subir esta versión de la página a GitHub Pages.
+4. Ingresar a la agenda con la cuenta editora.
+5. Presionar una sola vez **Proteger datos anteriores** y confirmar.
+
+La migración mueve **Responsable/contacto**, **Requerimientos/observaciones**, **Cuenta**, **Grabación** y los enlaces privados existentes a `actividades_privadas`. Conserva los datos que ya habían sido protegidos. Para publicar un enlace, editar la actividad y marcar **El enlace es público**.
+
 ## Seguridad
 
-La copia exacta de las reglas está en `firebase/firestore.rules`. Las reglas permiten la lectura pública de la colección `actividades` y solo permiten crear, modificar o eliminar cuando Firebase verifica el correo `facultad@derecho.uncu.edu.ar`.
+La copia exacta de las reglas está en `firebase/firestore.rules`. La colección `actividades` conserva únicamente la información pública. `actividades_privadas` solo admite lectura y escritura cuando Firebase verifica el correo `facultad@derecho.uncu.edu.ar`. Las reglas impiden que Responsable, Requerimientos, Cuenta o Grabación se guarden accidentalmente en un documento público.

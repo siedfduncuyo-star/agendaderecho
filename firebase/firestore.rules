@@ -2,12 +2,29 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /actividades/{actividadId} {
-      allow read: if true;
-
-      allow create, update, delete: if request.auth != null
+    function isAgendaEditor() {
+      return request.auth != null
         && request.auth.token.email_verified == true
         && request.auth.token.email == "facultad@derecho.uncu.edu.ar";
+    }
+
+    function publicActivityIsSafe() {
+      return !request.resource.data.keys().hasAny(["account_used", "recording_required", "responsible", "requirements", "observations"])
+        && (
+          !request.resource.data.keys().hasAny(["meeting_url"])
+          || request.resource.data.meeting_url == ""
+          || request.resource.data.link_is_public == true
+        );
+    }
+
+    match /actividades/{actividadId} {
+      allow read: if true;
+      allow create, update: if isAgendaEditor() && publicActivityIsSafe();
+      allow delete: if isAgendaEditor();
+    }
+
+    match /actividades_privadas/{actividadId} {
+      allow read, create, update, delete: if isAgendaEditor();
     }
   }
 }
