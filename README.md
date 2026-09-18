@@ -1,6 +1,6 @@
 # Agenda de Actividades — Facultad de Derecho
 
-## Versión 24
+## Versión 27
 
 - Tipografías: Poppins para títulos y controles; Noto Sans para textos.
 - Se eliminó el rótulo «Consulta pública» del encabezado.
@@ -21,22 +21,19 @@ El proyecto ya contiene la configuración del proyecto Firebase `agenda-hibridac
 
 ## Funciones incluidas
 
-- Vistas por día, semana y mes; en celular se transforman en listas verticales legibles.
-- Día actual destacado visualmente en las vistas diaria, semanal y mensual.
+- Vistas por día, semana y mes; en celular se transforman en listas verticales legibles. En la vista mensual, la fila con los días de la semana permanece visible al desplazarse.
+- Día actual destacado visualmente en las vistas diaria, semanal y mensual; el indicador **Hoy** y el círculo del día actual usan el acento bordó institucional.
 - Agenda de lunes a sábado, sin domingos.
 - Cierre de agenda el 28 de diciembre de 2026.
 - Feriados marcados: 12 de octubre, 23 de noviembre, 7 y 8 de diciembre.
 - Tarjetas compactas con horario, actividad, área organizadora identificada por color y aula; el logo de plataforma se muestra solo cuando la modalidad lo requiere. El resto se despliega.
 - El nombre del área organizadora aparece con su color institucional al desplegar una actividad.
 - Modalidad seleccionable entre Presencial, Híbrida, Virtual y Transmisión. Las cuatro modalidades muestran un rótulo pequeño en azul `#023764`, ubicado sobre Aula/Lugar y la plataforma; las virtuales no solicitan ni muestran Aula/Lugar.
-- Filtro mediante casillas para mostrar u ocultar actividades presenciales, híbridas, virtuales y transmisiones.
-- Panel ampliable para filtrar por área organizadora y, dentro de Académica, por clases de grado, exámenes, carrera y año.
-- Buscador por nombre de actividad, área organizadora, aula, plataforma, carrera y materia. Los filtros complementarios quedan visibles directamente. Al iniciar sesión, también busca en los datos privados.
 - Rótulo automático **▶ En curso** durante el horario de desarrollo de una actividad.
 - Tarjetas identificadas mediante una franja con el color correspondiente al área organizadora.
 - Campo público y opcional **Enlace para más información** en todas las actividades.
-- Carga diferenciada de **Períodos o fechas importantes** para inscripciones, reinscripciones e ingreso. Se muestran una sola vez en una sección compacta y no se repiten cada día.
-- Estados automáticos para los períodos: Próximamente, Período abierto, Últimos días y Finalizada. Los períodos finalizados se ocultan de la consulta pública.
+- Carga diferenciada de **Períodos o fechas importantes** para inscripciones, mesas, vacaciones, reinscripciones e ingreso. Se integran en las vistas Día, Semana y Mes y permanecen visibles durante todo el tramo correspondiente.
+- Estados automáticos para los períodos: Próximamente, Período abierto, Últimos días y Finalizada.
 - Logo de YouTube para las transmisiones realizadas mediante esa plataforma.
 - Logos compactos de Google Meet, Microsoft Teams y Zoom.
 - Cada enlace puede marcarse como público o privado. La consulta pública solo permite abrir y copiar los enlaces expresamente públicos; en los demás casos muestra **Link privado**.
@@ -115,7 +112,7 @@ No se edita ningún archivo para el uso cotidiano.
 3. Completar la fecha de inicio y finalización, el título, el área organizadora, la descripción y, si existe, el enlace público de más información.
 4. Presionar **Guardar fecha importante**.
 
-Los períodos se muestran una sola vez en **Fechas importantes** y no se repiten en cada día de la agenda.
+Los períodos se integran directamente en el calendario. En Día y Semana aparecen como tarjetas dentro de cada jornada; en Mes se muestran de forma compacta en cada día comprendido por el período.
 
 ## Editar, duplicar o eliminar
 

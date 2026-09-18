@@ -54,27 +54,6 @@
         </div>
       </section>
 
-      <div class="agenda-filters">
-        <div class="type-filters" role="group" aria-label="Filtrar por modalidad">
-          <span class="type-filters-title">Mostrar</span>
-          <label><input id="filterPresential" data-type-filter type="checkbox" checked /> Presenciales</label>
-          <label><input id="filterHybrid" data-type-filter type="checkbox" checked /> Híbridas</label>
-          <label><input id="filterVirtual" data-type-filter type="checkbox" checked /> Virtuales</label>
-          <label><input id="filterTransmission" data-type-filter type="checkbox" checked /> Transmisiones</label>
-        </div>
-        <div class="filter-tools">
-          <label class="search-field"><span>Buscar</span><input id="searchActivities" type="search" placeholder="Actividad, aula, materia…" autocomplete="off" /></label>
-        </div>
-      </div>
-      <div id="advancedFilters" class="advanced-filters">
-        <label>Área organizadora<select id="filterOrganizer"></select></label>
-        <label>Tipo de actividad<select id="filterAcademicType"><option value="">Todas</option><option value="class">Clases de grado</option><option value="exam">Exámenes</option></select></label>
-        <label>Carrera<select id="filterCareer"></select></label>
-        <label>Año<select id="filterYear"></select></label>
-        <button id="clearAdvancedFilters" class="button button-secondary" type="button">Limpiar filtros</button>
-      </div>
-
-      <section id="importantPeriods" class="important-periods" aria-label="Fechas importantes" hidden></section>
       <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
       <section id="agenda" class="agenda" aria-label="Actividades"></section>
     </main>

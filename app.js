@@ -94,7 +94,7 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], showAllImportant: false, user: null, canEdit: !configured };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -119,14 +119,6 @@ function isVirtual(item) { return String(item?.activity_type || "").trim().toLoc
 function isPresential(item) { return ["presential", "presencial"].includes(String(item?.activity_type || "").trim().toLocaleLowerCase(locale)); }
 function activityTypeLabel(item) { return isTransmission(item) ? "Transmisión" : isVirtual(item) ? "Virtual" : isPresential(item) ? "Presencial" : "Híbrida"; }
 function activityTypeKey(item) { return isTransmission(item) ? "transmission" : isVirtual(item) ? "virtual" : isPresential(item) ? "presential" : "hybrid"; }
-function matchesTypeFilter(item) {
-  return { presential: el("filterPresential").checked, hybrid: el("filterHybrid").checked, virtual: el("filterVirtual").checked, transmission: el("filterTransmission").checked }[activityTypeKey(item)];
-}
-function normalizedSearch(value) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale).trim(); }
-function matchesSearch(item) {
-  const query = normalizedSearch(el("searchActivities").value); if (!query) return true;
-  return normalizedSearch([item.name, item.secretary, item.responsible, item.classroom, item.platform, item.career, item.subject, activityStatusLabel(item), postponedDateLabel(item), item.requirements, item.observations].filter(Boolean).join(" ")).includes(query);
-}
 function academicTypeKey(item) {
   const stored = String(item?.academic_activity_type || "").trim().toLocaleLowerCase(locale);
   if (["class", "exam", "other"].includes(stored)) return stored;
@@ -151,14 +143,6 @@ function postponedDateLabel(item) {
   return formatDate(fromISODate(item.postponed_date), { day: "numeric", month: "long", year: "numeric" });
 }
 function itemAcademicYear(item) { return item?.academic_year || inferAcademicYear(item?.career, item?.subject); }
-function matchesAdvancedFilters(item) {
-  const organizer = el("filterOrganizer").value; const academicType = el("filterAcademicType").value; const career = el("filterCareer").value; const year = el("filterYear").value;
-  if (organizer && organizerName(item.secretary) !== organizer) return false;
-  if (academicType && academicTypeKey(item) !== academicType) return false;
-  if (career && item.career !== career) return false;
-  if (year && itemAcademicYear(item) !== year) return false;
-  return true;
-}
 function minutesFromTime(value) { const [hours, minutes] = cleanTime(value).split(":").map(Number); return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : -1; }
 function isInProgress(item, now = new Date()) {
   if (isSuspended(item) || isPostponed(item)) return false;
@@ -255,13 +239,6 @@ function bindEvents() {
   el("classroom").addEventListener("change", toggleOtherClassroom);
   el("activityType").addEventListener("change", toggleActivityTypeFields);
   el("recordKind").addEventListener("change", toggleRecordKindFields);
-  document.querySelectorAll("[data-type-filter]").forEach((input) => input.addEventListener("change", render));
-  el("searchActivities").addEventListener("input", render);
-  el("clearAdvancedFilters").addEventListener("click", clearAdvancedFilters);
-  el("filterOrganizer").addEventListener("change", render);
-  el("filterAcademicType").addEventListener("change", render);
-  el("filterCareer").addEventListener("change", () => { updateFilterYears(); render(); });
-  el("filterYear").addEventListener("change", render);
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
   [importDialog, detailDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
@@ -283,9 +260,6 @@ function populateFormOptions() {
   populateSelect(el("subject"), [], "Primero seleccioná un año");
   populateSelect(el("classroom"), [...classroomOptions, "__other__"], "Seleccionar aula o lugar");
   el("classroom").querySelector('option[value="__other__"]').textContent = "Otro (especificar)";
-  populateSelect(el("filterOrganizer"), secretaryOptions, "Todas las áreas");
-  populateSelect(el("filterCareer"), Object.keys(academicPlans), "Todas las carreras");
-  updateFilterYears();
 }
 
 function updateAcademicFields(preferredSubject = "", preferredYear = "") {
@@ -316,16 +290,6 @@ function updateSubjectOptions(preferredSubject = "") {
   if (subjects.includes(preferredSubject)) el("subject").value = preferredSubject;
 }
 
-function updateFilterYears() {
-  const career = el("filterCareer").value;
-  const years = career ? Object.keys(academicPlans[career] || {}) : [...new Set(Object.values(academicPlans).flatMap((plan) => Object.keys(plan)))];
-  const selected = el("filterYear").value; populateSelect(el("filterYear"), years, "Todos los años");
-  if (years.includes(selected)) el("filterYear").value = selected;
-}
-
-function clearAdvancedFilters() {
-  el("filterOrganizer").value = ""; el("filterAcademicType").value = ""; el("filterCareer").value = ""; updateFilterYears(); el("filterYear").value = ""; render();
-}
 
 function toggleOtherClassroom() {
   const other = el("recordKind").value === "activity" && el("activityType").value !== "virtual" && el("classroom").value === "__other__";
@@ -469,51 +433,13 @@ function updatePeriodTitle() {
 }
 
 function render() {
-  renderImportantPeriods();
   agenda.replaceChildren(); if (state.view === "day") renderDay(); else if (state.view === "week") renderWeek(); else renderMonth();
   const { visibleStart, visibleEnd } = periodRange();
-  const count = state.activities.filter((item) => !isImportantPeriod(item) && overlapsPeriod(item, visibleStart, visibleEnd) && matchesTypeFilter(item) && matchesSearch(item) && matchesAdvancedFilters(item)).length;
+  const count = state.activities.filter((item) => !isImportantPeriod(item) && overlapsPeriod(item, visibleStart, visibleEnd)).length;
   status.className = "status activity-count";
   const countNumber = document.createElement("strong"); countNumber.className = "activity-count-number"; countNumber.textContent = String(count);
   const countText = document.createElement("span"); countText.className = "activity-count-text"; countText.textContent = count === 1 ? "actividad" : "actividades";
   status.replaceChildren(countNumber, countText);
-}
-
-function renderImportantPeriods() {
-  const root = el("importantPeriods"); root.replaceChildren();
-  const today = toISODate(new Date());
-  const all = state.allActivities.filter((item) => isImportantPeriod(item) && matchesSearch(item) && matchesAdvancedFilters(item)).sort((a, b) => a.date.localeCompare(b.date));
-  const current = all.filter((item) => activityEndDate(item) >= today);
-  const past = all.filter((item) => activityEndDate(item) < today).sort((a, b) => b.date.localeCompare(a.date));
-  const available = state.canEdit && state.showAllImportant ? [...current, ...past] : current.length ? current : state.canEdit ? past.slice(0, 3) : [];
-  if (!available.length) { root.hidden = true; return; }
-  root.hidden = false;
-  const header = document.createElement("div"); header.className = "important-header";
-  const heading = document.createElement("div"); const eyebrow = document.createElement("p"); eyebrow.className = "eyebrow"; eyebrow.textContent = "Información institucional";
-  const title = document.createElement("h2"); title.textContent = "Fechas importantes"; heading.append(eyebrow, title); header.append(heading);
-  const limit = state.showAllImportant ? available.length : 3; const visible = available.slice(0, limit);
-  const canToggle = current.length > 3 || (state.canEdit && all.length > current.length);
-  if (canToggle) {
-    const toggle = document.createElement("button"); toggle.type = "button"; toggle.className = "button button-secondary important-toggle"; toggle.textContent = state.showAllImportant ? "Ver menos" : "Ver todas";
-    toggle.addEventListener("click", () => { state.showAllImportant = !state.showAllImportant; renderImportantPeriods(); }); header.append(toggle);
-  }
-  const cards = document.createElement("div"); cards.className = "important-cards"; visible.forEach((item) => cards.append(createImportantPeriodCard(item)));
-  root.append(header, cards);
-}
-
-function createImportantPeriodCard(item) {
-  const card = document.createElement("details"); card.className = "important-card"; card.style.setProperty("--organizer-color", organizerColor(item.secretary));
-  const summary = document.createElement("summary");
-  const content = document.createElement("span"); content.className = "important-card-title";
-  const title = document.createElement("strong"); title.textContent = item.name;
-  const organizer = document.createElement("span"); organizer.textContent = organizerName(item.secretary); organizer.style.color = organizerColor(item.secretary); content.append(title, organizer);
-  const meta = document.createElement("span"); meta.className = "important-card-meta";
-  const dates = document.createElement("span"); dates.textContent = dateRangeLabel(item);
-  const statusBadge = document.createElement("span"); statusBadge.className = "period-status"; statusBadge.textContent = importantPeriodStatus(item); meta.append(dates, statusBadge);
-  const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
-  summary.append(content, meta, chevron);
-  const expanded = document.createElement("div"); expanded.className = "important-expanded"; expanded.append(createDetailsContent(item, true));
-  card.append(summary, expanded); return card;
 }
 
 function isToday(date) { return toISODate(date) === toISODate(new Date()); }
@@ -522,9 +448,9 @@ function renderDay() {
   const { start } = periodRange();
   const section = document.createElement("section"); section.className = "day-section day-view-section";
   if (isToday(start)) section.classList.add("today-day");
-  const list = document.createElement("div"); list.className = "day-list"; const items = activitiesForDate(start);
+  const list = document.createElement("div"); list.className = "day-list"; const items = calendarItemsForDate(start);
   if (!items.length) { const empty = document.createElement("p"); empty.className = "empty-day"; empty.textContent = "Sin actividades"; list.append(empty); }
-  else items.forEach((item) => list.append(createActivityRow(item)));
+  else items.forEach((item) => list.append(isImportantPeriod(item) ? createPeriodRow(item) : createActivityRow(item)));
   section.append(createDayHeading(start), list); agenda.append(section);
 }
 
@@ -533,9 +459,9 @@ function renderWeek() {
   for (let index = 0; index < 6; index += 1) {
     const date = addDays(start, index); if (isAfterCalendarEnd(date)) break;
     const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day");
-    const list = document.createElement("div"); list.className = "day-list"; const items = activitiesForDate(date);
+    const list = document.createElement("div"); list.className = "day-list"; const items = calendarItemsForDate(date);
     if (!items.length) { const empty = document.createElement("p"); empty.className = "empty-day"; empty.textContent = "Sin actividades"; list.append(empty); }
-    else items.forEach((item) => list.append(createActivityRow(item)));
+    else items.forEach((item) => list.append(isImportantPeriod(item) ? createPeriodRow(item) : createActivityRow(item)));
     section.append(createDayHeading(date), list); agenda.append(section);
   }
 }
@@ -548,6 +474,26 @@ function createDayHeading(date) {
   if (isToday(date)) { const badge = document.createElement("span"); badge.className = "today-badge"; badge.textContent = "Hoy"; heading.append(badge); }
   if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "holiday-badge"; badge.textContent = "Feriado"; heading.append(badge); }
   return heading;
+}
+
+function createPeriodRow(item) {
+  const details = document.createElement("details"); details.className = "activity-row period-row";
+  details.style.setProperty("--organizer-color", organizerColor(item.secretary));
+  const summary = document.createElement("summary"); summary.className = "activity-summary";
+  const marker = document.createElement("span"); marker.className = "summary-time period-marker"; marker.textContent = "Período";
+  const title = document.createElement("span"); title.className = "summary-title";
+  const periodName = document.createElement("strong"); periodName.className = "summary-activity-name"; periodName.textContent = item.name; title.append(periodName);
+  if (item.secretary) {
+    const organizer = document.createElement("span"); organizer.className = "summary-organizer"; organizer.textContent = organizerName(item.secretary); organizer.style.color = organizerColor(item.secretary); title.append(organizer);
+  }
+  const meta = document.createElement("span"); meta.className = "summary-meta";
+  const statusBadge = document.createElement("span"); statusBadge.className = "period-status"; statusBadge.textContent = importantPeriodStatus(item);
+  const dates = document.createElement("span"); dates.className = "summary-room period-range"; dates.textContent = dateRangeLabel(item);
+  meta.append(statusBadge, dates);
+  const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
+  summary.append(marker, title, meta, chevron);
+  const expanded = document.createElement("div"); expanded.className = "activity-expanded"; expanded.append(createDetailsContent(item, true));
+  details.append(summary, expanded); return details;
 }
 
 function createActivityRow(item) {
@@ -587,7 +533,10 @@ function createDetailsContent(item, includeEditorActions) {
   const wrapper = document.createElement("div"); const details = document.createElement("div"); details.className = "activity-details";
   const combinedNotes = [item.requirements, item.observations].filter(Boolean).join(" · ");
   const fields = [["Fecha/as", dateRangeLabel(item)], ["Organiza", organizerName(item.secretary)]];
-  if (!isImportantPeriod(item)) {
+  if (isImportantPeriod(item)) {
+    fields.push(["Estado", importantPeriodStatus(item)]);
+    if (combinedNotes) fields.push(["Información", combinedNotes]);
+  } else {
     fields.push(["Tipo de actividad", activityDescriptor(item)]);
     if (item.career) fields.push(["Carrera", item.career]);
     if (itemAcademicYear(item)) fields.push(["Año", itemAcademicYear(item)]);
@@ -601,7 +550,7 @@ function createDetailsContent(item, includeEditorActions) {
     if (!isPresential(item)) fields.push(["Plataforma", item.platform]);
     if (state.canEdit) fields.push(["Cuenta", item.account_used], ["Grabación", item.recording_required ? "Sí" : "No"]);
   }
-  if (state.canEdit) fields.push([isImportantPeriod(item) ? "Descripción / información importante" : "Requerimientos / observaciones", combinedNotes || "Sin indicaciones"]);
+  if (state.canEdit && !isImportantPeriod(item)) fields.push(["Requerimientos / observaciones", combinedNotes || "Sin indicaciones"]);
   fields.forEach(([label, value]) => {
     const block = document.createElement("div"); block.className = "detail-item";
     const labelNode = document.createElement("span"); labelNode.className = "detail-label"; labelNode.textContent = label;
@@ -651,7 +600,14 @@ function createDetailsContent(item, includeEditorActions) {
 function actionButton(label, handler, className = "") { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.className = className; button.addEventListener("click", handler); return button; }
 function activitiesForDate(date) {
   const key = toISODate(date);
-  return state.activities.filter((item) => !isImportantPeriod(item) && item.date <= key && activityEndDate(item) >= key && matchesTypeFilter(item) && matchesSearch(item) && matchesAdvancedFilters(item)).sort(sortActivities);
+  return state.activities.filter((item) => !isImportantPeriod(item) && item.date <= key && activityEndDate(item) >= key).sort(sortActivities);
+}
+function periodsForDate(date) {
+  const key = toISODate(date);
+  return state.activities.filter((item) => isImportantPeriod(item) && item.date <= key && activityEndDate(item) >= key).sort(sortActivities);
+}
+function calendarItemsForDate(date) {
+  return [...periodsForDate(date), ...activitiesForDate(date)];
 }
 
 function renderMonth() {
@@ -667,6 +623,15 @@ function renderMonth() {
     if (toISODate(date) === todayKey) cell.classList.add("today"); if (isHoliday(date)) cell.classList.add("holiday");
     const number = document.createElement("span"); number.className = "month-number"; number.textContent = date.getDate(); cell.append(number);
     if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "month-holiday"; badge.textContent = "Feriado"; cell.append(badge); }
+    periodsForDate(date).forEach((item) => {
+      const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-period";
+      button.style.borderLeftColor = organizerColor(item.secretary);
+      const badge = document.createElement("span"); badge.className = "month-period-label"; badge.textContent = "Período";
+      const statusBadge = document.createElement("span"); statusBadge.className = "month-period-status"; statusBadge.textContent = importantPeriodStatus(item);
+      const title = document.createElement("strong"); title.textContent = item.name;
+      button.append(badge, statusBadge, title);
+      button.addEventListener("click", () => openDetail(item)); cell.append(button);
+    });
     activitiesForDate(date).forEach((item) => {
       const button = document.createElement("button"); button.type = "button"; button.className = "month-event";
       button.style.borderLeftColor = organizerColor(item.secretary);
@@ -686,14 +651,14 @@ function renderMonth() {
   const holidayDates = [...holidays].filter((date) => date >= toISODate(visibleStart) && date <= toISODate(visibleEnd));
   const datesWithActivities = [];
   for (let date = new Date(visibleStart); date <= visibleEnd; date = addDays(date, 1)) {
-    if (date.getDay() !== 0 && activitiesForDate(date).length) datesWithActivities.push(toISODate(date));
+    if (date.getDay() !== 0 && calendarItemsForDate(date).length) datesWithActivities.push(toISODate(date));
   }
   const currentDate = toISODate(new Date()); const includeToday = currentDate >= toISODate(visibleStart) && currentDate <= toISODate(visibleEnd) && fromISODate(currentDate).getDay() !== 0;
   const dates = [...new Set([...datesWithActivities, ...holidayDates, ...(includeToday ? [currentDate] : [])])].sort();
   if (!dates.length) { const empty = document.createElement("p"); empty.className = "empty-day"; empty.textContent = "Sin actividades este mes"; mobileList.append(empty); }
   else dates.forEach((dateValue) => {
     const date = fromISODate(dateValue); const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day");
-    const list = document.createElement("div"); list.className = "day-list"; const items = activitiesForDate(date); items.forEach((item) => list.append(createActivityRow(item)));
+    const list = document.createElement("div"); list.className = "day-list"; const items = calendarItemsForDate(date); items.forEach((item) => list.append(isImportantPeriod(item) ? createPeriodRow(item) : createActivityRow(item)));
     if (!items.length) { const empty = document.createElement("p"); empty.className = isHoliday(date) ? "holiday-empty" : "empty-day"; empty.textContent = "Sin actividades"; list.append(empty); }
     section.append(createDayHeading(date), list); mobileList.append(section);
   });
@@ -701,8 +666,12 @@ function renderMonth() {
 }
 
 function openDetail(item) {
-  const stateText = isSuspended(item) ? " · Suspendida" : isPostponed(item) ? ` · Postergada · ${postponedDateLabel(item)}` : "";
-  el("detailDate").textContent = `${dateRangeLabel(item)} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)}${stateText}`;
+  if (isImportantPeriod(item)) {
+    el("detailDate").textContent = `${dateRangeLabel(item)} · ${importantPeriodStatus(item)}`;
+  } else {
+    const stateText = isSuspended(item) ? " · Suspendida" : isPostponed(item) ? ` · Postergada · ${postponedDateLabel(item)}` : "";
+    el("detailDate").textContent = `${dateRangeLabel(item)} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)}${stateText}`;
+  }
   el("detailTitle").textContent = item.name; el("detailBody").replaceChildren(createDetailsContent(item, true)); detailDialog.showModal();
 }
 
