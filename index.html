@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=30" />
+    <link rel="stylesheet" href="styles.css?v=31" />
   </head>
   <body>
     <header class="site-header">
@@ -40,10 +40,13 @@
           <h2 id="periodTitle">Día actual</h2>
         </div>
         <div class="toolbar-right">
-          <div class="view-switch" role="group" aria-label="Tipo de vista">
-            <button id="dayView" class="view-button active" type="button" aria-pressed="true">Día</button>
-            <button id="weekView" class="view-button" type="button" aria-pressed="false">Semana</button>
-            <button id="monthView" class="view-button" type="button" aria-pressed="false">Mes</button>
+          <div class="view-switch-row">
+            <div class="view-switch" role="group" aria-label="Tipo de vista">
+              <button id="dayView" class="view-button active" type="button" aria-pressed="true">Día</button>
+              <button id="weekView" class="view-button" type="button" aria-pressed="false">Semana</button>
+              <button id="monthView" class="view-button" type="button" aria-pressed="false">Mes</button>
+            </div>
+            <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
           </div>
           <div class="period-actions">
             <button id="previousPeriod" class="icon-button" type="button" aria-label="Período anterior">←</button>
@@ -59,13 +62,18 @@
       </section>
 
       <div class="agenda-summary-bar">
-        <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
-        <div class="type-filters quick-check-filters" role="group" aria-label="Filtrar eventos">
-          <span class="type-filters-title">Mostrar</span>
-          <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
-          <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
-          <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
-          <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
+        <div class="filter-stack">
+          <div class="type-filters quick-check-filters" role="group" aria-label="Filtrar eventos por modalidad">
+            <span class="type-filters-title">Mostrar</span>
+            <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
+            <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
+            <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
+            <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
+          </div>
+          <label class="agenda-search" for="agendaSearch">
+            <span>Buscar</span>
+            <input id="agendaSearch" type="search" placeholder="Actividad, carrera, materia, área…" autocomplete="off" />
+          </label>
         </div>
       </div>
       <section id="agenda" class="agenda" aria-label="Actividades"></section>

@@ -146,7 +146,7 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, filters: new Set(["presential", "hybrid", "virtual", "featured"]), calendarConfig: null };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, filters: new Set(["presential", "hybrid", "virtual", "featured"]), searchQuery: "", calendarConfig: null };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -316,8 +316,17 @@ function importantPeriodStatus(item) {
 }
 function isHoliday(date) { return Boolean(holidayForDate(date)); }
 function matchesQuickFilter(item) {
-  if (isImportantPeriod(item)) return state.filters.has("featured");
-  return state.filters.has(activityTypeKey(item));
+  const categoryMatches = isImportantPeriod(item) ? state.filters.has("featured") : state.filters.has(activityTypeKey(item));
+  if (!categoryMatches) return false;
+  const query = String(state.searchQuery || "").trim().toLocaleLowerCase(locale);
+  if (!query) return true;
+  const searchable = [
+    item.name, item.secretary, organizerName(item.secretary), item.responsible, item.career, item.subject,
+    item.academic_year, item.year, item.classroom, item.platform, item.activity_detail, item.academic_type,
+    item.period_description, item.requirements, item.observations, activityDescriptor(item), activityTypeLabel(item),
+    isImportantPeriod(item) ? periodTypeLabel(item) : ""
+  ].filter(Boolean).join(" ").toLocaleLowerCase(locale);
+  return searchable.includes(query);
 }
 function itemHasDisplayableDay(item, start, end) {
   const itemStart = fromISODate(item.date) > localDate(start) ? fromISODate(item.date) : localDate(start);
@@ -400,6 +409,7 @@ function bindEvents() {
   el("nextPeriod").addEventListener("click", () => movePeriod(1));
   el("currentPeriod").addEventListener("click", () => { const today = localDate(new Date()); state.cursor = today < calendarMinDate ? calendarMinDate : today > calendarMaxDate ? calendarMaxDate : today; loadPeriod(); });
   document.querySelectorAll(".view-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncViewFilters));
+  el("agendaSearch").addEventListener("input", (event) => { state.searchQuery = event.target.value; render(); });
   el("newActivity").addEventListener("click", () => openActivityForm());
   el("updateCalendar").addEventListener("click", openCalendarForm);
   el("importCalendar").addEventListener("click", openImportForm);
@@ -646,7 +656,11 @@ function render() {
 
 function updateHeaderEventTotal() {
   const count = state.allActivities.length;
-  el("headerEventTotal").textContent = count === 1 ? "1 evento total" : `${count} eventos totales`;
+  const total = el("headerEventTotal");
+  const number = document.createElement("strong"); number.className = "header-event-number"; number.textContent = String(count);
+  const desktop = document.createElement("span"); desktop.className = "header-event-label header-event-label-desktop"; desktop.textContent = count === 1 ? "evento total" : "eventos totales";
+  const mobile = document.createElement("span"); mobile.className = "header-event-label header-event-label-mobile"; mobile.textContent = count === 1 ? "evento" : "eventos";
+  total.replaceChildren(number, desktop, mobile);
 }
 
 function isToday(date) { return toISODate(date) === toISODate(new Date()); }
@@ -803,7 +817,7 @@ function createDetailsContent(item, includeEditorActions) {
     actions.append(open); information.append(heading, actions); wrapper.append(information);
   }
   const share = document.createElement("div"); share.className = "share-actions";
-  const whatsapp = document.createElement("button"); whatsapp.type = "button"; whatsapp.className = "button button-whatsapp-copy"; whatsapp.textContent = "Copiar";
+  const whatsapp = document.createElement("button"); whatsapp.type = "button"; whatsapp.className = "copy-icon-button"; whatsapp.setAttribute("aria-label", "Copiar información"); whatsapp.title = "Copiar información"; whatsapp.append(createCopyIcon());
   whatsapp.addEventListener("click", () => copyWhatsAppInfo(item)); share.append(whatsapp); wrapper.append(share);
   if (includeEditorActions && state.canEdit) {
     const actions = document.createElement("div"); actions.className = "card-actions editor-only";
@@ -813,20 +827,31 @@ function createDetailsContent(item, includeEditorActions) {
   return wrapper;
 }
 
-function whatsappIconForLabel(label) {
-  return ({ "Fecha/as": "📅", "Horario": "🕒", "Organiza": "🏛️", "Fecha destacada": "📌", "Tipo de actividad": "📌", "Carrera": "🎓", "Año": "📚", "Materia": "📖", "Estado": "ℹ️", "Nueva fecha": "📅", "Responsable / contacto": "👤", "Aula/Lugar": "📍", "Modalidad": "🔹", "Plataforma": "💻", "Cuenta": "🔐", "Grabación": "🎥", "Requerimientos / observaciones": "📝", "Información": "📝" })[label] || "•";
-}
 function whatsappTextForItem(item) {
   const lines = [`*${item.name || "Actividad"}*`, ""];
-  detailFieldsForItem(item).forEach(([label, value]) => { if (value) lines.push(`${whatsappIconForLabel(label)} *${label}:* ${value}`); });
+  detailFieldsForItem(item).forEach(([label, value]) => {
+    if (!value) return;
+    const cleanValue = String(value).replace(/^▶\s*/, "");
+    lines.push(`*${label}:* ${cleanValue}`);
+  });
   const publicLink = item.link_is_public === true;
   const canIncludeMeetingLink = !isImportantPeriod(item) && !isPresential(item) && isSafeUrl(item.meeting_url) && (state.canEdit || publicLink);
   if (canIncludeMeetingLink) {
     const linkLabel = state.canEdit && !publicLink ? "Enlace privado (administración)" : "Enlace de la actividad";
-    lines.push(`${state.canEdit && !publicLink ? "🔒" : "🔗"} *${linkLabel}:* ${item.meeting_url}`);
+    lines.push(`🔗 *${linkLabel}:* ${item.meeting_url}`);
   }
-  if (isSafeUrl(item.more_info_url)) lines.push(`🔎 *Más información:* ${item.more_info_url}`);
+  if (isSafeUrl(item.more_info_url)) lines.push(`🔗 *Más información:* ${item.more_info_url}`);
   return lines.join("\n");
+}
+function createCopyIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+  const rectBack = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rectBack.setAttribute("x", "8"); rectBack.setAttribute("y", "8"); rectBack.setAttribute("width", "11"); rectBack.setAttribute("height", "11"); rectBack.setAttribute("rx", "1.5");
+  const pathFront = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  pathFront.setAttribute("d", "M16 6V5.5A1.5 1.5 0 0 0 14.5 4h-10A1.5 1.5 0 0 0 3 5.5v10A1.5 1.5 0 0 0 4.5 17H5");
+  svg.append(rectBack, pathFront);
+  return svg;
 }
 async function copyText(text, successMessage = "Copiado") {
   try { await navigator.clipboard.writeText(text); }

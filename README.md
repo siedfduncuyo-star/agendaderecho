@@ -53,3 +53,13 @@ Ejemplo:
 Subí todo el contenido de esta carpeta a la raíz del repositorio de GitHub Pages, conservando las carpetas `assets` y `firebase`.
 
 Si reemplazás una versión anterior, hacé una recarga forzada del navegador (`Ctrl + F5`) después de publicar.
+
+## v31
+
+- El botón **Hoy** y el destacado del día actual vuelven a la identidad azul.
+- **Día / Semana / Mes** seleccionados vuelven a azul.
+- El contador de eventos de la vista queda inmediatamente a la derecha del selector Día / Semana / Mes.
+- El total general del calendario se adapta a pantallas chicas.
+- Se agrega un buscador debajo de los filtros combinables de modalidad.
+- El texto copiado elimina iconos decorativos; sólo conserva el icono de enlace cuando corresponde.
+- El botón visible de copiado se reemplaza por un icono dorado, sin texto.
