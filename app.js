@@ -13,8 +13,26 @@ const activitiesCollection = "actividades";
 const privateActivitiesCollection = "actividades_privadas";
 const locale = "es-AR";
 const demoStorageKey = "agenda-hibrida-demo-firebase-v2";
-const calendarEnd = new Date(2026, 11, 28);
-const holidays = new Set(["2026-10-12", "2026-11-23", "2026-12-07", "2026-12-08"]);
+const demoCalendarStorageKey = "agenda-calendario-config-v30";
+const calendarConfigDocumentId = "__calendar_config__";
+const calendarFirstYear = 2026;
+const calendarLastYear = 2030;
+const calendarMinDate = new Date(calendarFirstYear, 0, 1);
+const calendarMaxDate = new Date(calendarLastYear, 11, 31);
+const defaultCalendarConfig = {
+  years: {
+    "2026": { start: "2026-01-01", end: "2026-12-28", holidays: [
+      { date: "2026-10-12", name: "Feriado" },
+      { date: "2026-11-23", name: "Feriado" },
+      { date: "2026-12-07", name: "Feriado" },
+      { date: "2026-12-08", name: "Feriado" }
+    ] },
+    "2027": { start: "2027-01-01", end: "2027-12-31", holidays: [] },
+    "2028": { start: "2028-01-01", end: "2028-12-31", holidays: [] },
+    "2029": { start: "2029-01-01", end: "2029-12-31", holidays: [] },
+    "2030": { start: "2030-01-01", end: "2030-12-31", holidays: [] }
+  }
+};
 const classroomOptions = ["Aula A", "Aula B", "Aula C", "Aula D", "Aula E", "Aula F", "Aula G", "Aula Magna", "Aula H (Magnita)", "Aula I", "Aula J", "Aula K", "Aula L", "Aula M", "Laboratorio", "Biblioteca", "Consejo Directivo"];
 const secretaryOptions = ["Secretaría Académica", "Secretaría de Posgrado", "Secretaría de Investigación, Ciencia y Técnica", "Secretaría de Relaciones Estudiantiles y Egresados/as", "Secretaría de Extensión, Vinculación y Territorio", "Secretaría General", "Secretaría Económica - Financiera", "Dirección TIC", "Personal de apoyo", "Decanato"];
 const organizerColors = new Map([
@@ -128,13 +146,14 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, quickFilter: "all" };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, filters: new Set(["presential", "hybrid", "virtual", "featured"]), calendarConfig: null };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
 const activityDialog = el("activityDialog");
 const importDialog = el("importDialog");
 const detailDialog = el("detailDialog");
+const calendarDialog = el("calendarDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 function startOfWeek(date) { const copy = localDate(date); const day = copy.getDay() || 7; copy.setDate(copy.getDate() - day + 1); return copy; }
@@ -148,6 +167,34 @@ function weekday(date, format = "long") { return titleCase(new Intl.DateTimeForm
 function formatDate(date, options) { return new Intl.DateTimeFormat(locale, options).format(date); }
 function cleanTime(value) { return (value || "").slice(0, 5); }
 function normalizeActivityName(value) { return String(value || "").trim().toLocaleLowerCase(locale); }
+function cloneDefaultCalendarConfig() { return JSON.parse(JSON.stringify(defaultCalendarConfig)); }
+function validISODate(value) { return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")); }
+function normalizeCalendarConfig(raw) {
+  const result = cloneDefaultCalendarConfig();
+  for (let year = calendarFirstYear; year <= calendarLastYear; year += 1) {
+    const key = String(year); const source = raw?.years?.[key]; if (!source) continue;
+    const start = validISODate(source.start) && Number(source.start.slice(0, 4)) === year ? source.start : result.years[key].start;
+    const end = validISODate(source.end) && Number(source.end.slice(0, 4)) === year ? source.end : result.years[key].end;
+    const holidays = Array.isArray(source.holidays) ? source.holidays.map((entry) => {
+      if (typeof entry === "string") return { date: entry, name: "Feriado" };
+      return { date: String(entry?.date || ""), name: String(entry?.name || "Feriado").trim() || "Feriado" };
+    }).filter((entry) => validISODate(entry.date) && Number(entry.date.slice(0, 4)) === year) : [];
+    result.years[key] = { start, end: end < start ? start : end, holidays };
+  }
+  return result;
+}
+function calendarConfigForYear(year) { return state.calendarConfig?.years?.[String(year)] || cloneDefaultCalendarConfig().years[String(year)]; }
+function isCalendarConfigRecord(item) { return item?.id === calendarConfigDocumentId || String(item?.record_kind || "").toLowerCase() === "calendar_config"; }
+function isWithinConfiguredCalendar(date) {
+  const day = localDate(date); if (day < calendarMinDate || day > calendarMaxDate) return false;
+  const configYear = calendarConfigForYear(day.getFullYear()); if (!configYear) return false;
+  const key = toISODate(day); return key >= configYear.start && key <= configYear.end;
+}
+function holidayForDate(date) {
+  const configYear = calendarConfigForYear(date.getFullYear()); if (!configYear) return null;
+  const key = toISODate(date); return (configYear.holidays || []).find((entry) => entry.date === key) || null;
+}
+function holidayLabel(date) { return holidayForDate(date)?.name || "Feriado"; }
 function normalizedModality(item) {
   const value = String(item?.activity_type || "").trim().toLocaleLowerCase(locale);
   if (["presential", "presencial"].includes(value)) return "presential";
@@ -267,22 +314,21 @@ function importantPeriodStatus(item) {
   const remaining = Math.round((fromISODate(activityEndDate(item)) - fromISODate(today)) / 86400000);
   return remaining <= 2 ? "Últimos días" : "Vigente";
 }
-function isHoliday(date) { return holidays.has(toISODate(date)); }
+function isHoliday(date) { return Boolean(holidayForDate(date)); }
 function matchesQuickFilter(item) {
-  if (state.quickFilter === "featured") return isImportantPeriod(item);
-  if (isImportantPeriod(item)) return state.quickFilter === "all";
-  if (state.quickFilter === "all") return true;
-  return activityTypeKey(item) === state.quickFilter;
+  if (isImportantPeriod(item)) return state.filters.has("featured");
+  return state.filters.has(activityTypeKey(item));
 }
 function itemHasDisplayableDay(item, start, end) {
   const itemStart = fromISODate(item.date) > localDate(start) ? fromISODate(item.date) : localDate(start);
   const itemEnd = fromISODate(activityEndDate(item)) < localDate(end) ? fromISODate(activityEndDate(item)) : localDate(end);
   for (let date = new Date(itemStart); date <= itemEnd; date = addDays(date, 1)) {
-    if (date.getDay() !== 0 && !isHoliday(date)) return true;
+    if (date.getDay() !== 0 && isWithinConfiguredCalendar(date) && !isHoliday(date)) return true;
   }
   return false;
 }
-function isAfterCalendarEnd(date) { return localDate(date) > calendarEnd; }
+function isAfterCalendarEnd(date) { return localDate(date) > calendarMaxDate; }
+function isBeforeCalendarStart(date) { return localDate(date) < calendarMinDate; }
 function sortActivities(a, b) { return `${a.date}${cleanTime(a.start_time)}${a.name}`.localeCompare(`${b.date}${cleanTime(b.start_time)}${b.name}`, locale); }
 function activityEndDate(item) { return item.end_date || item.date; }
 function overlapsPeriod(item, start, end) { return item.date <= toISODate(end) && activityEndDate(item) >= toISODate(start); }
@@ -308,7 +354,7 @@ function demoRecords() {
     { id: "demo-2", date: toISODate(addDays(monday, 1)), end_date: toISODate(addDays(monday, 1)), start_time: "16:00", end_time: "18:00", name: "Clase híbrida de Derecho Constitucional", secretary: "Secretaría Académica", activity_category: "class", academic_activity_type: "class", activity_type: "hybrid", career: lawCareer, subject: "Derecho Constitucional", responsible: "Lucas Fernández", classroom: "Aula H (Magnita)", requirements: "Notebook, proyector y audio bidireccional.", meeting_url: "https://zoom.us/", link_is_public: true, platform: "Zoom", account_used: "Licencia Zoom Facultad", recording_required: true, observations: "" },
     { id: "demo-3", date: toISODate(addDays(monday, 3)), end_date: toISODate(addDays(monday, 3)), start_time: "10:30", end_time: "12:00", name: "Sesión del Consejo Directivo", secretary: "Secretaría General", activity_category: "board", responsible: "Sofía Martínez", classroom: "Consejo Directivo", activity_type: "hybrid", requirements: "Verificar audio y transmisión 30 minutos antes.", meeting_url: "https://www.youtube.com/", link_is_public: true, platform: "YouTube", account_used: "Canal institucional", recording_required: true, observations: "" },
     { id: "demo-4", record_kind: "period", period_type: "inscriptions", date: toISODate(monday), end_date: toISODate(addDays(monday, 12)), start_time: "", end_time: "", name: "Inscripción a mesas de exámenes", secretary: "Secretaría Académica", responsible: "", classroom: "", requirements: "Consultá el cronograma y realizá la inscripción dentro del período indicado.", more_info_url: "https://www.uncuyo.edu.ar/", meeting_url: "", link_is_public: false, platform: "", account_used: "", recording_required: false, observations: "" }
-  ].filter((item) => fromISODate(item.date) <= calendarEnd);
+  ].filter((item) => fromISODate(item.date) <= calendarMaxDate);
 }
 
 function loadDemoData() {
@@ -319,10 +365,18 @@ function loadDemoData() {
   return examples;
 }
 function writeDemoData(records) { localStorage.setItem(demoStorageKey, JSON.stringify(records)); }
+function loadDemoCalendarConfig() {
+  const saved = localStorage.getItem(demoCalendarStorageKey);
+  if (!saved) return cloneDefaultCalendarConfig();
+  try { return normalizeCalendarConfig(JSON.parse(saved)); } catch (_) { return cloneDefaultCalendarConfig(); }
+}
+function writeDemoCalendarConfig(calendarConfig) { localStorage.setItem(demoCalendarStorageKey, JSON.stringify(calendarConfig)); }
 
 async function init() {
+  state.calendarConfig = cloneDefaultCalendarConfig();
   el("demoBanner").hidden = configured;
   populateFormOptions();
+  populateCalendarYearOptions();
   bindEvents();
   if (configured) {
     await setPersistence(auth, browserLocalPersistence).catch(() => {});
@@ -344,13 +398,16 @@ function bindEvents() {
   el("monthView").addEventListener("click", () => setView("month"));
   el("previousPeriod").addEventListener("click", () => movePeriod(-1));
   el("nextPeriod").addEventListener("click", () => movePeriod(1));
-  el("currentPeriod").addEventListener("click", () => { state.cursor = new Date(); loadPeriod(); });
-  el("viewFilter").addEventListener("change", () => { state.quickFilter = el("viewFilter").value; render(); });
+  el("currentPeriod").addEventListener("click", () => { const today = localDate(new Date()); state.cursor = today < calendarMinDate ? calendarMinDate : today > calendarMaxDate ? calendarMaxDate : today; loadPeriod(); });
+  document.querySelectorAll(".view-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncViewFilters));
   el("newActivity").addEventListener("click", () => openActivityForm());
+  el("updateCalendar").addEventListener("click", openCalendarForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
   el("activityForm").addEventListener("submit", saveActivity);
   el("importForm").addEventListener("submit", importCalendarFile);
+  el("calendarForm").addEventListener("submit", saveCalendarConfig);
+  el("calendarYear").addEventListener("change", loadCalendarYearForm);
   el("date").addEventListener("change", updateDateInputs);
   el("endDate").addEventListener("change", updateDateRangeInputs);
   el("recurrence").addEventListener("change", toggleRecurrenceFields);
@@ -366,9 +423,14 @@ function bindEvents() {
   el("recordKind").addEventListener("change", toggleRecordKindFields);
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
-  [importDialog, detailDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+  [importDialog, detailDialog, calendarDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
   activityDialog.addEventListener("cancel", (event) => event.preventDefault());
   setInterval(() => { if (!document.hidden) render(); }, 60000);
+}
+
+function syncViewFilters() {
+  state.filters = new Set([...document.querySelectorAll(".view-filter-check:checked")].map((checkbox) => checkbox.value));
+  render();
 }
 
 function populateSelect(select, options, placeholder) {
@@ -464,33 +526,26 @@ function toggleOtherSecretary() {
 }
 
 function updateAuthUI() {
-  if (!configured) {
-    el("sessionLabel").hidden = false;
-    el("sessionLabel").textContent = "Modo de prueba";
-    el("authButton").textContent = "Volver a la agenda";
-  } else if (state.user && state.canEdit) {
-    el("sessionLabel").hidden = false;
-    el("sessionLabel").textContent = state.user.email;
-    el("authButton").textContent = "Salir";
-  } else {
-    el("sessionLabel").hidden = true;
-    el("sessionLabel").textContent = "";
-    el("authButton").textContent = "Administrar agenda";
-  }
+  const button = el("authButton");
+  el("sessionLabel").hidden = true;
+  el("sessionLabel").textContent = state.canEdit && state.user?.email ? state.user.email : "";
+  if (!configured) { button.setAttribute("aria-label", "Volver a la agenda pública"); button.title = "Volver a la agenda pública"; }
+  else if (state.user && state.canEdit) { button.setAttribute("aria-label", "Salir del modo administrador"); button.title = "Salir del modo administrador"; }
+  else { button.setAttribute("aria-label", "Administración"); button.title = "Administración"; }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
 }
 
 async function handleAuthButton() {
   if (!configured) {
-    const url = new URL(location.href);
-    url.searchParams.delete("demo");
-    location.href = url.toString();
-    return;
+    const url = new URL(location.href); url.searchParams.delete("demo"); location.href = url.toString(); return;
   }
   if (state.user) { await signOut(auth); return; }
-  const url = new URL(location.href);
-  url.searchParams.set("demo", "1");
-  location.href = url.toString();
+  try {
+    const provider = new GoogleAuthProvider();
+    if (adminEmail) provider.setCustomParameters({ login_hint: adminEmail });
+    const result = await signInWithPopup(auth, provider);
+    if (!result.user?.email || result.user.email.toLowerCase() !== adminEmail) { await signOut(auth); alert("Esta cuenta no tiene permisos de administración."); }
+  } catch (error) { if (error?.code !== "auth/popup-closed-by-user") alert(`No se pudo iniciar sesión. ${friendlyError(error)}`); }
 }
 
 function setView(view) {
@@ -504,15 +559,16 @@ function setView(view) {
 }
 
 function moveAgendaDay(date, direction) {
-  let candidate = addDays(date, direction);
-  while (candidate.getDay() === 0) candidate = addDays(candidate, direction);
+  let candidate = addDays(date, direction); let guard = 0;
+  while (guard < 2000 && (candidate.getDay() === 0 || !isWithinConfiguredCalendar(candidate))) { candidate = addDays(candidate, direction); guard += 1; if (candidate < calendarMinDate || candidate > calendarMaxDate) break; }
   return candidate;
 }
 
 function movePeriod(direction) {
   const candidate = state.view === "day" ? moveAgendaDay(state.cursor, direction) : state.view === "week" ? addDays(state.cursor, direction * 7) : addMonths(state.cursor, direction);
   const candidateStart = state.view === "day" ? localDate(candidate) : state.view === "week" ? startOfWeek(candidate) : startOfMonth(candidate);
-  if (direction > 0 && candidateStart > calendarEnd) return;
+  if (direction > 0 && candidateStart > calendarMaxDate) return;
+  if (direction < 0 && candidateStart < calendarMinDate) return;
   state.cursor = candidate; loadPeriod();
 }
 
@@ -522,13 +578,13 @@ function periodRange() {
     return { start: day, end: day, visibleStart: day, visibleEnd: day };
   }
   if (state.view === "week") {
-    const start = startOfWeek(state.cursor); const naturalEnd = addDays(start, 5); const end = naturalEnd > calendarEnd ? calendarEnd : naturalEnd;
+    const start = startOfWeek(state.cursor); const naturalEnd = addDays(start, 5); const end = naturalEnd > calendarMaxDate ? calendarMaxDate : naturalEnd;
     return { start, end, visibleStart: start, visibleEnd: end };
   }
   const monthStart = startOfMonth(state.cursor); const gridStart = startOfWeek(monthStart);
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-  const naturalGridEnd = addDays(startOfWeek(monthEnd), 5); const visibleEnd = monthEnd > calendarEnd ? calendarEnd : monthEnd;
-  const gridEnd = naturalGridEnd > calendarEnd ? calendarEnd : naturalGridEnd;
+  const naturalGridEnd = addDays(startOfWeek(monthEnd), 5); const visibleEnd = monthEnd > calendarMaxDate ? calendarMaxDate : monthEnd;
+  const gridEnd = naturalGridEnd > calendarMaxDate ? calendarMaxDate : naturalGridEnd;
   return { start: gridStart, end: gridEnd, visibleStart: monthStart, visibleEnd };
 }
 
@@ -544,10 +600,14 @@ async function loadPeriod() {
         const privateById = new Map(privateSnapshot.docs.map((record) => [record.id, record.data()]));
         records = records.map((record) => ({ ...record, ...(privateById.get(record.id) || {}) }));
       }
+      const configRecord = records.find(isCalendarConfigRecord);
+      state.calendarConfig = normalizeCalendarConfig(configRecord?.calendar_config);
+      records = records.filter((item) => !isCalendarConfigRecord(item));
       state.allActivities = records.sort(sortActivities);
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     } else {
-      const records = loadDemoData().sort(sortActivities); state.allActivities = records;
+      state.calendarConfig = loadDemoCalendarConfig();
+      const records = loadDemoData().filter((item) => !isCalendarConfigRecord(item)).sort(sortActivities); state.allActivities = records;
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     }
   } catch (error) {
@@ -558,7 +618,9 @@ async function loadPeriod() {
 
 function updateNavigationState() {
   const nextCandidate = state.view === "day" ? moveAgendaDay(state.cursor, 1) : state.view === "week" ? startOfWeek(addDays(state.cursor, 7)) : startOfMonth(addMonths(state.cursor, 1));
-  el("nextPeriod").disabled = nextCandidate > calendarEnd;
+  const previousCandidate = state.view === "day" ? moveAgendaDay(state.cursor, -1) : state.view === "week" ? startOfWeek(addDays(state.cursor, -7)) : startOfMonth(addMonths(state.cursor, -1));
+  el("nextPeriod").disabled = nextCandidate > calendarMaxDate;
+  el("previousPeriod").disabled = previousCandidate < calendarMinDate;
 }
 
 function updatePeriodTitle() {
@@ -574,13 +636,17 @@ function render() {
   agenda.replaceChildren(); if (state.view === "day") renderDay(); else if (state.view === "week") renderWeek(); else renderMonth();
   const { visibleStart, visibleEnd } = periodRange();
   const candidates = state.activities.filter((item) => matchesQuickFilter(item) && overlapsPeriod(item, visibleStart, visibleEnd) && itemHasDisplayableDay(item, visibleStart, visibleEnd));
-  const featured = state.quickFilter === "featured";
-  const count = candidates.filter((item) => featured ? isImportantPeriod(item) : !isImportantPeriod(item)).length;
+  const count = candidates.length;
   status.className = "status activity-count";
   const countNumber = document.createElement("strong"); countNumber.className = "activity-count-number"; countNumber.textContent = String(count);
-  const countText = document.createElement("span"); countText.className = "activity-count-text";
-  countText.textContent = featured ? (count === 1 ? "fecha destacada" : "fechas destacadas") : (count === 1 ? "actividad" : "actividades");
+  const countText = document.createElement("span"); countText.className = "activity-count-text"; countText.textContent = count === 1 ? "evento" : "eventos";
   status.replaceChildren(countNumber, countText);
+  updateHeaderEventTotal();
+}
+
+function updateHeaderEventTotal() {
+  const count = state.allActivities.length;
+  el("headerEventTotal").textContent = count === 1 ? "1 evento total" : `${count} eventos totales`;
 }
 
 function isToday(date) { return toISODate(date) === toISODate(new Date()); }
@@ -589,10 +655,11 @@ function renderDay() {
   const { start } = periodRange();
   const section = document.createElement("section"); section.className = "day-section day-view-section";
   if (isToday(start)) section.classList.add("today-day");
+  if (!isWithinConfiguredCalendar(start)) section.classList.add("outside-calendar-day");
   const list = document.createElement("div"); list.className = "day-list"; const items = calendarItemsForDate(start);
   if (!items.length) {
     section.classList.add("empty-day-section"); if (isHoliday(start)) section.classList.add("holiday-day");
-    const empty = document.createElement("p"); empty.className = isHoliday(start) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(start) ? "Feriado · sin actividades" : "Sin actividades"; list.append(empty);
+    const empty = document.createElement("p"); empty.className = isHoliday(start) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(start) ? `${holidayLabel(start)} · sin actividades` : !isWithinConfiguredCalendar(start) ? "Fuera del calendario" : "Sin actividades"; list.append(empty);
   } else items.forEach((item) => list.append(isImportantPeriod(item) ? createPeriodRow(item) : createActivityRow(item)));
   section.append(createDayHeading(start), list); agenda.append(section);
 }
@@ -601,11 +668,11 @@ function renderWeek() {
   const start = startOfWeek(state.cursor);
   for (let index = 0; index < 6; index += 1) {
     const date = addDays(start, index); if (isAfterCalendarEnd(date)) break;
-    const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day"); else if (isPastDay(date)) section.classList.add("past-day");
+    const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day"); else if (isPastDay(date)) section.classList.add("past-day"); if (!isWithinConfiguredCalendar(date)) section.classList.add("outside-calendar-day");
     const list = document.createElement("div"); list.className = "day-list"; const items = calendarItemsForDate(date);
     if (!items.length) {
       section.classList.add("empty-day-section"); if (isHoliday(date)) section.classList.add("holiday-day");
-      const empty = document.createElement("p"); empty.className = isHoliday(date) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(date) ? "Feriado · sin actividades" : "Sin actividades"; list.append(empty);
+      const empty = document.createElement("p"); empty.className = isHoliday(date) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(date) ? `${holidayLabel(date)} · sin actividades` : !isWithinConfiguredCalendar(date) ? "Fuera del calendario" : "Sin actividades"; list.append(empty);
     } else items.forEach((item) => list.append(isImportantPeriod(item) ? createPeriodRow(item) : createActivityRow(item)));
     section.append(createDayHeading(date), list); agenda.append(section);
   }
@@ -617,7 +684,7 @@ function createDayHeading(date) {
   const dateText = document.createElement("p"); dateText.textContent = formatDate(date, { day: "numeric", month: "long" });
   heading.append(title, dateText);
   if (isToday(date)) { const badge = document.createElement("span"); badge.className = "today-badge"; badge.textContent = "Hoy"; heading.append(badge); }
-  if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "holiday-badge"; badge.textContent = "Feriado"; heading.append(badge); }
+  if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "holiday-badge"; badge.textContent = holidayLabel(date); heading.append(badge); }
   return heading;
 }
 
@@ -736,7 +803,7 @@ function createDetailsContent(item, includeEditorActions) {
     actions.append(open); information.append(heading, actions); wrapper.append(information);
   }
   const share = document.createElement("div"); share.className = "share-actions";
-  const whatsapp = document.createElement("button"); whatsapp.type = "button"; whatsapp.className = "button button-whatsapp-copy"; whatsapp.textContent = "Copiar para WhatsApp";
+  const whatsapp = document.createElement("button"); whatsapp.type = "button"; whatsapp.className = "button button-whatsapp-copy"; whatsapp.textContent = "Copiar";
   whatsapp.addEventListener("click", () => copyWhatsAppInfo(item)); share.append(whatsapp); wrapper.append(share);
   if (includeEditorActions && state.canEdit) {
     const actions = document.createElement("div"); actions.className = "card-actions editor-only";
@@ -766,16 +833,16 @@ async function copyText(text, successMessage = "Copiado") {
   catch (_) { const input = document.createElement("textarea"); input.value = text; input.style.position = "fixed"; input.style.opacity = "0"; document.body.append(input); input.select(); document.execCommand("copy"); input.remove(); }
   showToast(successMessage);
 }
-async function copyWhatsAppInfo(item) { await copyText(whatsappTextForItem(item), "Información copiada para WhatsApp"); }
+async function copyWhatsAppInfo(item) { await copyText(whatsappTextForItem(item), "Información copiada"); }
 function actionButton(label, handler, className = "") { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.className = className; button.addEventListener("click", handler); return button; }
 
 function activitiesForDate(date) {
-  if (isHoliday(date)) return [];
+  if (!isWithinConfiguredCalendar(date) || isHoliday(date)) return [];
   const key = toISODate(date);
   return state.activities.filter((item) => !isImportantPeriod(item) && matchesQuickFilter(item) && item.date <= key && activityEndDate(item) >= key).sort(sortActivities);
 }
 function periodsForDate(date) {
-  if (isHoliday(date)) return [];
+  if (!isWithinConfiguredCalendar(date) || isHoliday(date)) return [];
   const key = toISODate(date);
   return state.activities.filter((item) => isImportantPeriod(item) && matchesQuickFilter(item) && item.date <= key && activityEndDate(item) >= key).sort(sortActivities);
 }
@@ -792,10 +859,11 @@ function renderMonth() {
     const cell = document.createElement("div"); cell.className = "month-day";
     if (date < visibleStart || date > visibleEnd) cell.classList.add("other-month");
     if (toISODate(date) === todayKey) cell.classList.add("today"); else if (isPastDay(date)) cell.classList.add("past-day");
+    if (!isWithinConfiguredCalendar(date)) cell.classList.add("outside-calendar");
     if (isHoliday(date)) cell.classList.add("holiday");
     const dayItems = calendarItemsForDate(date); if (!dayItems.length) cell.classList.add("no-activity");
     const number = document.createElement("span"); number.className = "month-number"; number.textContent = date.getDate(); cell.append(number);
-    if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "month-holiday"; badge.textContent = "Feriado"; cell.append(badge); }
+    if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "month-holiday"; badge.textContent = holidayLabel(date); cell.append(badge); }
     periodsForDate(date).forEach((item) => {
       const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-period";
       button.style.borderLeftColor = organizerColor(item.secretary);
@@ -820,18 +888,19 @@ function renderMonth() {
   }
   calendar.append(weekdays, grid);
   const mobileList = document.createElement("div"); mobileList.className = "mobile-month-list";
-  const holidayDates = [...holidays].filter((date) => date >= toISODate(visibleStart) && date <= toISODate(visibleEnd));
+  const holidayDates = [];
   const datesWithActivities = [];
   for (let date = new Date(visibleStart); date <= visibleEnd; date = addDays(date, 1)) {
+    if (date.getDay() !== 0 && isHoliday(date)) holidayDates.push(toISODate(date));
     if (date.getDay() !== 0 && calendarItemsForDate(date).length) datesWithActivities.push(toISODate(date));
   }
   const currentDate = toISODate(new Date()); const includeToday = currentDate >= toISODate(visibleStart) && currentDate <= toISODate(visibleEnd) && fromISODate(currentDate).getDay() !== 0;
   const dates = [...new Set([...datesWithActivities, ...holidayDates, ...(includeToday ? [currentDate] : [])])].sort();
   if (!dates.length) { const empty = document.createElement("p"); empty.className = "empty-day"; empty.textContent = "Sin actividades este mes"; mobileList.append(empty); }
   else dates.forEach((dateValue) => {
-    const date = fromISODate(dateValue); const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day"); else if (isPastDay(date)) section.classList.add("past-day");
+    const date = fromISODate(dateValue); const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day"); else if (isPastDay(date)) section.classList.add("past-day"); if (!isWithinConfiguredCalendar(date)) section.classList.add("outside-calendar-day");
     const list = document.createElement("div"); list.className = "day-list"; const items = calendarItemsForDate(date); items.forEach((item) => list.append(isImportantPeriod(item) ? createPeriodRow(item) : createActivityRow(item)));
-    if (!items.length) { section.classList.add("empty-day-section"); if (isHoliday(date)) section.classList.add("holiday-day"); const empty = document.createElement("p"); empty.className = isHoliday(date) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(date) ? "Feriado · sin actividades" : "Sin actividades"; list.append(empty); }
+    if (!items.length) { section.classList.add("empty-day-section"); if (isHoliday(date)) section.classList.add("holiday-day"); const empty = document.createElement("p"); empty.className = isHoliday(date) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(date) ? `${holidayLabel(date)} · sin actividades` : !isWithinConfiguredCalendar(date) ? "Fuera del calendario" : "Sin actividades"; list.append(empty); }
     section.append(createDayHeading(date), list); mobileList.append(section);
   });
   agenda.append(calendar, mobileList);
@@ -851,6 +920,58 @@ async function copyLink(url) { await copyText(url, "Enlace copiado"); }
 function showToast(message) { const toast = el("toast"); toast.textContent = message; toast.hidden = false; clearTimeout(showToast.timer); showToast.timer = setTimeout(() => { toast.hidden = true; }, 2200); }
 function isSafeUrl(value) { if (!value) return false; try { return ["https:", "http:"].includes(new URL(value).protocol); } catch (_) { return false; } }
 
+function populateCalendarYearOptions() {
+  const select = el("calendarYear"); select.replaceChildren();
+  for (let year = calendarFirstYear; year <= calendarLastYear; year += 1) { const option = document.createElement("option"); option.value = String(year); option.textContent = String(year); select.append(option); }
+}
+function calendarHolidaysText(year) {
+  return [...(calendarConfigForYear(year)?.holidays || [])].sort((a, b) => a.date.localeCompare(b.date)).map((entry) => {
+    const date = fromISODate(entry.date); return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")} | ${entry.name || "Feriado"}`;
+  }).join("\n");
+}
+function loadCalendarYearForm() {
+  const year = Number(el("calendarYear").value); const configYear = calendarConfigForYear(year); if (!configYear) return;
+  el("calendarYearStart").min = `${year}-01-01`; el("calendarYearStart").max = `${year}-12-31`;
+  el("calendarYearEnd").min = `${year}-01-01`; el("calendarYearEnd").max = `${year}-12-31`;
+  el("calendarYearStart").value = configYear.start; el("calendarYearEnd").value = configYear.end; el("calendarHolidays").value = calendarHolidaysText(year);
+  el("calendarMessage").hidden = true;
+}
+function openCalendarForm() {
+  if (!state.canEdit) return;
+  const year = Math.min(calendarLastYear, Math.max(calendarFirstYear, state.cursor.getFullYear()));
+  el("calendarYear").value = String(year); loadCalendarYearForm(); calendarDialog.showModal();
+}
+function parseCalendarHolidayLines(year, text) {
+  const holidays = []; const seen = new Set(); const errors = [];
+  String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).forEach((line, index) => {
+    const match = line.match(/^(\d{1,2})\/(\d{1,2})(?:\s*\|\s*(.+))?$/);
+    if (!match) { errors.push(`Línea ${index + 1}: usá DD/MM | Nombre.`); return; }
+    const day = Number(match[1]); const month = Number(match[2]); const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) { errors.push(`Línea ${index + 1}: la fecha no es válida.`); return; }
+    const iso = toISODate(date); if (seen.has(iso)) return; seen.add(iso); holidays.push({ date: iso, name: (match[3] || "Feriado").trim() || "Feriado" });
+  });
+  if (errors.length) throw new Error(errors[0]); return holidays.sort((a, b) => a.date.localeCompare(b.date));
+}
+async function saveCalendarConfig(event) {
+  event.preventDefault(); if (!state.canEdit) return;
+  const message = el("calendarMessage"); message.hidden = true;
+  const year = Number(el("calendarYear").value); const start = el("calendarYearStart").value; const end = el("calendarYearEnd").value;
+  try {
+    if (!year || Number(start.slice(0, 4)) !== year || Number(end.slice(0, 4)) !== year) throw new Error("El inicio y el fin deben corresponder al año seleccionado.");
+    if (end < start) throw new Error("La fecha de fin no puede ser anterior al inicio.");
+    const holidays = parseCalendarHolidayLines(year, el("calendarHolidays").value);
+    if (holidays.some((entry) => entry.date < start || entry.date > end)) throw new Error("Todos los feriados deben estar dentro del período habilitado del año.");
+    const next = normalizeCalendarConfig(state.calendarConfig); next.years[String(year)] = { start, end, holidays };
+    const button = el("saveCalendar"); button.disabled = true; button.textContent = "Guardando…";
+    try {
+      if (configured) {
+        const batch = writeBatch(db); batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), { record_kind: "calendar_config", date: `${calendarFirstYear}-01-01`, end_date: `${calendarLastYear}-12-31`, name: "Configuración del calendario", calendar_config: next, updated_at: serverTimestamp() }); await batch.commit();
+      } else writeDemoCalendarConfig(next);
+      state.calendarConfig = next; calendarDialog.close(); await loadPeriod(); showToast(`Calendario ${year} actualizado`);
+    } finally { button.disabled = false; button.textContent = "Guardar calendario"; }
+  } catch (error) { message.textContent = error?.message || "No se pudo actualizar el calendario."; message.hidden = false; }
+}
+
 function openActivityForm(item = null) {
   if (!state.canEdit) return; if (detailDialog.open) detailDialog.close();
   const editing = Boolean(item?.id);
@@ -863,7 +984,7 @@ function openActivityForm(item = null) {
   el("date").value = item?.date || toISODate(defaultDate); el("endDate").value = item?.end_date || item?.date || toISODate(defaultDate);
   el("startTime").value = cleanTime(item?.start_time) || "09:00"; el("endTime").value = cleanTime(item?.end_time) || "10:00";
   el("recurrence").value = "none"; el("recurrence").disabled = Boolean(item?.id); el("recurrenceField").hidden = Boolean(item?.id);
-  el("repeatUntil").value = toISODate(calendarEnd);
+  el("repeatUntil").value = calendarConfigForYear((item?.date ? fromISODate(item.date) : defaultDate).getFullYear())?.end || toISODate(calendarMaxDate);
   el("activityStatus").value = item ? activityStatusKey(item) : "scheduled";
   el("postponedDate").value = item?.postponed_date || "";
   el("postponedDateTbd").checked = item?.postponed_date_tbd === true;
@@ -928,8 +1049,9 @@ function activityPayload() {
 }
 
 function validateActivity(payload) {
-  if (fromISODate(payload.date) > calendarEnd) return "La agenda finaliza el 28 de diciembre de 2026.";
-  if (fromISODate(payload.end_date) > calendarEnd) return "La actividad no puede finalizar después del 28 de diciembre de 2026.";
+  if (fromISODate(payload.date) < calendarMinDate || fromISODate(payload.date) > calendarMaxDate) return `La agenda admite fechas entre ${calendarFirstYear} y ${calendarLastYear}.`;
+  if (fromISODate(payload.end_date) < calendarMinDate || fromISODate(payload.end_date) > calendarMaxDate) return `La fecha final debe estar entre ${calendarFirstYear} y ${calendarLastYear}.`;
+  if (!isWithinConfiguredCalendar(fromISODate(payload.date)) || !isWithinConfiguredCalendar(fromISODate(payload.end_date))) return "La fecha está fuera del período habilitado para ese año. Podés cambiarlo desde Actualizar calendario.";
   if (fromISODate(payload.end_date) < fromISODate(payload.date)) return "La fecha de finalización no puede ser anterior a la fecha de inicio.";
   if (!payload.secretary) return "Seleccioná quién organiza o completá el campo Otro organizador.";
   if (payload.more_info_url && !isSafeUrl(payload.more_info_url)) return "El enlace de más información debe comenzar con http:// o https://.";
@@ -946,7 +1068,7 @@ function validateActivity(payload) {
   if (payload.link_is_public && !payload.meeting_url) return "Para publicar el enlace, primero completá el enlace de la actividad.";
   if (payload.activity_status === "postponed" && !payload.postponed_date_tbd && !payload.postponed_date) return "Indicá la nueva fecha o marcá Fecha a confirmar.";
   if (payload.activity_status === "postponed" && payload.postponed_date && fromISODate(payload.postponed_date) <= fromISODate(payload.date)) return "La nueva fecha de una actividad postergada debe ser posterior a la fecha original.";
-  if (payload.postponed_date && fromISODate(payload.postponed_date) > calendarEnd) return "La nueva fecha no puede ser posterior al 28 de diciembre de 2026.";
+  if (payload.postponed_date && !isWithinConfiguredCalendar(fromISODate(payload.postponed_date))) return "La nueva fecha está fuera del calendario habilitado para ese año.";
   if (el("recurrence").value !== "none" && fromISODate(el("repeatUntil").value) < fromISODate(payload.date)) return "La fecha final de repetición no puede ser anterior a la actividad.";
   return "";
 }
@@ -956,9 +1078,10 @@ function recurrenceRecords(payload) {
   const recurrence = el("recurrence").value; if (recurrence === "none") return [payload];
   const step = recurrence === "weekly" ? 7 : 14; const until = fromISODate(el("repeatUntil").value); const seriesId = crypto.randomUUID(); const records = [];
   const durationDays = Math.round((fromISODate(payload.end_date) - fromISODate(payload.date)) / 86400000);
-  for (let date = fromISODate(payload.date); date <= until && date <= calendarEnd; date = addDays(date, step)) {
+  for (let date = fromISODate(payload.date); date <= until && date <= calendarMaxDate; date = addDays(date, step)) {
     const occurrenceEnd = addDays(date, durationDays);
-    records.push({ ...payload, date: toISODate(date), end_date: toISODate(occurrenceEnd > calendarEnd ? calendarEnd : occurrenceEnd), series_id: seriesId });
+    if (!isWithinConfiguredCalendar(date) || !isWithinConfiguredCalendar(occurrenceEnd)) continue;
+    records.push({ ...payload, date: toISODate(date), end_date: toISODate(occurrenceEnd), series_id: seriesId });
   }
   return records;
 }
@@ -1071,8 +1194,8 @@ async function importCalendarFile(event) {
   try {
     const defaults = { secretary: el("importSecretary").value.trim(), responsible: el("importResponsible").value.trim(), platform: el("importPlatform").value.trim(), account_used: el("importAccount").value.trim(), requirements: el("importRequirements").value.trim(), recording_required: el("importRecording").checked, link_is_public: false };
     const parsed = parseICS(await file.text(), defaults)
-      .filter((item) => fromISODate(item.date) <= calendarEnd && fromISODate(item.date).getDay() !== 0)
-      .map((item) => ({ ...item, end_date: activityEndDate(item) > toISODate(calendarEnd) ? toISODate(calendarEnd) : activityEndDate(item) }));
+      .filter((item) => isWithinConfiguredCalendar(fromISODate(item.date)) && fromISODate(item.date).getDay() !== 0)
+      .map((item) => ({ ...item, end_date: activityEndDate(item) > toISODate(calendarMaxDate) ? toISODate(calendarMaxDate) : activityEndDate(item) }));
     if (!parsed.length) throw new Error("No se encontraron eventos con fecha y horario en el archivo.");
     let newEvents = parsed;
     if (configured) {

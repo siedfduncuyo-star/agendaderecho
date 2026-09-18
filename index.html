@@ -9,19 +9,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=29" />
+    <link rel="stylesheet" href="styles.css?v=30" />
   </head>
   <body>
     <header class="site-header">
       <div class="header-inner">
         <div class="brand">
-          <img src="assets/logo-fd-blanco.png" alt="Facultad de Derecho, Universidad Nacional de Cuyo" />
+          <img src="assets/logo-fd.png" alt="UNCUYO · Facultad de Derecho" />
           <span class="brand-divider" aria-hidden="true"></span>
           <h1>Agenda de<br />Actividades</h1>
         </div>
         <div class="session-area">
+          <span id="headerEventTotal" class="header-event-total" aria-live="polite">0 eventos totales</span>
           <span id="sessionLabel" class="session-label" hidden></span>
-          <button id="authButton" class="button button-header" type="button">Administrar agenda</button>
+          <button id="authButton" class="admin-icon-button" type="button" aria-label="Administración" title="Administración">
+            <img src="assets/administracion.png" alt="" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </header>
@@ -48,23 +51,22 @@
             <button id="nextPeriod" class="icon-button" type="button" aria-label="Período siguiente">→</button>
           </div>
           <div class="editor-actions editor-only" hidden>
-            <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
             <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
+            <button id="updateCalendar" class="button button-secondary" type="button">Actualizar calendario</button>
+            <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
           </div>
         </div>
       </section>
 
       <div class="agenda-summary-bar">
         <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
-        <label class="quick-view-filter" for="viewFilter"><span>Mostrar</span>
-          <select id="viewFilter">
-            <option value="all">Todo</option>
-            <option value="presential">Presenciales</option>
-            <option value="hybrid">Híbridas</option>
-            <option value="virtual">Virtuales</option>
-            <option value="featured">Fechas destacadas</option>
-          </select>
-        </label>
+        <div class="type-filters quick-check-filters" role="group" aria-label="Filtrar eventos">
+          <span class="type-filters-title">Mostrar</span>
+          <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
+          <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
+          <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
+          <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
+        </div>
       </div>
       <section id="agenda" class="agenda" aria-label="Actividades"></section>
     </main>
@@ -82,8 +84,8 @@
           <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Fecha destacada</option></select></label>
           <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Recesos</option><option value="suspension">Suspensión de actividades</option><option value="other">Otra fecha destacada</option></select></label>
           <label class="wide"><span id="nameLabel">Título</span><input id="name" type="text" maxlength="160" required /></label>
-          <label>Fecha de inicio<input id="date" type="date" max="2026-12-28" required /></label>
-          <label>Fecha de finalización<input id="endDate" type="date" max="2026-12-28" required /></label>
+          <label>Fecha de inicio<input id="date" type="date" min="2026-01-01" max="2030-12-31" required /></label>
+          <label>Fecha de finalización<input id="endDate" type="date" min="2026-01-01" max="2030-12-31" required /></label>
           <label data-scheduled-only>Hora de inicio<input id="startTime" type="time" required /></label>
           <label data-scheduled-only>Hora de finalización<input id="endTime" type="time" required /></label>
           <label id="recurrenceField" data-scheduled-only>Repetición
@@ -93,9 +95,9 @@
               <option value="biweekly">Cada 15 días</option>
             </select>
           </label>
-          <label id="repeatUntilField" data-scheduled-only hidden>Repetir hasta<input id="repeatUntil" type="date" max="2026-12-28" /></label>
+          <label id="repeatUntilField" data-scheduled-only hidden>Repetir hasta<input id="repeatUntil" type="date" min="2026-01-01" max="2030-12-31" /></label>
           <label id="activityStatusField" data-scheduled-only>Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
-          <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" max="2026-12-28" /></label>
+          <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
           <label id="postponedTbdField" class="recording-field wide" data-scheduled-only hidden><input id="postponedDateTbd" type="checkbox" /><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
           <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option></select></label>
           <label>Organiza<select id="secretary" required></select></label>
@@ -152,6 +154,28 @@
       </form>
     </dialog>
 
+    <dialog id="calendarDialog" class="dialog calendar-dialog">
+      <form id="calendarForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Administración</p><h2>Actualizar calendario</h2></div>
+          <button class="close-button" type="button" data-close="calendarDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Configurá cada año de la agenda. Podés cambiar el período visible y mantener los feriados o días sin actividad sin modificar el código.</p>
+        <div class="form-grid">
+          <label>Año<select id="calendarYear" required></select></label>
+          <div></div>
+          <label>Inicio del calendario<input id="calendarYearStart" type="date" min="2026-01-01" max="2030-12-31" required /></label>
+          <label>Fin del calendario<input id="calendarYearEnd" type="date" min="2026-01-01" max="2030-12-31" required /></label>
+          <label class="wide">Feriados / días sin actividad<textarea id="calendarHolidays" rows="9" placeholder="12/10 | Feriado&#10;08/12 | Inmaculada Concepción"></textarea><small>Una línea por fecha: <strong>DD/MM | Nombre</strong>. Esos días quedarán apagados y no mostrarán actividades.</small></label>
+        </div>
+        <div id="calendarMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="calendarDialog">Cancelar</button>
+          <button id="saveCalendar" class="button button-primary" type="submit">Guardar calendario</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="detailDialog" class="dialog detail-dialog">
       <div class="detail-dialog-content">
         <div class="dialog-header">
@@ -165,7 +189,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script src="config.js?v=11"></script>
-    <script type="module" src="app.js?v=29"></script>
+    <script type="module" src="app.js?v=30"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");
