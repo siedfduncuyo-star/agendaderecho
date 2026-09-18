@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=28" />
+    <link rel="stylesheet" href="styles.css?v=29" />
   </head>
   <body>
     <header class="site-header">
@@ -54,7 +54,18 @@
         </div>
       </section>
 
-      <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
+      <div class="agenda-summary-bar">
+        <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
+        <label class="quick-view-filter" for="viewFilter"><span>Mostrar</span>
+          <select id="viewFilter">
+            <option value="all">Todo</option>
+            <option value="presential">Presenciales</option>
+            <option value="hybrid">Híbridas</option>
+            <option value="virtual">Virtuales</option>
+            <option value="featured">Fechas destacadas</option>
+          </select>
+        </label>
+      </div>
       <section id="agenda" class="agenda" aria-label="Actividades"></section>
     </main>
 
@@ -68,8 +79,8 @@
         <input id="originalActivityName" type="hidden" />
         <input id="originalActivityDate" type="hidden" />
         <div class="form-grid">
-          <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Información del calendario</option></select></label>
-          <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="recess">Recesos</option><option value="suspension">Suspensión de actividades</option><option value="other">Otra fecha relevante</option></select></label>
+          <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Fecha destacada</option></select></label>
+          <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Recesos</option><option value="suspension">Suspensión de actividades</option><option value="other">Otra fecha destacada</option></select></label>
           <label class="wide"><span id="nameLabel">Título</span><input id="name" type="text" maxlength="160" required /></label>
           <label>Fecha de inicio<input id="date" type="date" max="2026-12-28" required /></label>
           <label>Fecha de finalización<input id="endDate" type="date" max="2026-12-28" required /></label>
@@ -86,10 +97,10 @@
           <label id="activityStatusField" data-scheduled-only>Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
           <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" max="2026-12-28" /></label>
           <label id="postponedTbdField" class="recording-field wide" data-scheduled-only hidden><input id="postponedDateTbd" type="checkbox" /><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
-          <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option><option value="transmission">Transmisión</option></select></label>
+          <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option></select></label>
           <label>Organiza<select id="secretary" required></select></label>
           <label id="otherSecretaryField" hidden>Otro organizador<input id="otherSecretary" type="text" maxlength="120" /></label>
-          <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option><option value="class">Clase de grado</option><option value="exam">Examen final</option><option value="other">Otra actividad</option></select></label>
+          <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option></select></label>
           <label id="careerField" data-scheduled-only hidden>Carrera<select id="career"></select></label>
           <label id="academicYearField" data-scheduled-only hidden>Año<select id="academicYear"></select></label>
           <label id="subjectField" class="wide" data-scheduled-only hidden><span id="subjectLabel">Materia</span><select id="subject"></select></label>
@@ -154,7 +165,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script src="config.js?v=11"></script>
-    <script type="module" src="app.js?v=28"></script>
+    <script type="module" src="app.js?v=29"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

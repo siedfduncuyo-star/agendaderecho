@@ -113,12 +113,12 @@ main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 56
 .summary-activity-name { color: var(--ink); font-weight: 600; }
 .summary-separator { color: #a4afb7; font-weight: 400; }
 .summary-organizer { font-size: .75rem; font-weight: 700; }
-.transmission-badge, .virtual-badge, .hybrid-badge, .presential-badge { color: #023764; font-size: .65rem; font-weight: 600; }
+.virtual-badge, .hybrid-badge, .presential-badge { color: #023764; font-size: .65rem; font-weight: 600; }
 .summary-meta { min-width: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; }
 .summary-labels { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
 .summary-type { color: #023764; font-size: .65rem; font-weight: 600; }
 .in-progress-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 999px; background: #e7f1f7; color: #023764; font-size: .61rem; font-weight: 700; white-space: nowrap; }
-.academic-type-badge { display: inline-flex; align-items: center; padding: 2px 6px; border: 1px solid #b8cfdd; border-radius: 999px; color: #023764; font-size: .6rem; font-weight: 650; white-space: nowrap; }
+.academic-type-badge, .activity-category-badge { display: inline-flex; align-items: center; padding: 2px 6px; border: 1px solid #b8cfdd; border-radius: 999px; color: #023764; font-size: .6rem; font-weight: 650; white-space: nowrap; }
 .activity-status-badge { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 999px; font-size: .6rem; line-height: 1.2; font-weight: 700; white-space: normal; }
 .activity-status-badge.suspended { background: #f7dddd; color: #8f2f2f; }
 .activity-status-badge.postponed { background: #f7e8bf; color: #76520d; }
@@ -162,7 +162,7 @@ main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 56
 .month-holiday { display: block; margin: -2px 0 5px; color: #9b3030; font-size: .6rem; font-weight: 700; text-transform: uppercase; }
 .month-event { width: 100%; margin-bottom: 4px; padding: 5px 6px; border: 0; border-left: 3px solid var(--blue); border-radius: 3px; background: #edf5f9; color: var(--ink); text-align: left; font-size: .66rem; line-height: 1.3; }
 .month-event strong { display: block; color: var(--blue); font-size: .64rem; }
-.month-transmission, .month-virtual, .month-hybrid, .month-presential { display: block; color: #023764; font-size: .55rem; font-weight: 600; }
+.month-virtual, .month-hybrid, .month-presential { display: block; color: #023764; font-size: .55rem; font-weight: 600; }
 .month-in-progress { display: inline-block; margin: 2px 0; padding: 1px 4px; border-radius: 999px; background: #dcecf5; color: #023764; font-size: .52rem; font-weight: 700; }
 .month-status { display: block; width: fit-content; max-width: 100%; margin: 2px 0; padding: 2px 4px; border-radius: 3px; font-size: .52rem; line-height: 1.25; font-weight: 700; }
 .month-status.suspended { background: #f7dddd; color: #8f2f2f; }
@@ -275,3 +275,29 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
 .daily-time-badge.upcoming { background: #f1f3f5; color: #54616b; }
 .daily-time-badge.elapsed { background: #e7f1f7; color: #023764; }
 .period-marker { white-space: normal; line-height: 1.2; }
+
+
+/* v29 · filtro compacto, fechas destacadas y copia para WhatsApp */
+.agenda-summary-bar { display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 0 0 10px; }
+.agenda-summary-bar .status { margin: 0; }
+.quick-view-filter { width: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .74rem; font-weight: 700; }
+.quick-view-filter span { white-space: nowrap; }
+.quick-view-filter select { width: auto; min-width: 165px; min-height: 38px; padding: 7px 30px 7px 10px; border-color: #bfd0dc; background: white; color: var(--blue-dark); font-size: .78rem; font-weight: 600; }
+.empty-day-section .day-heading, .empty-day-section .day-list { opacity: .55; }
+.empty-day-section.today-day .day-heading, .empty-day-section.today-day .day-list { opacity: .68; }
+.holiday-day { background: #f3f5f6; border-color: #d7dde1; }
+.holiday-day .holiday-badge { background: #e9ecef; color: #727b82; }
+.month-day.no-activity { background: #f4f6f7; color: #929ca3; }
+.month-day.no-activity .month-number { opacity: .72; }
+.month-day.holiday { background: #f4f6f7; color: #929ca3; }
+.month-day.holiday .month-holiday { color: #7f858a; opacity: .72; }
+.month-day.today.no-activity { background: #f3f5f6; }
+.share-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf1f3; }
+.button-whatsapp-copy { min-height: 35px; padding: 7px 11px; border-color: #9bb8ca; background: #eef5f9; color: var(--blue); font-size: .76rem; }
+.button-whatsapp-copy:hover { background: #e3eff5; }
+
+@media (max-width: 650px) {
+  .agenda-summary-bar { align-items: stretch; flex-direction: column; }
+  .quick-view-filter { justify-content: space-between; }
+  .quick-view-filter select { flex: 1; min-width: 0; }
+}
