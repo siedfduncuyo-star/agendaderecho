@@ -1,6 +1,6 @@
 # Agenda de Actividades — Facultad de Derecho
 
-## Versión 27
+## Versión 28
 
 - Tipografías: Poppins para títulos y controles; Noto Sans para textos.
 - Se eliminó el rótulo «Consulta pública» del encabezado.
@@ -22,21 +22,21 @@ El proyecto ya contiene la configuración del proyecto Firebase `agenda-hibridac
 ## Funciones incluidas
 
 - Vistas por día, semana y mes; en celular se transforman en listas verticales legibles. En la vista mensual, la fila con los días de la semana permanece visible al desplazarse.
-- Día actual destacado visualmente en las vistas diaria, semanal y mensual; el indicador **Hoy** y el círculo del día actual usan el acento bordó institucional.
+- Día actual destacado visualmente en las vistas diaria, semanal y mensual; el indicador **Hoy** y el círculo del día actual usan el acento bordó institucional. En Semana y Mes, los días ya transcurridos se muestran atenuados.
 - Agenda de lunes a sábado, sin domingos.
 - Cierre de agenda el 28 de diciembre de 2026.
 - Feriados marcados: 12 de octubre, 23 de noviembre, 7 y 8 de diciembre.
 - Tarjetas compactas con horario, actividad, área organizadora identificada por color y aula; el logo de plataforma se muestra solo cuando la modalidad lo requiere. El resto se despliega.
 - El nombre del área organizadora aparece con su color institucional al desplegar una actividad.
 - Modalidad seleccionable entre Presencial, Híbrida, Virtual y Transmisión. Las cuatro modalidades muestran un rótulo pequeño en azul `#023764`, ubicado sobre Aula/Lugar y la plataforma; las virtuales no solicitan ni muestran Aula/Lugar.
-- Rótulo automático **▶ En curso** durante el horario de desarrollo de una actividad.
+- En la vista diaria se muestra **Empieza en…** antes del inicio y, durante la actividad, **▶ En curso** junto con el tiempo transcurrido. Las actividades finalizadas se atenúan automáticamente.
 - Tarjetas identificadas mediante una franja con el color correspondiente al área organizadora.
 - Campo público y opcional **Enlace para más información** en todas las actividades.
-- Carga diferenciada de **Períodos o fechas importantes** para inscripciones, mesas, vacaciones, reinscripciones e ingreso. Se integran en las vistas Día, Semana y Mes y permanecen visibles durante todo el tramo correspondiente.
+- Carga diferenciada de **Información del calendario**, con tipos como **Inscripciones**, **Recesos** y **Suspensión de actividades**, más un detalle (por ejemplo, “Mesas de septiembre”). Se integra en las vistas pública y de edición de Día, Semana y Mes durante todo el tramo correspondiente.
 - Estados automáticos para los períodos: Próximamente, Período abierto, Últimos días y Finalizada.
 - Logo de YouTube para las transmisiones realizadas mediante esa plataforma.
 - Logos compactos de Google Meet, Microsoft Teams y Zoom.
-- Cada enlace puede marcarse como público o privado. La consulta pública solo permite abrir y copiar los enlaces expresamente públicos; en los demás casos muestra **Link privado**.
+- Cada enlace de actividad puede marcarse como público o privado. Si es privado, **no aparece ningún bloque ni aviso de enlace en la vista pública**; la cuenta editora sí puede verlo, abrirlo y copiarlo.
 - Carga manual, edición, duplicación y eliminación.
 - Edición individual o conjunta de las actividades que tengan el mismo nombre y el mismo día de la semana.
 - Listas desplegables institucionales para área organizadora y aula, con opción de indicar otro lugar.

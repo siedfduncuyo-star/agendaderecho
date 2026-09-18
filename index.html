@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=28" />
   </head>
   <body>
     <header class="site-header">
@@ -68,8 +68,9 @@
         <input id="originalActivityName" type="hidden" />
         <input id="originalActivityDate" type="hidden" />
         <div class="form-grid">
-          <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Período o fecha importante</option></select></label>
-          <label class="wide">Título<input id="name" type="text" maxlength="160" required /></label>
+          <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Información del calendario</option></select></label>
+          <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="recess">Recesos</option><option value="suspension">Suspensión de actividades</option><option value="other">Otra fecha relevante</option></select></label>
+          <label class="wide"><span id="nameLabel">Título</span><input id="name" type="text" maxlength="160" required /></label>
           <label>Fecha de inicio<input id="date" type="date" max="2026-12-28" required /></label>
           <label>Fecha de finalización<input id="endDate" type="date" max="2026-12-28" required /></label>
           <label data-scheduled-only>Hora de inicio<input id="startTime" type="time" required /></label>
@@ -99,7 +100,7 @@
           <datalist id="platformOptions"><option value="Zoom"></option><option value="Google Meet"></option><option value="Microsoft Teams"></option><option value="YouTube"></option></datalist>
           <label class="wide" data-scheduled-only>Cuenta utilizada<input id="accountUsed" type="text" maxlength="160" /></label>
           <label class="wide" data-scheduled-only>Enlace de la actividad<input id="meetingUrl" type="url" maxlength="500" placeholder="https://…" /></label>
-          <label class="recording-field wide" data-scheduled-only><input id="publicLink" type="checkbox" /><span><strong>El enlace es público</strong><small>Si no se marca, la consulta pública mostrará “Link privado”. Solo la cuenta editora podrá abrirlo y copiarlo.</small></span></label>
+          <label class="recording-field wide" data-scheduled-only><input id="publicLink" type="checkbox" /><span><strong>El enlace es público</strong><small>Si no se marca, el enlace no aparecerá en la vista pública. Solo la cuenta editora podrá verlo, abrirlo y copiarlo.</small></span></label>
           <label class="wide">Enlace para más información<input id="moreInfoUrl" type="url" maxlength="500" placeholder="Página, formulario de inscripción, cronograma…" /><small>Este enlace será público.</small></label>
           <label class="wide"><span id="requirementsLabel">Requerimientos / observaciones</span><textarea id="requirements" rows="4" maxlength="1000" placeholder="Micrófonos, cámara, presentación, indicaciones especiales…"></textarea></label>
           <label class="recording-field" data-scheduled-only><input id="recordingRequired" type="checkbox" /><span><strong>Requiere grabación</strong><small>Marcar si la actividad debe registrarse.</small></span></label>
@@ -153,7 +154,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script src="config.js?v=11"></script>
-    <script type="module" src="app.js?v=25"></script>
+    <script type="module" src="app.js?v=28"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

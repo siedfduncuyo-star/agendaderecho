@@ -262,3 +262,16 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   .dialog form, .detail-dialog-content { padding: 17px; }
   .dialog-actions .button { flex: 1; }
 }
+
+/* v28 · estados temporales e información del calendario */
+.day-section.past-day .day-heading,
+.day-section.past-day .activity-row { opacity: .58; }
+.month-day.past-day:not(.today) { background: #f7f8f9; color: #8d979f; }
+.month-day.past-day:not(.today) .month-event,
+.month-day.past-day:not(.today) .month-holiday { opacity: .58; }
+.activity-row.is-past-activity { opacity: .56; background: #f7f8f9; }
+.activity-row.is-past-activity[open] { opacity: .72; }
+.daily-time-badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 999px; font-size: .61rem; font-weight: 700; white-space: nowrap; }
+.daily-time-badge.upcoming { background: #f1f3f5; color: #54616b; }
+.daily-time-badge.elapsed { background: #e7f1f7; color: #023764; }
+.period-marker { white-space: normal; line-height: 1.2; }
