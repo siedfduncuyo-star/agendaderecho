@@ -80,6 +80,7 @@ const activityCategoryLabels = new Map([
   ["class", "Clase de grado"],
   ["open_class", "Clase abierta"],
   ["exam", "Examen final"],
+  ["global_knowledge_exam", "Examen Global de Conocimientos"],
   ["doctorate", "Doctorado"],
   ["masters", "Maestría"],
   ["specialization", "Especialización"],
@@ -147,6 +148,28 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
+const academicCalendarImportantDates = [
+  { id: "calacad-2026-cursado-segundo-semestre", period_type: "classes", date: "2026-08-03", end_date: "2026-11-06", name: "Segundo semestre 2026", description: "Todas las cátedras deberán finalizar sus actividades evaluativas, incluidos los exámenes recuperatorios, dentro de este período y no podrán exceder el 6 de noviembre de 2026." },
+  { id: "calacad-2026-inscripcion-mesas-agosto", period_type: "inscriptions", date: "2026-08-18", end_date: "2026-08-19", name: "Inscripción · Mesas de agosto 2026", description: "Inscripción a exámenes finales ordinarios del turno agosto 2026." },
+  { id: "calacad-2026-mesas-agosto", period_type: "exam_tables", date: "2026-08-24", end_date: "2026-08-28", name: "Mesas de agosto 2026", description: "Turno ordinario de exámenes finales." },
+  { id: "calacad-2026-suspension-clases-agosto", period_type: "suspension", date: "2026-08-24", end_date: "2026-08-28", name: "Suspensión del dictado de clases · Turno de agosto", description: "El dictado de clases se suspende durante este turno de exámenes finales por no contar con aulas disponibles para desarrollar ambas actividades simultáneamente." },
+  { id: "calacad-2026-inscripcion-mesas-especiales-septiembre", period_type: "inscriptions", date: "2026-09-09", end_date: "2026-09-10", name: "Inscripción · Mesas especiales de septiembre 2026", description: "Inscripción al turno especial de exámenes finales de septiembre 2026." },
+  { id: "calacad-2026-mesas-especiales-septiembre", period_type: "exam_tables", date: "2026-09-14", end_date: "2026-09-16", name: "Mesas especiales de septiembre 2026", description: "Turno especial de exámenes finales. Sin suspensión de clases." },
+  { id: "calacad-2026-inscripcion-mesas-octubre", period_type: "inscriptions", date: "2026-10-07", end_date: "2026-10-08", name: "Inscripción · Mesas de octubre 2026", description: "Inscripción a exámenes finales ordinarios del turno octubre 2026." },
+  { id: "calacad-2026-mesas-octubre", period_type: "exam_tables", date: "2026-10-13", end_date: "2026-10-19", name: "Mesas de octubre 2026", description: "Turno ordinario de exámenes finales." },
+  { id: "calacad-2026-suspension-clases-octubre", period_type: "suspension", date: "2026-10-13", end_date: "2026-10-19", name: "Suspensión del dictado de clases · Turno de octubre", description: "El dictado de clases se suspende durante este turno de exámenes finales por no contar con aulas disponibles para desarrollar ambas actividades simultáneamente." },
+  { id: "calacad-2026-cierre-regularidades-segundo-semestre", period_type: "academic_closure", date: "2026-11-02", end_date: "2026-11-06", name: "Cierre de regularidades y carga en SIU-Guaraní · Segundo semestre", description: "Durante este período no se pueden tomar evaluaciones." },
+  { id: "calacad-2026-inscripcion-mesas-noviembre", period_type: "inscriptions", date: "2026-11-10", end_date: "2026-11-11", name: "Inscripción · Mesas de noviembre 2026", description: "Inscripción a exámenes finales ordinarios del turno noviembre 2026." },
+  { id: "calacad-2026-mesas-noviembre", period_type: "exam_tables", date: "2026-11-13", end_date: "2026-11-19", name: "Mesas de noviembre 2026", description: "Turno ordinario de exámenes finales." },
+  { id: "calacad-2026-inscripcion-mesas-diciembre", period_type: "inscriptions", date: "2026-12-09", end_date: "2026-12-10", name: "Inscripción · Mesas de diciembre 2026", description: "Inscripción a exámenes finales ordinarios del turno diciembre 2026." },
+  { id: "calacad-2026-mesas-diciembre", period_type: "exam_tables", date: "2026-12-14", end_date: "2026-12-18", name: "Mesas de diciembre 2026", description: "Turno ordinario de exámenes finales." },
+  { id: "calacad-2026-receso-estival", period_type: "recess", date: "2026-12-28", end_date: "2027-01-31", name: "Receso estival 2026–2027", description: "Dada la fecha programada para los exámenes finales del turno febrero 2027, los docentes deberán retomar las consultas a partir del 1 de febrero de 2027." },
+  { id: "calacad-2027-inscripcion-mesas-febrero", period_type: "inscriptions", date: "2027-02-03", end_date: "2027-02-04", name: "Inscripción · Mesas de febrero 2027", description: "Inscripción a exámenes finales ordinarios del turno febrero 2027." },
+  { id: "calacad-2027-mesas-febrero", period_type: "exam_tables", date: "2027-02-08", end_date: "2027-02-12", name: "Mesas de febrero 2027", description: "Turno ordinario de exámenes finales." },
+  { id: "calacad-2027-inscripcion-mesas-marzo", period_type: "inscriptions", date: "2027-03-10", end_date: "2027-03-11", name: "Inscripción · Mesas de marzo 2027", description: "Inscripción a exámenes finales ordinarios del turno marzo 2027." },
+  { id: "calacad-2027-mesas-marzo", period_type: "exam_tables", date: "2027-03-15", end_date: "2027-03-19", name: "Mesas de marzo 2027", description: "Turno ordinario de exámenes finales." }
+];
+
 const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
@@ -155,6 +178,7 @@ const activityDialog = el("activityDialog");
 const importDialog = el("importDialog");
 const detailDialog = el("detailDialog");
 const calendarDialog = el("calendarDialog");
+const bulkDatesDialog = el("bulkDatesDialog");
 const reportDialog = el("reportDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
@@ -216,7 +240,7 @@ function activityCategoryOptionsForSecretary(secretary) {
     ["thesis_defense", "Defensa de tesis"], ["seminar", "Seminario"], ["course", "Curso"], ["days", "Jornada/s"]
   ];
   if (organizer === generalSecretary) return [["board", "Consejo Directivo"]];
-  if (organizer === academicSecretary) return [["class", "Clase de grado"], ["open_class", "Clase abierta"], ["exam", "Examen final"], ...commonActivityCategoryOptions];
+  if (organizer === academicSecretary) return [["class", "Clase de grado"], ["open_class", "Clase abierta"], ["exam", "Examen final"], ["global_knowledge_exam", "Examen Global de Conocimientos"], ...commonActivityCategoryOptions];
   if (commonProgramSecretaries.has(organizer)) return commonActivityCategoryOptions;
   return [...commonActivityCategoryOptions, ["other", "Otra actividad"]];
 }
@@ -224,7 +248,7 @@ function inferActivityCategory(item) {
   const organizer = organizerName(item?.secretary);
   const text = `${item?.name || ""} ${item?.subject || ""}`.toLocaleLowerCase(locale);
   const legacy = String(item?.academic_activity_type || "").trim().toLocaleLowerCase(locale);
-  if (["class", "open_class", "exam", "other"].includes(legacy)) return legacy;
+  if (["class", "open_class", "exam", "global_knowledge_exam", "other"].includes(legacy)) return legacy;
   if (organizer === academicSecretary && item?.subject) return "class";
   if (organizer === generalSecretary || text.includes("consejo directivo")) return "board";
   if (text.includes("defensa") && text.includes("tesis")) return "thesis_defense";
@@ -300,15 +324,17 @@ function isPastDay(date, now = new Date()) { return localDate(date) < localDate(
 function isImportantPeriod(item) { return String(item?.record_kind || "").trim().toLocaleLowerCase(locale) === "period"; }
 function periodTypeKey(item) {
   const stored = String(item?.period_type || "").trim().toLocaleLowerCase(locale);
-  if (["inscriptions", "exam_tables", "recess", "suspension", "other"].includes(stored)) return stored;
+  if (["inscriptions", "exam_tables", "recess", "suspension", "classes", "academic_closure", "other"].includes(stored)) return stored;
   const text = String(item?.name || "").toLocaleLowerCase(locale);
   if (text.includes("mesa") && text.includes("examen")) return "exam_tables";
   if (text.includes("inscrip")) return "inscriptions";
   if (text.includes("receso") || text.includes("vacacion")) return "recess";
   if (text.includes("suspens")) return "suspension";
+  if (text.includes("cursado") || text.includes("semestre")) return "classes";
+  if (text.includes("regularidad") || text.includes("siu-guaran")) return "academic_closure";
   return "other";
 }
-function periodTypeLabel(item) { return { inscriptions: "Inscripciones", exam_tables: "Mesas de examen", recess: "Recesos", suspension: "Suspensión de actividades", other: "Otra fecha destacada" }[periodTypeKey(item)]; }
+function periodTypeLabel(item) { return { inscriptions: "Inscripciones", exam_tables: "Mesas de examen", recess: "Recesos", suspension: "Suspensión de actividades", classes: "Cursado", academic_closure: "Cierre académico", other: "Otra fecha destacada" }[periodTypeKey(item)]; }
 function importantPeriodStatus(item) {
   const today = toISODate(new Date());
   if (today < item.date) return "Próximamente";
@@ -490,6 +516,7 @@ function bindEvents() {
   });
   el("newActivity").addEventListener("click", () => openActivityForm());
   el("updateCalendar").addEventListener("click", openCalendarForm);
+  el("bulkAcademicDates").addEventListener("click", openBulkAcademicDates);
   el("downloadReport").addEventListener("click", openReportForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
@@ -497,6 +524,7 @@ function bindEvents() {
   el("activityForm").addEventListener("submit", saveActivity);
   el("importForm").addEventListener("submit", importCalendarFile);
   el("calendarForm").addEventListener("submit", saveCalendarConfig);
+  el("bulkDatesForm").addEventListener("submit", saveBulkAcademicDates);
   el("reportForm").addEventListener("submit", generateReportPdf);
   el("reportPeriodType").addEventListener("change", updateReportFormFields);
   el("reportOutputType").addEventListener("change", updateReportFormFields);
@@ -516,7 +544,7 @@ function bindEvents() {
   el("recordKind").addEventListener("change", toggleRecordKindFields);
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
-  [importDialog, detailDialog, calendarDialog, reportDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+  [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
   activityDialog.addEventListener("cancel", (event) => event.preventDefault());
   setInterval(() => { if (!document.hidden) render(); }, 60000);
 }
@@ -1333,6 +1361,103 @@ async function deleteActivity(item) {
     } else writeDemoData(loadDemoData().filter((record) => record.id !== item.id));
     if (detailDialog.open) detailDialog.close(); await loadPeriod(); showToast("Actividad eliminada");
   } catch (error) { alert(`No se pudo eliminar. ${friendlyError(error)}`); }
+}
+
+function bulkAcademicDatePayload(item) {
+  return {
+    record_kind: "period",
+    period_type: item.period_type,
+    date: item.date,
+    end_date: item.end_date,
+    start_time: "",
+    end_time: "",
+    name: item.name,
+    secretary: academicSecretary,
+    activity_category: "",
+    academic_activity_type: "",
+    career: "",
+    academic_year: "",
+    subject: "",
+    classroom: "",
+    activity_type: "",
+    activity_status: "scheduled",
+    postponed_date: "",
+    postponed_date_tbd: false,
+    platform: "",
+    meeting_url: "",
+    link_is_public: false,
+    more_info_url: "",
+    requirements: item.description || "",
+    observations: "",
+    recording_required: false,
+    source_uid: item.id,
+    calendar_source: "Calendario Académico 2026–2027"
+  };
+}
+
+function openBulkAcademicDates() {
+  if (!state.canEdit) return;
+  const list = el("bulkDatesPreview");
+  list.replaceChildren();
+  academicCalendarImportantDates.forEach((item) => {
+    const li = document.createElement("li");
+    const type = periodTypeLabel({ record_kind: "period", period_type: item.period_type, name: item.name });
+    const title = document.createElement("strong");
+    title.textContent = `${type} · ${item.name}`;
+    const dates = document.createElement("span");
+    dates.textContent = dateRangeLabel(item);
+    li.append(title, dates);
+    list.append(li);
+  });
+  el("bulkDatesCount").textContent = `${academicCalendarImportantDates.length} fechas destacadas`;
+  el("bulkDatesMessage").hidden = true;
+  bulkDatesDialog.showModal();
+}
+
+async function saveBulkAcademicDates(event) {
+  event.preventDefault();
+  if (!state.canEdit) return;
+  const button = el("runBulkDates");
+  const message = el("bulkDatesMessage");
+  message.hidden = true;
+  button.disabled = true;
+  button.textContent = "Cargando…";
+  try {
+    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
+    const existing = await getDocs(collection(db, activitiesCollection));
+    const knownSourceIds = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
+    const pending = academicCalendarImportantDates.filter((item) => !knownSourceIds.has(item.id));
+    for (let start = 0; start < pending.length; start += 225) {
+      const batch = writeBatch(db);
+      pending.slice(start, start + 225).forEach((item) => {
+        const payload = bulkAcademicDatePayload(item);
+        batch.set(doc(db, activitiesCollection, item.id), { ...publicActivityData(payload), created_at: serverTimestamp(), updated_at: serverTimestamp() });
+      });
+      await batch.commit();
+    }
+
+    // El receso estival llega hasta 2027; extendemos 2026 al 31/12 sin tocar feriados ni otras configuraciones.
+    const nextCalendar = normalizeCalendarConfig(state.calendarConfig);
+    if (nextCalendar.years["2026"].end < "2026-12-31") {
+      nextCalendar.years["2026"].end = "2026-12-31";
+      const batch = writeBatch(db);
+      batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), { record_kind: "calendar_config", date: `${calendarFirstYear}-01-01`, end_date: `${calendarLastYear}-12-31`, name: "Configuración del calendario", calendar_config: nextCalendar, updated_at: serverTimestamp() }, { merge: true });
+      await batch.commit();
+      state.calendarConfig = nextCalendar;
+    }
+
+    bulkDatesDialog.close();
+    state.cursor = fromISODate("2026-08-16");
+    await loadPeriod();
+    const skipped = academicCalendarImportantDates.length - pending.length;
+    showToast(skipped ? `${pending.length} fechas cargadas · ${skipped} ya existían` : `${pending.length} fechas académicas cargadas`);
+  } catch (error) {
+    message.textContent = `No se pudo realizar la carga masiva. ${friendlyError(error)}`;
+    message.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Cargar fechas";
+  }
 }
 
 function openImportForm() { if (!state.canEdit) return; el("importForm").reset(); el("icsFileName").textContent = "Ningún archivo seleccionado"; el("importMessage").hidden = true; importDialog.showModal(); }

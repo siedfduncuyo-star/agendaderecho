@@ -57,3 +57,10 @@ El dominio de GitHub Pages debe estar autorizado en Firebase Authentication:
 `siedfduncuyo-star.github.io`
 
 Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl + F5`).
+
+
+## v37
+- Secretaría Académica: nueva categoría **Examen Global de Conocimientos**.
+- Nuevos tipos de fecha destacada: **Cursado** y **Cierre académico**.
+- Carga masiva idempotente del Calendario Académico desde el 16/08/2026, con 19 registros (incluye el segundo semestre vigente desde el 03/08/2026).
+- La carga no duplica registros ya existentes y extiende el calendario 2026 al 31/12 para mostrar completo el receso estival.

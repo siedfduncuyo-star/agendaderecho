@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=36" />
+    <link rel="stylesheet" href="styles.css?v=37" />
   </head>
   <body>
     <header class="site-header">
@@ -56,6 +56,7 @@
           <div class="editor-actions editor-only" hidden>
             <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
             <button id="updateCalendar" class="button button-secondary" type="button">Actualizar calendario</button>
+            <button id="bulkAcademicDates" class="button button-secondary" type="button">Cargar fechas académicas</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -99,7 +100,7 @@
         <input id="originalActivityDate" type="hidden" />
         <div class="form-grid">
           <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Fecha destacada</option></select></label>
-          <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Recesos</option><option value="suspension">Suspensión de actividades</option><option value="other">Otra fecha destacada</option></select></label>
+          <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Recesos</option><option value="suspension">Suspensión de actividades</option><option value="classes">Cursado</option><option value="academic_closure">Cierre académico</option><option value="other">Otra fecha destacada</option></select></label>
           <label class="wide"><span id="nameLabel">Título</span><input id="name" type="text" maxlength="160" required /></label>
           <label>Fecha de inicio<input id="date" type="date" min="2026-01-01" max="2030-12-31" required /></label>
           <label>Fecha de finalización<input id="endDate" type="date" min="2026-01-01" max="2030-12-31" required /></label>
@@ -140,6 +141,24 @@
         <div class="dialog-actions">
           <button class="button button-secondary" type="button" data-close="activityDialog">Cancelar</button>
           <button id="saveActivity" class="button button-primary" type="submit">Guardar actividad</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="bulkDatesDialog" class="dialog bulk-dates-dialog">
+      <form id="bulkDatesForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Carga masiva</p><h2>Calendario académico</h2></div>
+          <button class="close-button" type="button" data-close="bulkDatesDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Esta primera carga incorpora las fechas destacadas desde el 16 de agosto de 2026 en adelante. También incluye el cursado del segundo semestre, iniciado el 3 de agosto, porque se encontraba vigente en la fecha de corte.</p>
+        <div class="bulk-dates-summary"><strong id="bulkDatesCount">19 fechas destacadas</strong><span>Secretaría Académica · 2026–2027</span></div>
+        <ul id="bulkDatesPreview" class="bulk-dates-preview"></ul>
+        <p class="report-note">La carga es segura para repetir: las fechas ya incorporadas se detectan por un identificador fijo y no se duplican.</p>
+        <div id="bulkDatesMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="bulkDatesDialog">Cancelar</button>
+          <button id="runBulkDates" class="button button-primary" type="submit">Cargar fechas</button>
         </div>
       </form>
     </dialog>
@@ -274,7 +293,7 @@
 
     <script src="config.js?v=11"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js?v=36"></script>
+    <script type="module" src="app.js?v=37"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");
