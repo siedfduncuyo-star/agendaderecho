@@ -652,3 +652,7 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
 @media (max-width: 650px) {
   .view-switch-row .copy-view-button { flex: 0 0 38px; width: 38px; height: 40px; }
 }
+
+/* Fechas de calendario sin tarjeta (receso / reinicio) */
+.calendar-marker-badge { margin-left: 4px; }
+.month-calendar-marker { display: block; width: fit-content; margin-top: 3px; }

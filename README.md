@@ -89,3 +89,11 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - La copia masiva usa exclusivamente información pública: nunca incluye responsable, requerimientos, observaciones internas ni enlaces privados.
 - Las fechas destacadas se incluyen cuando ese filtro está activo.
 - Los enlaces se incorporan únicamente cuando son públicos.
+
+
+## v41
+- Las fechas destacadas pueden guardarse sin organizador; las actividades con horario siguen requiriendo un área organizadora.
+- Receso se muestra como una marca de calendario en su fecha de inicio, sin tarjeta ni organizador.
+- El día posterior al fin del receso se muestra automáticamente como “Reinicio de actividades”, también como marca de calendario.
+- Se agregó “Reinicio de actividades” como tipo de fecha destacada para futuras cargas manuales.
+- Los estados futuros de fechas destacadas muestran “En N días” en lugar de “Próximamente” y se recalculan automáticamente.
