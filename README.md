@@ -1,80 +1,45 @@
-# Agenda de Actividades · v30
+# Agenda de Actividades · v34
 
-Versión preparada para publicar en GitHub Pages.
+Versión conectada a Firebase/Firestore para publicación en GitHub Pages.
 
-## Cambios principales de v30
+## Conexión real con Firebase
 
-- Los filtros vuelven a ser **checks combinables** y quedan siempre visibles:
-  - Presenciales
-  - Híbridas
-  - Virtuales
-  - Fechas destacadas
-- El contador de cada vista utiliza la denominación **evento / eventos** e incluye actividades y fechas destacadas visibles según los filtros.
-- El fondo del contador y la vista seleccionada (**Día / Semana / Mes**) utilizan el color institucional `#C5AD68`.
-- El día actual utiliza un rojo más visible (`#A51C30`) en el indicador **Hoy** y en la vista mensual.
-- Se incorpora el nuevo logo **UNCUYO · Facultad de Derecho** provisto para esta versión.
-- **Administrar agenda** se reemplaza por el ícono de administración. A su izquierda se muestra la cantidad de **eventos totales** de toda la agenda.
-- En modo administrador aparecen dos acciones principales:
-  - **+ Cargar actividad**
-  - **Actualizar calendario**
-- **Actualizar calendario** permite administrar los años 2026, 2027, 2028, 2029 y 2030 sin modificar el código:
-  - definir inicio y fin del calendario de cada año;
-  - cargar, modificar o eliminar feriados/días sin actividad;
-  - identificar cada feriado con su nombre.
-- Los feriados quedan apagados y no muestran actividades.
-- Los días sin eventos continúan visualmente atenuados.
-- Los filtros se pueden combinar libremente; si se desmarcan todos, no se muestran eventos.
-- El botón de las tarjetas ahora dice simplemente **Copiar**. Mantiene el formato con negritas compatible con WhatsApp.
-- Se conserva la privacidad de enlaces: los enlaces privados no se muestran ni se copian en la vista pública.
-- Se mantiene la compatibilidad con registros anteriores de **Transmisión**, que se interpretan como **Híbrida**, y con **Optativas / otras**, que se muestra como **Optativa**.
+- Se elimina el uso de `?demo=1` como mecanismo de administración.
+- El ícono de administración abre el inicio de sesión de Google mediante Firebase Authentication.
+- La cuenta administradora configurada es `facultad@derecho.uncu.edu.ar`.
+- Las altas, ediciones, eliminaciones, importaciones y cambios de calendario se guardan realmente en Cloud Firestore.
+- La colección pública es `actividades`.
+- Los datos internos se guardan en `actividades_privadas`.
+- Los enlaces privados y los campos internos no se escriben en la colección pública.
+- La seguridad efectiva depende de las reglas publicadas en Firestore; la interfaz del navegador no concede permisos por sí sola.
 
-## Administración del calendario
+## Recuerdo de la última visualización
 
-La configuración del calendario se guarda junto con la agenda en Firebase, por lo que se mantiene al cambiar de dispositivo. En modo de prueba se guarda en el almacenamiento local del navegador.
+En cada navegador se recuerda localmente:
 
-Para editar un año:
+- Vista Día / Semana / Mes.
+- Fecha o período que se estaba consultando.
+- Checks de modalidad.
+- Checks de Pregrado / Grado / Posgrado / Actividades generales.
+- Texto del buscador.
 
-1. Ingresá al modo administrador desde el ícono de engranaje.
-2. Elegí **Actualizar calendario**.
-3. Seleccioná el año.
-4. Ajustá las fechas de inicio y fin si fuera necesario.
-5. Escribí un feriado por línea con el formato `DD/MM | Nombre`.
-6. Guardá el calendario.
+Estas preferencias se guardan únicamente en `localStorage`. No se guardan allí contraseñas, tokens, permisos, enlaces privados ni información de `actividades_privadas`.
 
-Ejemplo:
+## Publicación en GitHub Pages
 
-```text
-12/10 | Feriado
-08/12 | Inmaculada Concepción
-```
+Subir todo el contenido de esta carpeta a la raíz del repositorio, conservando `assets` y `firebase`.
 
-## Publicación
+El dominio de GitHub Pages debe estar autorizado en Firebase Authentication. Para esta publicación se utiliza:
 
-Subí todo el contenido de esta carpeta a la raíz del repositorio de GitHub Pages, conservando las carpetas `assets` y `firebase`.
+`siedfduncuyo-star.github.io`
 
-Si reemplazás una versión anterior, hacé una recarga forzada del navegador (`Ctrl + F5`) después de publicar.
+Después de reemplazar una versión anterior, hacer una recarga forzada del navegador (`Ctrl + F5`).
 
-## v31
+## Prueba recomendada
 
-- El botón **Hoy** y el destacado del día actual vuelven a la identidad azul.
-- **Día / Semana / Mes** seleccionados vuelven a azul.
-- El contador de eventos de la vista queda inmediatamente a la derecha del selector Día / Semana / Mes.
-- El total general del calendario se adapta a pantallas chicas.
-- Se agrega un buscador debajo de los filtros combinables de modalidad.
-- El texto copiado elimina iconos decorativos; sólo conserva el icono de enlace cuando corresponde.
-- El botón visible de copiado se reemplaza por un icono dorado, sin texto.
-
-
-## v32 - Buscador e informes PDF
-
-- El buscador filtra la vista actual en tiempo real y busca sin distinguir mayúsculas, minúsculas ni tildes.
-- La búsqueda recorre título, área, responsable, carrera, materia, año, lugar, modalidad, tipo, estado y descripciones.
-- En modo administrador se incorpora `Informe PDF`. El informe se genera según la vista activa (Día, Semana o Mes), respeta los checks de modalidad y la búsqueda actual, y se descarga directamente como PDF.
-- El PDF incluye período, total de eventos, resumen por modalidad y el detalle ordenado de los eventos. Los enlaces privados no se incluyen en el informe.
-
-
-## v33
-- La administración queda temporalmente en modo de prueba local (`?demo=1`), sin permisos de carga sobre Firebase.
-- Se agregan filtros combinables por nivel: Pregrado, Grado, Posgrado y Actividades generales.
-- El tipo de actividad `Materia` pasa a denominarse `Clase de grado`.
-- El botón de copiar queda alineado a la derecha y en azul institucional.
+1. Abrir la agenda pública sin iniciar sesión y comprobar que carga normalmente.
+2. Tocar el ícono de administración.
+3. Elegir `facultad@derecho.uncu.edu.ar`.
+4. Cargar una actividad de prueba.
+5. Verificar en Firestore que se creó un documento en `actividades` y otro, con el mismo ID, en `actividades_privadas`.
+6. Probar una actividad con enlace privado y confirmar que `meeting_url` queda vacío en `actividades` y completo en `actividades_privadas`.

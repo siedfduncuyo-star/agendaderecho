@@ -3,8 +3,7 @@ import { browserLocalPersistence, getAuth, GoogleAuthProvider, onAuthStateChange
 import { collection, deleteField, doc, getDocs, getFirestore, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const config = window.AGENDA_CONFIG || {};
-const demoMode = new URLSearchParams(location.search).has("demo");
-const configured = Boolean(config.firebaseConfig?.apiKey) && !demoMode;
+const configured = Boolean(config.firebaseConfig?.apiKey);
 const adminEmail = String(config.adminEmail || "").trim().toLowerCase();
 const firebaseApp = configured ? initializeApp(config.firebaseConfig) : null;
 const db = configured ? getFirestore(firebaseApp) : null;
@@ -14,6 +13,7 @@ const privateActivitiesCollection = "actividades_privadas";
 const locale = "es-AR";
 const demoStorageKey = "agenda-hibrida-demo-firebase-v2";
 const demoCalendarStorageKey = "agenda-calendario-config-v30";
+const viewPreferencesStorageKey = "agenda-derecho-view-preferences-v1";
 const calendarConfigDocumentId = "__calendar_config__";
 const calendarFirstYear = 2026;
 const calendarLastYear = 2030;
@@ -146,7 +146,7 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -384,6 +384,43 @@ function createPlatformIcon(platform) {
   return icon;
 }
 
+function saveViewPreferences() {
+  try {
+    localStorage.setItem(viewPreferencesStorageKey, JSON.stringify({
+      view: state.view,
+      cursor: toISODate(state.cursor),
+      filters: [...state.filters],
+      audienceFilters: [...state.audienceFilters],
+      searchQuery: state.searchQuery || ""
+    }));
+  } catch (_) { /* Las preferencias son opcionales. */ }
+}
+
+function restoreViewPreferences() {
+  try {
+    const raw = localStorage.getItem(viewPreferencesStorageKey);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (["day", "week", "month"].includes(saved?.view)) state.view = saved.view;
+    if (validISODate(saved?.cursor)) {
+      const restoredDate = fromISODate(saved.cursor);
+      if (restoredDate >= calendarMinDate && restoredDate <= calendarMaxDate) state.cursor = restoredDate;
+    }
+    const modalityValues = new Set(["presential", "hybrid", "virtual", "featured"]);
+    if (Array.isArray(saved?.filters)) state.filters = new Set(saved.filters.filter((value) => modalityValues.has(value)));
+    const audienceValues = new Set(["pregrado", "grado", "posgrado", "general"]);
+    if (Array.isArray(saved?.audienceFilters)) state.audienceFilters = new Set(saved.audienceFilters.filter((value) => audienceValues.has(value)));
+    state.searchQuery = typeof saved?.searchQuery === "string" ? saved.searchQuery : "";
+  } catch (_) { /* Si hay preferencias antiguas o dañadas, se usan los valores por defecto. */ }
+}
+
+function applyViewPreferencesToControls() {
+  document.querySelectorAll(".view-filter-check").forEach((checkbox) => { checkbox.checked = state.filters.has(checkbox.value); });
+  document.querySelectorAll(".audience-filter-check").forEach((checkbox) => { checkbox.checked = state.audienceFilters.has(checkbox.value); });
+  const searchInput = el("agendaSearch");
+  if (searchInput) searchInput.value = state.searchQuery;
+}
+
 function demoRecords() {
   const monday = startOfWeek(new Date());
   return [
@@ -411,21 +448,24 @@ function writeDemoCalendarConfig(calendarConfig) { localStorage.setItem(demoCale
 
 async function init() {
   state.calendarConfig = cloneDefaultCalendarConfig();
-  el("demoBanner").hidden = configured;
+  el("demoBanner").hidden = true;
   populateFormOptions();
   populateCalendarYearOptions();
+  restoreViewPreferences();
+  applyViewPreferencesToControls();
   bindEvents();
+  applyViewStateUI();
   if (configured) {
     await setPersistence(auth, browserLocalPersistence).catch(() => {});
     onAuthStateChanged(auth, async (user) => {
       state.user = user;
-      state.canEdit = false;
+      state.canEdit = Boolean(user && String(user.email || "").trim().toLowerCase() === adminEmail);
       updateAuthUI();
       await loadPeriod();
     });
   } else {
     updateAuthUI();
-    setView("day");
+    status.textContent = "La agenda no tiene configurada la conexión con Firebase.";
   }
 }
 
@@ -439,7 +479,7 @@ function bindEvents() {
   document.querySelectorAll(".view-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncViewFilters));
   document.querySelectorAll(".audience-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncAudienceFilters));
   const searchInput = el("agendaSearch");
-  const applySearch = () => { state.searchQuery = searchInput.value; render(); };
+  const applySearch = () => { state.searchQuery = searchInput.value; saveViewPreferences(); render(); };
   searchInput.addEventListener("input", applySearch);
   searchInput.addEventListener("search", applySearch);
   searchInput.addEventListener("change", applySearch);
@@ -477,11 +517,13 @@ function bindEvents() {
 
 function syncViewFilters() {
   state.filters = new Set([...document.querySelectorAll(".view-filter-check:checked")].map((checkbox) => checkbox.value));
+  saveViewPreferences();
   render();
 }
 
 function syncAudienceFilters() {
   state.audienceFilters = new Set([...document.querySelectorAll(".audience-filter-check:checked")].map((checkbox) => checkbox.value));
+  saveViewPreferences();
   render();
 }
 
@@ -579,27 +621,59 @@ function toggleOtherSecretary() {
 
 function updateAuthUI() {
   const button = el("authButton");
-  el("sessionLabel").hidden = true;
-  el("sessionLabel").textContent = "";
-  if (!configured) { button.setAttribute("aria-label", "Volver a la agenda pública"); button.title = "Volver a la agenda pública"; }
-  else { button.setAttribute("aria-label", "Probar administración"); button.title = "Probar administración"; }
+  const sessionLabel = el("sessionLabel");
+  sessionLabel.hidden = true;
+  sessionLabel.textContent = "";
+  if (!configured) {
+    button.setAttribute("aria-label", "Administración no disponible");
+    button.title = "Administración no disponible";
+    button.disabled = true;
+  } else if (state.user) {
+    button.disabled = false;
+    button.setAttribute("aria-label", state.canEdit ? "Cerrar administración" : "Cerrar sesión");
+    button.title = state.canEdit ? "Cerrar administración" : "Cerrar sesión";
+  } else {
+    button.disabled = false;
+    button.setAttribute("aria-label", "Administración");
+    button.title = "Administración";
+  }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
 }
 
 async function handleAuthButton() {
-  const url = new URL(location.href);
-  if (!configured) url.searchParams.delete("demo");
-  else url.searchParams.set("demo", "1");
-  location.href = url.toString();
+  if (!configured) return;
+  try {
+    if (state.user) {
+      await signOut(auth);
+      showToast("Sesión de administración cerrada");
+      return;
+    }
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    const result = await signInWithPopup(auth, provider);
+    const email = String(result.user?.email || "").trim().toLowerCase();
+    if (email !== adminEmail) {
+      await signOut(auth);
+      alert("Esta cuenta no tiene permisos para administrar la agenda.");
+    }
+  } catch (error) {
+    if (["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error?.code)) return;
+    alert(`No se pudo iniciar sesión. ${friendlyError(error)}`);
+  }
+}
+
+function applyViewStateUI() {
+  ["day", "week", "month"].forEach((name) => {
+    const button = el(`${name}View`); const active = name === state.view;
+    button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
+  });
+  el("viewEyebrow").textContent = { day: "Vista diaria", week: "Vista semanal", month: "Vista mensual" }[state.view];
 }
 
 function setView(view) {
   state.view = view;
-  ["day", "week", "month"].forEach((name) => {
-    const button = el(`${name}View`); const active = name === view;
-    button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-  });
-  el("viewEyebrow").textContent = { day: "Vista diaria", week: "Vista semanal", month: "Vista mensual" }[view];
+  applyViewStateUI();
+  saveViewPreferences();
   loadPeriod();
 }
 
@@ -634,6 +708,7 @@ function periodRange() {
 }
 
 async function loadPeriod() {
+  saveViewPreferences();
   status.className = "status"; status.textContent = "Cargando agenda…"; agenda.replaceChildren();
   const { start, end } = periodRange();
   try {
@@ -1443,6 +1518,8 @@ async function downloadCurrentViewPdf() {
 function friendlyError(error) {
   const code = error?.code || "";
   if (code === "auth/unauthorized-domain") return "Falta autorizar el dominio de GitHub Pages en Firebase.";
+  if (code === "auth/popup-blocked") return "El navegador bloqueó la ventana de Google. Permití ventanas emergentes e intentá nuevamente.";
+  if (code === "auth/network-request-failed") return "No se pudo contactar a Google/Firebase. Revisá la conexión a Internet.";
   if (code === "permission-denied" || code === "firestore/permission-denied") return "La cuenta no tiene permiso para realizar esta acción.";
   if (code === "unavailable" || code === "firestore/unavailable") return "No hay conexión con Firebase. Revisá Internet e intentá nuevamente.";
   return error?.message || "Intentá nuevamente.";
