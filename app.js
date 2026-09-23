@@ -14,7 +14,8 @@ const locale = "es-AR";
 const demoStorageKey = "agenda-hibrida-demo-firebase-v2";
 const demoCalendarStorageKey = "agenda-calendario-config-v30";
 const viewPreferencesStorageKey = "agenda-derecho-view-preferences-v1";
-const calendarConfigDocumentId = "__calendar_config__";
+const calendarConfigDocumentId = "agenda_calendar_config";
+const academicCalendarBulkMarker = "academic_calendar_2026_2027_loaded";
 const calendarFirstYear = 2026;
 const calendarLastYear = 2030;
 const calendarMinDate = new Date(calendarFirstYear, 0, 1);
@@ -149,7 +150,7 @@ function inferAcademicYear(career, subject) {
 }
 
 const academicCalendarImportantDates = [
-  { id: "calacad-2026-cursado-segundo-semestre", period_type: "classes", date: "2026-08-03", end_date: "2026-11-06", name: "Segundo semestre 2026", description: "Todas las cátedras deberán finalizar sus actividades evaluativas, incluidos los exámenes recuperatorios, dentro de este período y no podrán exceder el 6 de noviembre de 2026." },
+  { id: "calacad-2026-fin-cursado-segundo-semestre", period_type: "classes", date: "2026-11-06", end_date: "2026-11-06", name: "Fin del cursado · Segundo semestre 2026", description: "Último día de cursado del segundo semestre. Todas las cátedras deberán finalizar sus actividades evaluativas, incluidos los exámenes recuperatorios, dentro de esta fecha." },
   { id: "calacad-2026-inscripcion-mesas-agosto", period_type: "inscriptions", date: "2026-08-18", end_date: "2026-08-19", name: "Inscripción · Mesas de agosto 2026", description: "Inscripción a exámenes finales ordinarios del turno agosto 2026." },
   { id: "calacad-2026-mesas-agosto", period_type: "exam_tables", date: "2026-08-24", end_date: "2026-08-28", name: "Mesas de agosto 2026", description: "Turno ordinario de exámenes finales." },
   { id: "calacad-2026-suspension-clases-agosto", period_type: "suspension", date: "2026-08-24", end_date: "2026-08-28", name: "Suspensión del dictado de clases · Turno de agosto", description: "El dictado de clases se suspende durante este turno de exámenes finales por no contar con aulas disponibles para desarrollar ambas actividades simultáneamente." },
@@ -170,7 +171,7 @@ const academicCalendarImportantDates = [
   { id: "calacad-2027-mesas-marzo", period_type: "exam_tables", date: "2027-03-15", end_date: "2027-03-19", name: "Mesas de marzo 2027", description: "Turno ordinario de exámenes finales." }
 ];
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -210,7 +211,7 @@ function normalizeCalendarConfig(raw) {
   return result;
 }
 function calendarConfigForYear(year) { return state.calendarConfig?.years?.[String(year)] || cloneDefaultCalendarConfig().years[String(year)]; }
-function isCalendarConfigRecord(item) { return item?.id === calendarConfigDocumentId || String(item?.record_kind || "").toLowerCase() === "calendar_config"; }
+function isCalendarConfigRecord(item) { return item?.id === calendarConfigDocumentId || item?.id === "__calendar_config__" || String(item?.record_kind || "").toLowerCase() === "calendar_config"; }
 function isWithinConfiguredCalendar(date) {
   const day = localDate(date); if (day < calendarMinDate || day > calendarMaxDate) return false;
   const configYear = calendarConfigForYear(day.getFullYear()); if (!configYear) return false;
@@ -672,6 +673,13 @@ function updateAuthUI() {
     button.title = "Administración";
   }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
+  updateBulkAcademicDatesVisibility();
+}
+
+function updateBulkAcademicDatesVisibility() {
+  const button = el("bulkAcademicDates");
+  if (!button) return;
+  button.hidden = !state.canEdit || state.academicCalendarBulkLoaded;
 }
 
 async function handleLogout() {
@@ -766,18 +774,20 @@ async function loadPeriod() {
       }
       const configRecord = records.find(isCalendarConfigRecord);
       state.calendarConfig = normalizeCalendarConfig(configRecord?.calendar_config);
+      state.academicCalendarBulkLoaded = Boolean(configRecord?.[academicCalendarBulkMarker]);
       records = records.filter((item) => !isCalendarConfigRecord(item));
       state.allActivities = records.sort(sortActivities);
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     } else {
       state.calendarConfig = loadDemoCalendarConfig();
+      state.academicCalendarBulkLoaded = false;
       const records = loadDemoData().filter((item) => !isCalendarConfigRecord(item)).sort(sortActivities); state.allActivities = records;
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     }
   } catch (error) {
     status.textContent = `No se pudo cargar la agenda. ${friendlyError(error)}`; return;
   }
-  updatePeriodTitle(); updateNavigationState(); render();
+  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); render();
 }
 
 function updateNavigationState() {
@@ -1144,7 +1154,7 @@ async function saveCalendarConfig(event) {
     const button = el("saveCalendar"); button.disabled = true; button.textContent = "Guardando…";
     try {
       if (configured) {
-        const batch = writeBatch(db); batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), { record_kind: "calendar_config", date: `${calendarFirstYear}-01-01`, end_date: `${calendarLastYear}-12-31`, name: "Configuración del calendario", calendar_config: next, updated_at: serverTimestamp() }); await batch.commit();
+        const batch = writeBatch(db); batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), { record_kind: "calendar_config", date: `${calendarFirstYear}-01-01`, end_date: `${calendarLastYear}-12-31`, name: "Configuración del calendario", calendar_config: next, updated_at: serverTimestamp() }, { merge: true }); await batch.commit();
       } else writeDemoCalendarConfig(next);
       state.calendarConfig = next; calendarDialog.close(); await loadPeriod(); showToast(`Calendario ${year} actualizado`);
     } finally { button.disabled = false; button.textContent = "Guardar calendario"; }
@@ -1416,7 +1426,7 @@ function openBulkAcademicDates() {
 
 async function saveBulkAcademicDates(event) {
   event.preventDefault();
-  if (!state.canEdit) return;
+  if (!state.canEdit || state.academicCalendarBulkLoaded) return;
   const button = el("runBulkDates");
   const message = el("bulkDatesMessage");
   message.hidden = true;
@@ -1424,33 +1434,55 @@ async function saveBulkAcademicDates(event) {
   button.textContent = "Cargando…";
   try {
     if (!configured) throw new Error("La agenda no está conectada a Firebase.");
+
     const existing = await getDocs(collection(db, activitiesCollection));
+    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
+    if (configRecord?.data()?.[academicCalendarBulkMarker] === true) {
+      state.academicCalendarBulkLoaded = true;
+      updateBulkAcademicDatesVisibility();
+      bulkDatesDialog.close();
+      showToast("Las fechas académicas ya fueron cargadas");
+      return;
+    }
+
     const knownSourceIds = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
     const pending = academicCalendarImportantDates.filter((item) => !knownSourceIds.has(item.id));
-    for (let start = 0; start < pending.length; start += 225) {
-      const batch = writeBatch(db);
-      pending.slice(start, start + 225).forEach((item) => {
-        const payload = bulkAcademicDatePayload(item);
-        batch.set(doc(db, activitiesCollection, item.id), { ...publicActivityData(payload), created_at: serverTimestamp(), updated_at: serverTimestamp() });
-      });
-      await batch.commit();
-    }
+    const batch = writeBatch(db);
 
-    // El receso estival llega hasta 2027; extendemos 2026 al 31/12 sin tocar feriados ni otras configuraciones.
+    // Corrige la primera versión: elimina el período completo de cursado si llegó a cargarse antes del error.
+    batch.delete(doc(db, activitiesCollection, "calacad-2026-cursado-segundo-semestre"));
+    batch.delete(doc(db, privateActivitiesCollection, "calacad-2026-cursado-segundo-semestre"));
+
+    pending.forEach((item) => {
+      const payload = bulkAcademicDatePayload(item);
+      batch.set(doc(db, activitiesCollection, item.id), { ...publicActivityData(payload), created_at: serverTimestamp(), updated_at: serverTimestamp() });
+    });
+
+    // El receso estival llega hasta 2027; extendemos 2026 al 31/12 y dejamos una marca persistente
+    // para que esta carga inicial no vuelva a ofrecerse.
     const nextCalendar = normalizeCalendarConfig(state.calendarConfig);
-    if (nextCalendar.years["2026"].end < "2026-12-31") {
-      nextCalendar.years["2026"].end = "2026-12-31";
-      const batch = writeBatch(db);
-      batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), { record_kind: "calendar_config", date: `${calendarFirstYear}-01-01`, end_date: `${calendarLastYear}-12-31`, name: "Configuración del calendario", calendar_config: nextCalendar, updated_at: serverTimestamp() }, { merge: true });
-      await batch.commit();
-      state.calendarConfig = nextCalendar;
-    }
+    if (nextCalendar.years["2026"].end < "2026-12-31") nextCalendar.years["2026"].end = "2026-12-31";
+    batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
+      record_kind: "calendar_config",
+      date: `${calendarFirstYear}-01-01`,
+      end_date: `${calendarLastYear}-12-31`,
+      name: "Configuración del calendario",
+      calendar_config: nextCalendar,
+      [academicCalendarBulkMarker]: true,
+      academic_calendar_loaded_at: serverTimestamp(),
+      updated_at: serverTimestamp()
+    }, { merge: true });
 
+    await batch.commit();
+
+    state.calendarConfig = nextCalendar;
+    state.academicCalendarBulkLoaded = true;
     bulkDatesDialog.close();
+    updateBulkAcademicDatesVisibility();
     state.cursor = fromISODate("2026-08-16");
     await loadPeriod();
     const skipped = academicCalendarImportantDates.length - pending.length;
-    showToast(skipped ? `${pending.length} fechas cargadas · ${skipped} ya existían` : `${pending.length} fechas académicas cargadas`);
+    showToast(skipped ? `${pending.length} fechas nuevas cargadas · ${skipped} ya existían` : `${pending.length} fechas académicas cargadas`);
   } catch (error) {
     message.textContent = `No se pudo realizar la carga masiva. ${friendlyError(error)}`;
     message.hidden = false;

@@ -64,3 +64,10 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Nuevos tipos de fecha destacada: **Cursado** y **Cierre académico**.
 - Carga masiva idempotente del Calendario Académico desde el 16/08/2026, con 19 registros (incluye el segundo semestre vigente desde el 03/08/2026).
 - La carga no duplica registros ya existentes y extiende el calendario 2026 al 31/12 para mostrar completo el receso estival.
+
+
+## v38
+- Corrige el ID reservado de Firestore para la configuración del calendario (`agenda_calendar_config`).
+- La carga inicial de fechas académicas es de una sola vez y el botón desaparece tras completarse.
+- Si la v37 alcanzó a cargar el período completo del segundo semestre antes del error, v38 lo elimina automáticamente.
+- No se muestra todo el cursado del segundo semestre: se incorpora únicamente `Fin del cursado · Segundo semestre 2026` el 6/11/2026.

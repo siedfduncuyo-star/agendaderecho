@@ -614,3 +614,6 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
 .bulk-dates-preview li:last-child { border-bottom:0; }
 .bulk-dates-preview strong { font-size:.92rem; color:#17344d; }
 .bulk-dates-preview span { font-size:.82rem; color:#657585; }
+
+.bulk-dates-note { margin: 0 0 12px; color:#586675; font-size:.9rem; line-height:1.45; }
+.bulk-dates-note strong { color:#17344d; }
