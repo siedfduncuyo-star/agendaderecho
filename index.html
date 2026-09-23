@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=33" />
+    <link rel="stylesheet" href="styles.css?v=36" />
   </head>
   <body>
     <header class="site-header">
@@ -57,6 +57,7 @@
             <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
             <button id="updateCalendar" class="button button-secondary" type="button">Actualizar calendario</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
+            <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
           </div>
         </div>
@@ -192,6 +193,73 @@
       </form>
     </dialog>
 
+    <dialog id="reportDialog" class="dialog report-dialog">
+      <form id="reportForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Informes</p><h2>Generar informe PDF</h2></div>
+          <button class="close-button" type="button" data-close="reportDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Elegí el período, el nivel de detalle y los criterios del informe. Los filtros del informe son independientes de la vista de la agenda.</p>
+        <div class="form-grid report-grid">
+          <label>Período
+            <select id="reportPeriodType">
+              <option value="day">Diario</option>
+              <option value="week">Semanal</option>
+              <option value="month">Mensual</option>
+              <option value="year">Anual</option>
+              <option value="range">Rango de fechas</option>
+            </select>
+          </label>
+          <label>Nivel del informe
+            <select id="reportOutputType">
+              <option value="detailed">Detallado</option>
+              <option value="statistical">Estadístico</option>
+            </select>
+          </label>
+          <label id="reportReferenceDateField">Fecha de referencia<input id="reportReferenceDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
+          <label id="reportYearField" hidden>Año<select id="reportYear"></select></label>
+          <label id="reportStartField" hidden>Desde<input id="reportStartDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
+          <label id="reportEndField" hidden>Hasta<input id="reportEndDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
+          <label id="reportGroupField">Organizar detalle por
+            <select id="reportGroupBy">
+              <option value="date">Fecha</option>
+              <option value="modality">Modalidad</option>
+              <option value="secretary">Secretaría / área</option>
+              <option value="level">Nivel</option>
+            </select>
+          </label>
+          <label>Modalidad
+            <select id="reportModality">
+              <option value="all">Todas</option>
+              <option value="presential">Presenciales</option>
+              <option value="hybrid">Híbridas</option>
+              <option value="virtual">Virtuales</option>
+              <option value="featured">Fechas destacadas</option>
+            </select>
+          </label>
+          <label>Secretaría / área<select id="reportSecretary"></select></label>
+          <label>Nivel
+            <select id="reportLevelFilter">
+              <option value="all">Todos</option>
+              <option value="pregrado">Pregrado</option>
+              <option value="grado">Grado</option>
+              <option value="posgrado">Posgrado</option>
+              <option value="general">Actividades generales</option>
+            </select>
+          </label>
+        </div>
+        <div id="reportMessage" class="form-error" role="alert" hidden></div>
+        <div class="report-note">
+          <strong>Detallado:</strong> incluye el listado completo de eventos y puede ordenarse por fecha, modalidad, secretaría o nivel.
+          <strong>Estadístico:</strong> resume totales, porcentajes y distribución por modalidad, secretaría y nivel.
+        </div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="reportDialog">Cancelar</button>
+          <button class="button button-primary" type="submit">Descargar PDF</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="detailDialog" class="dialog detail-dialog">
       <div class="detail-dialog-content">
         <div class="dialog-header">
@@ -206,7 +274,7 @@
 
     <script src="config.js?v=11"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js?v=32"></script>
+    <script type="module" src="app.js?v=36"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

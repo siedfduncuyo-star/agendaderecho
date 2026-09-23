@@ -78,6 +78,7 @@ const commonActivityCategoryOptions = [
 ];
 const activityCategoryLabels = new Map([
   ["class", "Clase de grado"],
+  ["open_class", "Clase abierta"],
   ["exam", "Examen final"],
   ["doctorate", "Doctorado"],
   ["masters", "Maestría"],
@@ -154,6 +155,7 @@ const activityDialog = el("activityDialog");
 const importDialog = el("importDialog");
 const detailDialog = el("detailDialog");
 const calendarDialog = el("calendarDialog");
+const reportDialog = el("reportDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 function startOfWeek(date) { const copy = localDate(date); const day = copy.getDay() || 7; copy.setDate(copy.getDate() - day + 1); return copy; }
@@ -214,7 +216,7 @@ function activityCategoryOptionsForSecretary(secretary) {
     ["thesis_defense", "Defensa de tesis"], ["seminar", "Seminario"], ["course", "Curso"], ["days", "Jornada/s"]
   ];
   if (organizer === generalSecretary) return [["board", "Consejo Directivo"]];
-  if (organizer === academicSecretary) return [["class", "Clase de grado"], ["exam", "Examen final"], ...commonActivityCategoryOptions];
+  if (organizer === academicSecretary) return [["class", "Clase de grado"], ["open_class", "Clase abierta"], ["exam", "Examen final"], ...commonActivityCategoryOptions];
   if (commonProgramSecretaries.has(organizer)) return commonActivityCategoryOptions;
   return [...commonActivityCategoryOptions, ["other", "Otra actividad"]];
 }
@@ -222,7 +224,7 @@ function inferActivityCategory(item) {
   const organizer = organizerName(item?.secretary);
   const text = `${item?.name || ""} ${item?.subject || ""}`.toLocaleLowerCase(locale);
   const legacy = String(item?.academic_activity_type || "").trim().toLocaleLowerCase(locale);
-  if (["class", "exam", "other"].includes(legacy)) return legacy;
+  if (["class", "open_class", "exam", "other"].includes(legacy)) return legacy;
   if (organizer === academicSecretary && item?.subject) return "class";
   if (organizer === generalSecretary || text.includes("consejo directivo")) return "board";
   if (text.includes("defensa") && text.includes("tesis")) return "thesis_defense";
@@ -347,7 +349,7 @@ function activityAudienceKey(item) {
   const category = activityCategoryKey(item);
   if (career === buildingCareer) return "pregrado";
   if (organizer === postgraduateSecretary || ["doctorate", "masters", "specialization", "diploma", "thesis_defense", "seminar"].includes(category)) return "posgrado";
-  if (career === lawCareer || (organizer === academicSecretary && ["class", "exam"].includes(category))) return "grado";
+  if (career === lawCareer || (organizer === academicSecretary && ["class", "open_class", "exam"].includes(category))) return "grado";
   return "general";
 }
 
@@ -488,12 +490,16 @@ function bindEvents() {
   });
   el("newActivity").addEventListener("click", () => openActivityForm());
   el("updateCalendar").addEventListener("click", openCalendarForm);
-  el("downloadReport").addEventListener("click", downloadCurrentViewPdf);
+  el("downloadReport").addEventListener("click", openReportForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
+  el("logoutAdmin").addEventListener("click", handleLogout);
   el("activityForm").addEventListener("submit", saveActivity);
   el("importForm").addEventListener("submit", importCalendarFile);
   el("calendarForm").addEventListener("submit", saveCalendarConfig);
+  el("reportForm").addEventListener("submit", generateReportPdf);
+  el("reportPeriodType").addEventListener("change", updateReportFormFields);
+  el("reportOutputType").addEventListener("change", updateReportFormFields);
   el("calendarYear").addEventListener("change", loadCalendarYearForm);
   el("date").addEventListener("change", updateDateInputs);
   el("endDate").addEventListener("change", updateDateRangeInputs);
@@ -510,7 +516,7 @@ function bindEvents() {
   el("recordKind").addEventListener("change", toggleRecordKindFields);
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
-  [importDialog, detailDialog, calendarDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+  [importDialog, detailDialog, calendarDialog, reportDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
   activityDialog.addEventListener("cancel", (event) => event.preventDefault());
   setInterval(() => { if (!document.hidden) render(); }, 60000);
 }
@@ -556,7 +562,7 @@ function updateAcademicFields(preferredSubject = "", preferredYear = "", preferr
   if (options.some(([value]) => value === currentCategory)) el("academicType").value = currentCategory;
   else if (options.length === 1) el("academicType").value = options[0][0];
   const academic = scheduled && organizerName(organizer) === academicSecretary;
-  const detailed = academic && ["class", "exam"].includes(el("academicType").value);
+  const detailed = academic && ["class", "open_class", "exam"].includes(el("academicType").value);
   el("academicTypeField").hidden = !scheduled || !organizer;
   el("academicType").required = scheduled && Boolean(organizer);
   el("careerField").hidden = !detailed; el("academicYearField").hidden = !detailed; el("subjectField").hidden = !detailed;
@@ -638,6 +644,16 @@ function updateAuthUI() {
     button.title = "Administración";
   }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
+}
+
+async function handleLogout() {
+  if (!configured || !state.user) return;
+  try {
+    await signOut(auth);
+    showToast("Sesión de administración cerrada");
+  } catch (error) {
+    alert(`No se pudo cerrar sesión. ${friendlyError(error)}`);
+  }
 }
 
 async function handleAuthButton() {
@@ -854,7 +870,7 @@ function createActivityRow(item) {
   const categoryBadge = document.createElement("span"); categoryBadge.className = "activity-category-badge"; categoryBadge.textContent = activityDescriptor(item); labels.append(categoryBadge);
   if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge suspended"; stateBadge.textContent = "Suspendida"; labels.append(stateBadge); }
   if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; labels.append(stateBadge); }
-  if (isInProgress(item)) { const live = document.createElement("span"); live.className = "in-progress-badge"; live.textContent = "▶ En curso"; labels.append(live); }
+  if (isInProgress(item)) { const live = document.createElement("span"); live.className = "in-progress-badge"; live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso'; labels.append(live); }
   if (state.view === "day") {
     const timing = dailyTiming(item);
     if (timing) { const timingBadge = document.createElement("span"); timingBadge.className = `daily-time-badge ${timing.kind}`; timingBadge.textContent = timing.label; labels.append(timingBadge); }
@@ -1015,7 +1031,7 @@ function renderMonth() {
       const badge = document.createElement("span"); badge.className = `month-${activityType}`; badge.textContent = activityTypeLabel(item); button.append(badge);
       if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = "Suspendida"; button.append(stateBadge); }
       if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; button.append(stateBadge); }
-      if (isInProgress(item)) { const live = document.createElement("span"); live.className = "month-in-progress"; live.textContent = "▶ En curso"; button.append(live); }
+      if (isInProgress(item)) { const live = document.createElement("span"); live.className = "month-in-progress"; live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso'; button.append(live); }
       const time = document.createElement("strong"); time.textContent = cleanTime(item.start_time); button.append(time, document.createTextNode(item.name));
       button.addEventListener("click", () => openDetail(item)); cell.append(button);
     });
@@ -1172,7 +1188,7 @@ function activityPayload() {
   const secretary = el("secretary").value === "__other__" ? el("otherSecretary").value.trim() : el("secretary").value;
   const academic = organizerName(secretary) === academicSecretary;
   const category = el("academicType").value;
-  const detailedAcademic = academic && ["class", "exam"].includes(category);
+  const detailedAcademic = academic && ["class", "open_class", "exam"].includes(category);
   const recordKind = el("recordKind").value;
   if (recordKind === "period") {
     return { record_kind: "period", period_type: el("periodType").value, date: el("date").value, end_date: el("endDate").value, start_time: "", end_time: "", name: el("name").value.trim(), secretary, activity_category: "", academic_activity_type: "", career: "", academic_year: "", subject: "", responsible: "", classroom: "", activity_type: "", activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false, platform: "", account_used: "", meeting_url: "", link_is_public: false, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: false };
@@ -1180,7 +1196,7 @@ function activityPayload() {
   const classroom = el("activityType").value === "virtual" ? "" : el("classroom").value === "__other__" ? el("otherClassroom").value.trim() : el("classroom").value;
   const activityStatus = el("activityStatus").value || "scheduled";
   const postponedDateTbd = activityStatus === "postponed" && el("postponedDateTbd").checked;
-  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, academic_activity_type: academic && ["class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
+  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
 }
 
 function validateActivity(payload) {
@@ -1197,7 +1213,7 @@ function validateActivity(payload) {
   if (fromISODate(payload.date).getDay() === 0) return "Los domingos no forman parte de esta agenda.";
   if (payload.activity_type !== "virtual" && !payload.classroom) return "Seleccioná un aula o completá el campo Otro lugar.";
   if (!payload.activity_category) return "Seleccioná el tipo de actividad.";
-  if (["class", "exam"].includes(payload.activity_category) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año y la materia.";
+  if (["class", "open_class", "exam"].includes(payload.activity_category) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año y la materia.";
   if (payload.end_time <= payload.start_time) return "La hora de finalización debe ser posterior a la de inicio.";
   if (payload.meeting_url && !isSafeUrl(payload.meeting_url)) return "El enlace debe comenzar con http:// o https://.";
   if (payload.link_is_public && !payload.meeting_url) return "Para publicar el enlace, primero completá el enlace de la actividad.";
@@ -1389,38 +1405,135 @@ function expandSimpleRecurrence(base, ruleText, startDate, endDate, uid) {
   return occurrences;
 }
 
-function currentReportItems() {
-  const { visibleStart, visibleEnd } = periodRange();
-  return state.activities
-    .filter((item) => matchesQuickFilter(item) && overlapsPeriod(item, visibleStart, visibleEnd) && itemHasDisplayableDay(item, visibleStart, visibleEnd))
-    .sort(sortActivities);
+function reportAudienceLabel(key) {
+  return ({ pregrado: "Pregrado", grado: "Grado", posgrado: "Posgrado", general: "Actividades generales" })[key] || "Actividades generales";
 }
-function reportViewLabel() { return { day: "Informe diario", week: "Informe semanal", month: "Informe mensual" }[state.view] || "Informe"; }
-function reportPeriodLabel() {
-  const { visibleStart, visibleEnd } = periodRange();
-  if (state.view === "day") return formatDate(visibleStart, { day: "numeric", month: "long", year: "numeric" });
-  if (state.view === "month") return titleCase(formatDate(visibleStart, { month: "long", year: "numeric" }));
-  return `${formatDate(visibleStart, { day: "numeric", month: "long" })} - ${formatDate(visibleEnd, { day: "numeric", month: "long", year: "numeric" })}`;
+function reportModalityKey(item) { return isImportantPeriod(item) ? "featured" : activityTypeKey(item); }
+function reportModalityLabel(item) {
+  return isImportantPeriod(item) ? "Fechas destacadas" : activityTypeLabel(item);
 }
-function activeFilterLabels() {
+function populateReportOptions() {
+  const yearSelect = el("reportYear");
+  const currentYear = Math.min(Math.max(state.cursor.getFullYear(), calendarFirstYear), calendarLastYear);
+  yearSelect.replaceChildren();
+  for (let year = calendarFirstYear; year <= calendarLastYear; year += 1) {
+    const option = document.createElement("option"); option.value = String(year); option.textContent = String(year); yearSelect.append(option);
+  }
+  yearSelect.value = String(currentYear);
+
+  const secretarySelect = el("reportSecretary");
+  const currentValue = secretarySelect.value || "all";
+  const organizers = new Set(secretaryOptions);
+  state.allActivities.forEach((item) => { const name = organizerName(item?.secretary); if (name) organizers.add(name); });
+  secretarySelect.replaceChildren();
+  const all = document.createElement("option"); all.value = "all"; all.textContent = "Todas"; secretarySelect.append(all);
+  [...organizers].sort((a, b) => a.localeCompare(b, locale)).forEach((name) => {
+    const option = document.createElement("option"); option.value = name; option.textContent = name; secretarySelect.append(option);
+  });
+  secretarySelect.value = [...secretarySelect.options].some((option) => option.value === currentValue) ? currentValue : "all";
+}
+function openReportForm() {
+  if (!state.canEdit) return;
+  populateReportOptions();
+  const defaultType = ["day", "week", "month"].includes(state.view) ? state.view : "month";
+  el("reportPeriodType").value = defaultType;
+  el("reportOutputType").value = "detailed";
+  el("reportGroupBy").value = "date";
+  el("reportModality").value = "all";
+  el("reportSecretary").value = "all";
+  el("reportLevelFilter").value = "all";
+  el("reportReferenceDate").value = toISODate(state.cursor);
+  el("reportYear").value = String(Math.min(Math.max(state.cursor.getFullYear(), calendarFirstYear), calendarLastYear));
+  const { visibleStart, visibleEnd } = periodRange();
+  el("reportStartDate").value = toISODate(visibleStart);
+  el("reportEndDate").value = toISODate(visibleEnd);
+  el("reportMessage").hidden = true;
+  el("reportMessage").textContent = "";
+  updateReportFormFields();
+  reportDialog.showModal();
+}
+function updateReportFormFields() {
+  const periodType = el("reportPeriodType").value;
+  const outputType = el("reportOutputType").value;
+  el("reportReferenceDateField").hidden = ["year", "range"].includes(periodType);
+  el("reportYearField").hidden = periodType !== "year";
+  el("reportStartField").hidden = periodType !== "range";
+  el("reportEndField").hidden = periodType !== "range";
+  el("reportGroupField").hidden = outputType !== "detailed";
+  const referenceLabels = { day: "Fecha", week: "Semana que contiene la fecha", month: "Mes que contiene la fecha" };
+  const referenceField = el("reportReferenceDateField");
+  const textNode = [...referenceField.childNodes].find((node) => node.nodeType === Node.TEXT_NODE);
+  if (textNode) textNode.nodeValue = `${referenceLabels[periodType] || "Fecha de referencia"}`;
+}
+function selectedReportRange() {
+  const type = el("reportPeriodType").value;
+  if (type === "year") {
+    const year = Number(el("reportYear").value);
+    const config = calendarConfigForYear(year);
+    return {
+      type,
+      start: fromISODate(config?.start || `${year}-01-01`),
+      end: fromISODate(config?.end || `${year}-12-31`)
+    };
+  }
+  if (type === "range") {
+    const startValue = el("reportStartDate").value;
+    const endValue = el("reportEndDate").value;
+    if (!validISODate(startValue) || !validISODate(endValue)) throw new Error("Seleccioná las dos fechas del rango.");
+    const start = fromISODate(startValue); const end = fromISODate(endValue);
+    if (start > end) throw new Error("La fecha Desde no puede ser posterior a Hasta.");
+    return { type, start, end };
+  }
+  const value = el("reportReferenceDate").value;
+  if (!validISODate(value)) throw new Error("Seleccioná una fecha de referencia.");
+  const reference = fromISODate(value);
+  if (type === "day") return { type, start: reference, end: reference };
+  if (type === "week") { const start = startOfWeek(reference); return { type, start, end: addDays(start, 5) }; }
+  const start = startOfMonth(reference); return { type: "month", start, end: new Date(start.getFullYear(), start.getMonth() + 1, 0) };
+}
+function reportRangeLabel(range) {
+  if (range.type === "day") return formatDate(range.start, { day: "numeric", month: "long", year: "numeric" });
+  if (range.type === "month") return titleCase(formatDate(range.start, { month: "long", year: "numeric" }));
+  if (range.type === "year") return `Año ${range.start.getFullYear()}`;
+  return `${formatDate(range.start, { day: "numeric", month: "long", year: "numeric" })} - ${formatDate(range.end, { day: "numeric", month: "long", year: "numeric" })}`;
+}
+function reportTypeLabel(range, outputType) {
+  const period = ({ day: "diario", week: "semanal", month: "mensual", year: "anual", range: "por rango de fechas" })[range.type] || "";
+  return `Informe ${outputType === "statistical" ? "estadístico" : "detallado"} ${period}`.trim();
+}
+function reportSelectionLabels() {
+  const modality = el("reportModality");
+  const secretary = el("reportSecretary");
+  const level = el("reportLevelFilter");
   const labels = [];
-  if (state.filters.has("presential")) labels.push("Presenciales");
-  if (state.filters.has("hybrid")) labels.push("Híbridas");
-  if (state.filters.has("virtual")) labels.push("Virtuales");
-  if (state.filters.has("featured")) labels.push("Fechas destacadas");
-  if (state.audienceFilters.has("pregrado")) labels.push("Pregrado");
-  if (state.audienceFilters.has("grado")) labels.push("Grado");
-  if (state.audienceFilters.has("posgrado")) labels.push("Posgrado");
-  if (state.audienceFilters.has("general")) labels.push("Actividades generales");
+  if (modality.value !== "all") labels.push(`Modalidad: ${modality.options[modality.selectedIndex]?.textContent || modality.value}`);
+  if (secretary.value !== "all") labels.push(`Secretaría: ${secretary.value}`);
+  if (level.value !== "all") labels.push(`Nivel: ${level.options[level.selectedIndex]?.textContent || level.value}`);
   return labels;
 }
-function reportItemLines(item) {
+function reportItemMatchesSelections(item) {
+  const modality = el("reportModality").value;
+  const secretary = el("reportSecretary").value;
+  const level = el("reportLevelFilter").value;
+  if (modality !== "all" && reportModalityKey(item) !== modality) return false;
+  if (secretary !== "all" && organizerName(item.secretary) !== secretary) return false;
+  if (level !== "all" && activityAudienceKey(item) !== level) return false;
+  return true;
+}
+function selectedReportItems(range) {
+  return state.allActivities
+    .filter((item) => reportItemMatchesSelections(item) && overlapsPeriod(item, range.start, range.end) && itemHasDisplayableDay(item, range.start, range.end))
+    .sort(sortActivities);
+}
+function reportDetailedItemLines(item) {
   if (isImportantPeriod(item)) {
     const lines = [
       `${periodTypeLabel(item)}: ${item.name || "Sin detalle"}`,
       `Fecha/as: ${dateRangeLabel(item)}`,
+      `Nivel: ${reportAudienceLabel(activityAudienceKey(item))}`,
       `Estado: ${importantPeriodStatus(item)}`
     ];
+    if (item.secretary) lines.push(`Organiza: ${organizerName(item.secretary)}`);
     const detail = item.period_description || item.requirements || item.observations;
     if (detail) lines.push(`Detalle: ${detail}`);
     return lines;
@@ -1431,89 +1544,186 @@ function reportItemLines(item) {
     `Horario: ${cleanTime(item.start_time)} a ${cleanTime(item.end_time)}`,
     `Tipo: ${activityDescriptor(item)}`,
     `Modalidad: ${activityTypeLabel(item)}`,
+    `Nivel: ${reportAudienceLabel(activityAudienceKey(item))}`,
     `Organiza: ${organizerName(item.secretary)}`
   ];
   if (activityStatusKey(item) !== "scheduled") lines.push(`Estado: ${activityStatusLabel(item)}${isPostponed(item) ? ` - ${postponedDateLabel(item)}` : ""}`);
   if (item.career) lines.push(`Carrera: ${item.career}`);
   if (item.subject && !isIngreso(item)) lines.push(`Materia: ${subjectBaseName(item.subject)}`);
   if (itemAcademicYear(item)) lines.push(`Año: ${itemAcademicYear(item)}`);
+  if (item.responsible) lines.push(`Responsable: ${item.responsible}`);
   if (item.classroom) lines.push(`Lugar: ${item.classroom}`);
   if (activityTypeKey(item) !== "presential" && item.platform) lines.push(`Plataforma: ${item.platform}`);
   if (activityTypeKey(item) !== "presential" && item.link_is_public === true && item.meeting_url) lines.push(`Enlace público: ${item.meeting_url}`);
   return lines;
+}
+function reportGroupLabel(item, groupBy) {
+  if (groupBy === "modality") return reportModalityLabel(item);
+  if (groupBy === "secretary") return organizerName(item.secretary) || "Sin secretaría / área";
+  if (groupBy === "level") return reportAudienceLabel(activityAudienceKey(item));
+  return "";
+}
+function sortReportItems(items, groupBy) {
+  if (groupBy === "date") return [...items].sort(sortActivities);
+  return [...items].sort((a, b) => {
+    const groupCompare = reportGroupLabel(a, groupBy).localeCompare(reportGroupLabel(b, groupBy), locale);
+    return groupCompare || sortActivities(a, b);
+  });
+}
+function countReportItems(items, keyFn) {
+  const counts = new Map();
+  items.forEach((item) => {
+    const key = keyFn(item) || "Sin especificar";
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], locale));
 }
 function hexRgb(hex) {
   const clean = String(hex || "").replace("#", "");
   if (!/^[0-9a-f]{6}$/i.test(clean)) return [2, 55, 100];
   return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
 }
-async function downloadCurrentViewPdf() {
-  if (!state.canEdit) return;
-  const JsPdf = window.jspdf?.jsPDF;
-  if (!JsPdf) { alert("No se pudo cargar el generador de PDF. Revisá la conexión a Internet y actualizá la página."); return; }
-  const items = currentReportItems();
-  if (!items.length) { alert("No hay eventos en esta vista con los filtros y la búsqueda actuales."); return; }
-  try {
-    const doc = new JsPdf({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 16;
-    const contentWidth = pageWidth - margin * 2;
-    const blue = hexRgb("#023764");
-    const gold = hexRgb("#C5AD68");
-    const gray = hexRgb("#66737C");
-    let y = 18;
-    const ensureSpace = (needed = 18) => {
-      if (y + needed <= pageHeight - 16) return;
-      doc.addPage(); y = 18;
-    };
+function pdfBase(doc, range, outputType, items) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 16;
+  const contentWidth = pageWidth - margin * 2;
+  const blue = hexRgb("#023764");
+  const gold = hexRgb("#C5AD68");
+  const gray = hexRgb("#66737C");
+  let y = 18;
+  const ensureSpace = (needed = 18) => {
+    if (y + needed <= pageHeight - 16) return;
+    doc.addPage(); y = 18;
+  };
+  const header = () => {
     doc.setFillColor(...blue); doc.rect(0, 0, pageWidth, 28, "F");
-    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-    doc.text("UNCUYO - Facultad de Derecho", margin, 12);
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("UNCUYO - Facultad de Derecho", margin, 12);
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Agenda institucional de actividades", margin, 19);
-    y = 38;
-    doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(reportViewLabel(), margin, y); y += 8;
-    doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportPeriodLabel(), margin, y); y += 9;
-    doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 34, 9, 2, 2, "F");
-    doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(`${items.length} ${items.length === 1 ? "evento" : "eventos"}`, margin + 3, y + 1); y += 12;
-    const filterText = `Filtros activos: ${activeFilterLabels().join(", ") || "ninguno"}${normalizeSearchText(state.searchQuery) ? ` | Búsqueda: ${state.searchQuery.trim()}` : ""}`;
+  };
+  header(); y = 38;
+  doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(reportTypeLabel(range, outputType), margin, y); y += 8;
+  doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportRangeLabel(range), margin, y); y += 9;
+  doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 37, 9, 2, 2, "F");
+  doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(`${items.length} ${items.length === 1 ? "evento" : "eventos"}`, margin + 3, y + 1); y += 12;
+  const selections = reportSelectionLabels();
+  if (selections.length) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...gray);
-    doc.text(doc.splitTextToSize(filterText, contentWidth), margin, y); y += 10;
-
-    const modalityCounts = { presential: 0, hybrid: 0, virtual: 0, featured: 0 };
-    items.forEach((item) => { if (isImportantPeriod(item)) modalityCounts.featured += 1; else modalityCounts[activityTypeKey(item)] = (modalityCounts[activityTypeKey(item)] || 0) + 1; });
-    const summary = `Presenciales ${modalityCounts.presential || 0}  |  Híbridas ${modalityCounts.hybrid || 0}  |  Virtuales ${modalityCounts.virtual || 0}  |  Fechas destacadas ${modalityCounts.featured || 0}`;
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...blue); doc.text(doc.splitTextToSize(summary, contentWidth), margin, y); y += 10;
-
-    items.forEach((item, index) => {
-      const lines = reportItemLines(item);
-      const title = lines.shift() || "Evento";
-      const titleLines = doc.splitTextToSize(title, contentWidth - 8);
-      const detailLines = lines.flatMap((line) => doc.splitTextToSize(line, contentWidth - 8));
-      const height = Math.max(20, 8 + titleLines.length * 5 + detailLines.length * 4.2);
-      ensureSpace(height + 5);
-      doc.setDrawColor(218, 224, 228); doc.setFillColor(248, 250, 251); doc.roundedRect(margin, y, contentWidth, height, 2, 2, "FD");
-      doc.setFillColor(...(isImportantPeriod(item) ? gold : blue)); doc.rect(margin, y, 2.5, height, "F");
-      let iy = y + 7;
-      doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(titleLines, margin + 6, iy); iy += titleLines.length * 5 + 1;
-      doc.setTextColor(50, 55, 60); doc.setFont("helvetica", "normal"); doc.setFontSize(8.7);
-      detailLines.forEach((line) => { doc.text(line, margin + 6, iy); iy += 4.2; });
-      y += height + 5;
-      if (index === items.length - 1) y += 1;
-    });
-    const totalPages = doc.getNumberOfPages();
-    for (let page = 1; page <= totalPages; page += 1) {
-      doc.setPage(page); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...gray);
-      doc.text(`Generado el ${formatDate(new Date(), { day: "2-digit", month: "2-digit", year: "numeric" })}`, margin, pageHeight - 8);
-      doc.text(`Página ${page} de ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: "right" });
-    }
-    const slug = { day: "diario", week: "semanal", month: "mensual" }[state.view] || "agenda";
-    const dateToken = toISODate(periodRange().visibleStart);
-    doc.save(`informe-${slug}-${dateToken}.pdf`);
-  } catch (error) {
-    alert(`No se pudo generar el PDF. ${friendlyError(error)}`);
+    const lines = doc.splitTextToSize(`Filtros: ${selections.join(" | ")}`, contentWidth); doc.text(lines, margin, y); y += lines.length * 4 + 5;
+  }
+  return { pageWidth, pageHeight, margin, contentWidth, blue, gold, gray, ensureSpace, getY: () => y, setY: (value) => { y = value; } };
+}
+function addPdfFooters(doc, layout) {
+  const totalPages = doc.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page += 1) {
+    doc.setPage(page); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...layout.gray);
+    doc.text(`Generado el ${formatDate(new Date(), { day: "2-digit", month: "2-digit", year: "numeric" })}`, layout.margin, layout.pageHeight - 8);
+    doc.text(`Página ${page} de ${totalPages}`, layout.pageWidth - layout.margin, layout.pageHeight - 8, { align: "right" });
   }
 }
+function drawStatisticalBreakdown(doc, layout, title, rows, total) {
+  let y = layout.getY();
+  layout.ensureSpace(18); y = layout.getY();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text(title, layout.margin, y); y += 6;
+  if (!rows.length) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...layout.gray); doc.text("Sin datos", layout.margin, y); y += 6; layout.setY(y); return;
+  }
+  rows.forEach(([label, count]) => {
+    layout.setY(y); layout.ensureSpace(7); y = layout.getY();
+    const percentage = total ? (count / total) * 100 : 0;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(48, 55, 60);
+    const labelLines = doc.splitTextToSize(label, layout.contentWidth - 42);
+    doc.text(labelLines, layout.margin, y);
+    doc.setFont("helvetica", "bold"); doc.text(`${count} · ${percentage.toLocaleString(locale, { maximumFractionDigits: 1 })}%`, layout.pageWidth - layout.margin, y, { align: "right" });
+    y += Math.max(5, labelLines.length * 4.2);
+  });
+  y += 4; layout.setY(y);
+}
+function renderDetailedPdf(doc, layout, items) {
+  const modalityCounts = countReportItems(items, reportModalityLabel);
+  const summary = modalityCounts.map(([label, count]) => `${label}: ${count}`).join("  |  ");
+  let y = layout.getY();
+  if (summary) {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...layout.blue);
+    const summaryLines = doc.splitTextToSize(summary, layout.contentWidth); doc.text(summaryLines, layout.margin, y); y += summaryLines.length * 4.5 + 6;
+  }
+  const groupBy = el("reportGroupBy").value;
+  const sortedItems = sortReportItems(items, groupBy);
+  let previousGroup = null;
+  sortedItems.forEach((item) => {
+    if (groupBy !== "date") {
+      const group = reportGroupLabel(item, groupBy);
+      if (group !== previousGroup) {
+        layout.setY(y); layout.ensureSpace(12); y = layout.getY();
+        doc.setFillColor(235, 241, 245); doc.roundedRect(layout.margin, y - 4, layout.contentWidth, 8, 1.5, 1.5, "F");
+        doc.setTextColor(...layout.blue); doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.text(group, layout.margin + 4, y + 1); y += 9;
+        previousGroup = group;
+      }
+    }
+    const lines = reportDetailedItemLines(item);
+    const title = lines.shift() || "Evento";
+    const titleLines = doc.splitTextToSize(title, layout.contentWidth - 8);
+    const detailLines = lines.flatMap((line) => doc.splitTextToSize(line, layout.contentWidth - 8));
+    const height = Math.max(20, 8 + titleLines.length * 5 + detailLines.length * 4.2);
+    layout.setY(y); layout.ensureSpace(height + 5); y = layout.getY();
+    doc.setDrawColor(218, 224, 228); doc.setFillColor(248, 250, 251); doc.roundedRect(layout.margin, y, layout.contentWidth, height, 2, 2, "FD");
+    doc.setFillColor(...(isImportantPeriod(item) ? layout.gold : layout.blue)); doc.rect(layout.margin, y, 2.5, height, "F");
+    let iy = y + 7;
+    doc.setTextColor(...layout.blue); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(titleLines, layout.margin + 6, iy); iy += titleLines.length * 5 + 1;
+    doc.setTextColor(50, 55, 60); doc.setFont("helvetica", "normal"); doc.setFontSize(8.7);
+    detailLines.forEach((line) => { doc.text(line, layout.margin + 6, iy); iy += 4.2; });
+    y += height + 5;
+  });
+  layout.setY(y);
+}
+function renderStatisticalPdf(doc, layout, items) {
+  let y = layout.getY();
+  const activityCount = items.filter((item) => !isImportantPeriod(item)).length;
+  const featuredCount = items.length - activityCount;
+  const activeOrganizers = new Set(items.map((item) => organizerName(item.secretary)).filter(Boolean)).size;
+  const cards = [
+    ["Actividades", activityCount],
+    ["Fechas destacadas", featuredCount],
+    ["Áreas organizadoras", activeOrganizers]
+  ];
+  cards.forEach(([label, value]) => {
+    layout.setY(y); layout.ensureSpace(12); y = layout.getY();
+    doc.setFillColor(248, 250, 251); doc.setDrawColor(218, 224, 228); doc.roundedRect(layout.margin, y, layout.contentWidth, 10, 2, 2, "FD");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...layout.gray); doc.text(label, layout.margin + 4, y + 6.5);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...layout.blue); doc.text(String(value), layout.pageWidth - layout.margin - 4, y + 6.8, { align: "right" });
+    y += 13;
+  });
+  y += 3; layout.setY(y);
+  drawStatisticalBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
+  drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => organizerName(item.secretary) || "Sin secretaría / área"), items.length);
+  drawStatisticalBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
+}
+async function generateReportPdf(event) {
+  event.preventDefault();
+  if (!state.canEdit) return;
+  const message = el("reportMessage"); message.hidden = true; message.textContent = "";
+  const JsPdf = window.jspdf?.jsPDF;
+  if (!JsPdf) { message.textContent = "No se pudo cargar el generador de PDF. Revisá la conexión a Internet y actualizá la página."; message.hidden = false; return; }
+  try {
+    const range = selectedReportRange();
+    const items = selectedReportItems(range);
+    if (!items.length) throw new Error("No hay eventos para el período y los filtros seleccionados.");
+    const outputType = el("reportOutputType").value;
+    const doc = new JsPdf({ orientation: "portrait", unit: "mm", format: "a4" });
+    const layout = pdfBase(doc, range, outputType, items);
+    if (outputType === "statistical") renderStatisticalPdf(doc, layout, items);
+    else renderDetailedPdf(doc, layout, items);
+    addPdfFooters(doc, layout);
+    const slugType = outputType === "statistical" ? "estadistico" : "detallado";
+    const slugPeriod = ({ day: "diario", week: "semanal", month: "mensual", year: "anual", range: "rango" })[range.type] || "agenda";
+    doc.save(`informe-${slugType}-${slugPeriod}-${toISODate(range.start)}.pdf`);
+    reportDialog.close();
+  } catch (error) {
+    message.textContent = error?.message || `No se pudo generar el PDF. ${friendlyError(error)}`;
+    message.hidden = false;
+  }
+}
+
 
 function friendlyError(error) {
   const code = error?.code || "";

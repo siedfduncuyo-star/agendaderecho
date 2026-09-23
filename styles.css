@@ -545,3 +545,60 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   .audience-check-filters { width: 100%; justify-content: flex-start; gap: 9px 13px; }
   .audience-check-filters .type-filters-title { width: 100%; }
 }
+
+/* v35: administración y estado en curso */
+.button-logout { border-color: #b7c8d3; background: #fff; color: var(--blue); }
+.button-logout:hover { background: var(--blue-soft); }
+.in-progress-badge .live-arrow, .month-in-progress .live-arrow { color: #b4232f; }
+
+/* v36 · generador de informes y filtros móviles compactos */
+.report-dialog { width: min(820px, calc(100% - 24px)); }
+.report-grid { align-items: end; }
+.report-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid #d8e2e8;
+  border-radius: 7px;
+  background: #f7fafc;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.report-note strong { color: var(--blue-dark); }
+
+@media (max-width: 650px) {
+  .filter-stack { gap: 6px; }
+  .agenda-summary-bar .quick-check-filters,
+  .agenda-summary-bar .audience-check-filters {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 7px 9px;
+  }
+  .agenda-summary-bar .quick-check-filters::-webkit-scrollbar,
+  .agenda-summary-bar .audience-check-filters::-webkit-scrollbar { display: none; }
+  .agenda-summary-bar .quick-check-filters .type-filters-title,
+  .agenda-summary-bar .audience-check-filters .type-filters-title {
+    width: auto;
+    flex: 0 0 auto;
+    margin-right: 2px;
+  }
+  .agenda-summary-bar .quick-check-filters label,
+  .agenda-summary-bar .audience-check-filters label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: .69rem;
+    gap: 4px;
+  }
+  .agenda-summary-bar .quick-check-filters input,
+  .agenda-summary-bar .audience-check-filters input { width: 14px; height: 14px; }
+  .report-dialog form { padding: 17px; }
+  .report-note { font-size: .74rem; }
+}
