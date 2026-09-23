@@ -64,6 +64,7 @@
             <button id="updateCalendar" class="button button-secondary" type="button">Actualizar calendario</button>
             <button id="bulkAcademicDates" class="button button-secondary" type="button">Cargar fechas académicas</button>
             <button id="cleanupAgenda" class="button button-danger" type="button" hidden>Eliminar datos anteriores</button>
+            <button id="bulkHibridaciones" class="button button-secondary" type="button" hidden>Cargar hibridaciones 16/8+</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -167,6 +168,25 @@
         <div class="dialog-actions">
           <button class="button button-secondary" type="button" data-close="bulkDatesDialog">Cancelar</button>
           <button id="runBulkDates" class="button button-primary" type="submit">Cargar fechas</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="hibridacionesDialog" class="dialog bulk-dates-dialog">
+      <form id="hibridacionesForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Carga masiva</p><h2>Hibridaciones desde el 16 de agosto</h2></div>
+          <button class="close-button" type="button" data-close="hibridacionesDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Carga las actividades del calendario <strong>Hibridaciones 2026</strong> desde el 16 de agosto de 2026 en adelante. Las recurrencias se expanden como encuentros individuales.</p>
+        <div class="bulk-dates-summary"><strong id="hibridacionesCount">58 actividades</strong><span>19/08/2026 – 27/11/2026</span></div>
+        <p class="bulk-dates-note">Los enlaces, cuentas y notas técnicas del calendario se guardan como <strong>información privada</strong>. No se publican los enlaces importados. Cuando el calendario no identifica con claridad un área organizadora, se deja sin organizador en lugar de inferirlo.</p>
+        <ul id="hibridacionesPreview" class="bulk-dates-preview"></ul>
+        <p class="report-note">La carga se puede ejecutar una sola vez. Si algún registro ya existe con el mismo identificador del calendario, se omite para evitar duplicados.</p>
+        <div id="hibridacionesMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="hibridacionesDialog">Cancelar</button>
+          <button id="runBulkHibridaciones" class="button button-primary" type="submit">Cargar actividades</button>
         </div>
       </form>
     </dialog>

@@ -97,3 +97,11 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - El día posterior al fin del receso se muestra automáticamente como “Reinicio de actividades”, también como marca de calendario.
 - Se agregó “Reinicio de actividades” como tipo de fecha destacada para futuras cargas manuales.
 - Los estados futuros de fechas destacadas muestran “En N días” en lugar de “Próximamente” y se recalculan automáticamente.
+
+
+## v42 · Carga de Hibridaciones desde 16/08/2026
+- Incorpora una carga masiva única de 58 actividades extraídas del calendario Hibridaciones 2026.
+- Expande recurrencias semanales en encuentros individuales.
+- Mantiene enlaces, cuentas y notas técnicas en la colección privada; los enlaces importados no se publican.
+- Clasifica automáticamente solo cuando la fuente lo permite con claridad (Académica/Posgrado); el resto queda sin organizador.
+- La acción aparece después de completar la limpieza de datos anteriores, desaparece luego de cargarse y omite registros ya existentes por `source_uid`.
