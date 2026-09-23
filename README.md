@@ -71,3 +71,21 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - La carga inicial de fechas académicas es de una sola vez y el botón desaparece tras completarse.
 - Si la v37 alcanzó a cargar el período completo del segundo semestre antes del error, v38 lo elimina automáticamente.
 - No se muestra todo el cursado del segundo semestre: se incorpora únicamente `Fin del cursado · Segundo semestre 2026` el 6/11/2026.
+
+
+## v39 · Limpieza inicial única
+
+- Agrega una acción de administración `Eliminar datos anteriores` que aparece únicamente después de la carga del calendario académico inicial.
+- Conserva exclusivamente las 19 fechas académicas cargadas en la tanda 2026–2027 y `agenda_calendar_config`.
+- Elimina el resto de los documentos de `actividades` y todos los documentos de `actividades_privadas`.
+- Requiere confirmación explícita porque la operación no se puede deshacer.
+- Al finalizar guarda `academic_calendar_cleanup_done` en la configuración y el botón desaparece definitivamente.
+
+
+## v40 · Copia de la vista pública
+
+- Se agregó un botón de copia junto al contador de eventos de la vista.
+- Copia los eventos visibles de Día, Semana o Mes respetando los filtros de modalidad, nivel y el buscador.
+- La copia masiva usa exclusivamente información pública: nunca incluye responsable, requerimientos, observaciones internas ni enlaces privados.
+- Las fechas destacadas se incluyen cuando ese filtro está activo.
+- Los enlaces se incorporan únicamente cuando son públicos.

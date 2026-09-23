@@ -617,3 +617,38 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
 
 .bulk-dates-note { margin: 0 0 12px; color:#586675; font-size:.9rem; line-height:1.45; }
 .bulk-dates-note strong { color:#17344d; }
+
+
+.button-danger { border-color: #a51c30; color: #8f1728; background: #fff; }
+.button-danger:hover { background: #fff3f5; }
+
+
+/* v40 · copiar la vista pública con filtros activos */
+.copy-view-button {
+  order: 2;
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 40px;
+  padding: 0;
+  border: 1px solid rgba(1,74,125,.35);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--blue);
+  cursor: pointer;
+}
+.copy-view-button:hover:not(:disabled) { background: rgba(1,74,125,.08); }
+.copy-view-button:disabled { opacity: .35; cursor: default; }
+.copy-view-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (max-width: 650px) {
+  .view-switch-row .copy-view-button { flex: 0 0 38px; width: 38px; height: 40px; }
+}

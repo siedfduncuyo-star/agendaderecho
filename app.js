@@ -16,6 +16,7 @@ const demoCalendarStorageKey = "agenda-calendario-config-v30";
 const viewPreferencesStorageKey = "agenda-derecho-view-preferences-v1";
 const calendarConfigDocumentId = "agenda_calendar_config";
 const academicCalendarBulkMarker = "academic_calendar_2026_2027_loaded";
+const academicCalendarCleanupMarker = "academic_calendar_cleanup_done";
 const calendarFirstYear = 2026;
 const calendarLastYear = 2030;
 const calendarMinDate = new Date(calendarFirstYear, 0, 1);
@@ -171,7 +172,7 @@ const academicCalendarImportantDates = [
   { id: "calacad-2027-mesas-marzo", period_type: "exam_tables", date: "2027-03-15", end_date: "2027-03-19", name: "Mesas de marzo 2027", description: "Turno ordinario de exámenes finales." }
 ];
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -505,6 +506,7 @@ function bindEvents() {
   el("previousPeriod").addEventListener("click", () => movePeriod(-1));
   el("nextPeriod").addEventListener("click", () => movePeriod(1));
   el("currentPeriod").addEventListener("click", () => { const today = localDate(new Date()); state.cursor = today < calendarMinDate ? calendarMinDate : today > calendarMaxDate ? calendarMaxDate : today; loadPeriod(); });
+  el("copyVisibleEvents").addEventListener("click", copyCurrentPublicView);
   document.querySelectorAll(".view-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncViewFilters));
   document.querySelectorAll(".audience-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncAudienceFilters));
   const searchInput = el("agendaSearch");
@@ -518,6 +520,7 @@ function bindEvents() {
   el("newActivity").addEventListener("click", () => openActivityForm());
   el("updateCalendar").addEventListener("click", openCalendarForm);
   el("bulkAcademicDates").addEventListener("click", openBulkAcademicDates);
+  el("cleanupAgenda").addEventListener("click", cleanupAgendaKeepingAcademicDates);
   el("downloadReport").addEventListener("click", openReportForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
@@ -674,12 +677,19 @@ function updateAuthUI() {
   }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
   updateBulkAcademicDatesVisibility();
+  updateCleanupAgendaVisibility();
 }
 
 function updateBulkAcademicDatesVisibility() {
   const button = el("bulkAcademicDates");
   if (!button) return;
   button.hidden = !state.canEdit || state.academicCalendarBulkLoaded;
+}
+
+function updateCleanupAgendaVisibility() {
+  const button = el("cleanupAgenda");
+  if (!button) return;
+  button.hidden = !state.canEdit || !state.academicCalendarBulkLoaded || state.academicCalendarCleanupDone;
 }
 
 async function handleLogout() {
@@ -775,19 +785,21 @@ async function loadPeriod() {
       const configRecord = records.find(isCalendarConfigRecord);
       state.calendarConfig = normalizeCalendarConfig(configRecord?.calendar_config);
       state.academicCalendarBulkLoaded = Boolean(configRecord?.[academicCalendarBulkMarker]);
+      state.academicCalendarCleanupDone = Boolean(configRecord?.[academicCalendarCleanupMarker]);
       records = records.filter((item) => !isCalendarConfigRecord(item));
       state.allActivities = records.sort(sortActivities);
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     } else {
       state.calendarConfig = loadDemoCalendarConfig();
       state.academicCalendarBulkLoaded = false;
+      state.academicCalendarCleanupDone = false;
       const records = loadDemoData().filter((item) => !isCalendarConfigRecord(item)).sort(sortActivities); state.allActivities = records;
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     }
   } catch (error) {
     status.textContent = `No se pudo cargar la agenda. ${friendlyError(error)}`; return;
   }
-  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); render();
+  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); updateCleanupAgendaVisibility(); render();
 }
 
 function updateNavigationState() {
@@ -808,9 +820,13 @@ function updatePeriodTitle() {
 
 function render() {
   agenda.replaceChildren(); if (state.view === "day") renderDay(); else if (state.view === "week") renderWeek(); else renderMonth();
-  const { visibleStart, visibleEnd } = periodRange();
-  const candidates = state.activities.filter((item) => matchesQuickFilter(item) && overlapsPeriod(item, visibleStart, visibleEnd) && itemHasDisplayableDay(item, visibleStart, visibleEnd));
+  const candidates = currentVisibleFilteredItems();
   const count = candidates.length;
+  const copyViewButton = el("copyVisibleEvents");
+  if (copyViewButton) {
+    copyViewButton.disabled = count === 0;
+    copyViewButton.title = count ? `Copiar ${count} ${count === 1 ? "evento visible" : "eventos visibles"}` : "No hay eventos visibles para copiar";
+  }
   status.className = "status activity-count";
   const countNumber = document.createElement("strong"); countNumber.className = "activity-count-number"; countNumber.textContent = String(count);
   const countText = document.createElement("span"); countText.className = "activity-count-text"; countText.textContent = count === 1 ? "evento" : "eventos";
@@ -1023,6 +1039,121 @@ async function copyText(text, successMessage = "Copiado") {
   showToast(successMessage);
 }
 async function copyWhatsAppInfo(item) { await copyText(whatsappTextForItem(item), "Información copiada"); }
+
+function currentVisibleFilteredItems() {
+  const { visibleStart, visibleEnd } = periodRange();
+  return state.activities
+    .filter((item) => matchesQuickFilter(item)
+      && overlapsPeriod(item, visibleStart, visibleEnd)
+      && itemHasDisplayableDay(item, visibleStart, visibleEnd))
+    .sort(sortActivities);
+}
+
+function publicCopyDateRangeLabel(start, end) {
+  if (toISODate(start) === toISODate(end)) {
+    return formatDate(start, { day: "numeric", month: "long", year: "numeric" });
+  }
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+  if (sameMonth) {
+    return `${start.getDate()} al ${formatDate(end, { day: "numeric", month: "long", year: "numeric" })}`;
+  }
+  return `${formatDate(start, { day: "numeric", month: "long", year: sameYear ? undefined : "numeric" })} al ${formatDate(end, { day: "numeric", month: "long", year: "numeric" })}`;
+}
+
+function activePublicFilterLines() {
+  const lines = [];
+  const modalityLabels = {
+    presential: "Presenciales",
+    hybrid: "Híbridas",
+    virtual: "Virtuales",
+    featured: "Fechas destacadas"
+  };
+  const audienceLabels = {
+    pregrado: "Pregrado",
+    grado: "Grado",
+    posgrado: "Posgrado",
+    general: "Actividades generales"
+  };
+  const allModalities = ["presential", "hybrid", "virtual", "featured"];
+  const allAudiences = ["pregrado", "grado", "posgrado", "general"];
+  const selectedModalities = allModalities.filter((key) => state.filters.has(key));
+  const selectedAudiences = allAudiences.filter((key) => state.audienceFilters.has(key));
+  if (selectedModalities.length !== allModalities.length) {
+    lines.push(`*Modalidad:* ${selectedModalities.length ? selectedModalities.map((key) => modalityLabels[key]).join(" · ") : "Ninguna"}`);
+  }
+  if (selectedAudiences.length !== allAudiences.length) {
+    lines.push(`*Nivel:* ${selectedAudiences.length ? selectedAudiences.map((key) => audienceLabels[key]).join(" · ") : "Ninguno"}`);
+  }
+  if (state.searchQuery.trim()) lines.push(`*Búsqueda:* ${state.searchQuery.trim()}`);
+  return lines;
+}
+
+function publicCopyLinesForItem(item) {
+  const lines = [];
+  if (isImportantPeriod(item)) {
+    lines.push(`*${item.name || "Fecha destacada"}*`);
+    lines.push(`*Fecha/as:* ${dateRangeLabel(item)}`);
+    lines.push(`*Tipo:* ${periodTypeLabel(item)}`);
+    const organizer = organizerName(item.secretary);
+    if (organizer) lines.push(`*Organiza:* ${organizer}`);
+    if (item.period_description) lines.push(`*Información:* ${item.period_description}`);
+    if (isSafeUrl(item.more_info_url)) lines.push(`🔗 *Más información:* ${item.more_info_url}`);
+    return lines;
+  }
+
+  lines.push(`*${item.name || "Actividad"}*`);
+  lines.push(`*Fecha/as:* ${dateRangeLabel(item)}`);
+  if (item.start_time || item.end_time) lines.push(`*Horario:* ${cleanTime(item.start_time)}–${cleanTime(item.end_time)}`);
+  const descriptor = activityDescriptor(item);
+  if (descriptor) lines.push(`*Tipo de actividad:* ${descriptor}`);
+  const organizer = organizerName(item.secretary);
+  if (organizer) lines.push(`*Organiza:* ${organizer}`);
+  if (item.career) lines.push(`*Carrera:* ${item.career}`);
+  if (itemAcademicYear(item)) lines.push(`*Año:* ${itemAcademicYear(item)}`);
+  if (item.subject && !isIngreso(item)) lines.push(`*Materia:* ${item.subject}`);
+  if (isSuspended(item)) lines.push("*Estado:* Suspendida");
+  else if (isPostponed(item)) {
+    lines.push("*Estado:* Postergada");
+    lines.push(`*Nueva fecha:* ${postponedDateLabel(item)}`);
+  }
+  if (!isVirtual(item) && item.classroom) lines.push(`*Aula/Lugar:* ${item.classroom}`);
+  lines.push(`*Modalidad:* ${activityTypeLabel(item)}`);
+  if (!isPresential(item) && item.platform) lines.push(`*Plataforma:* ${item.platform}`);
+  if (!isImportantPeriod(item) && !isPresential(item) && item.link_is_public === true && isSafeUrl(item.meeting_url)) {
+    lines.push(`🔗 *Enlace de la actividad:* ${item.meeting_url}`);
+  }
+  if (isSafeUrl(item.more_info_url)) lines.push(`🔗 *Más información:* ${item.more_info_url}`);
+  return lines;
+}
+
+function currentPublicViewCopyText(items) {
+  const { visibleStart, visibleEnd } = periodRange();
+  const viewLabel = ({ day: "Día", week: "Semana", month: "Mes" })[state.view] || "Agenda";
+  const lines = [
+    `*Agenda · ${viewLabel}*`,
+    publicCopyDateRangeLabel(visibleStart, visibleEnd),
+    ""
+  ];
+  const filterLines = activePublicFilterLines();
+  if (filterLines.length) lines.push(...filterLines, "");
+  lines.push(`*${items.length} ${items.length === 1 ? "evento" : "eventos"}*`, "");
+
+  items.forEach((item, index) => {
+    lines.push(...publicCopyLinesForItem(item));
+    if (index < items.length - 1) lines.push("");
+  });
+  return lines.join("\n");
+}
+
+async function copyCurrentPublicView() {
+  const items = currentVisibleFilteredItems();
+  if (!items.length) {
+    showToast("No hay eventos visibles para copiar");
+    return;
+  }
+  await copyText(currentPublicViewCopyText(items), `${items.length} ${items.length === 1 ? "evento copiado" : "eventos copiados"}`);
+}
 function actionButton(label, handler, className = "") { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.className = className; button.addEventListener("click", handler); return button; }
 
 function activitiesForDate(date) {
@@ -1479,6 +1610,7 @@ async function saveBulkAcademicDates(event) {
     state.academicCalendarBulkLoaded = true;
     bulkDatesDialog.close();
     updateBulkAcademicDatesVisibility();
+    updateCleanupAgendaVisibility();
     state.cursor = fromISODate("2026-08-16");
     await loadPeriod();
     const skipped = academicCalendarImportantDates.length - pending.length;
@@ -1489,6 +1621,69 @@ async function saveBulkAcademicDates(event) {
   } finally {
     button.disabled = false;
     button.textContent = "Cargar fechas";
+  }
+}
+
+async function cleanupAgendaKeepingAcademicDates() {
+  if (!state.canEdit || state.academicCalendarCleanupDone) return;
+  const keepPublicIds = new Set([
+    calendarConfigDocumentId,
+    ...academicCalendarImportantDates.map((item) => item.id)
+  ]);
+
+  const warning = [
+    "Esta acción eliminará de Firebase todas las actividades y fechas anteriores que no pertenezcan a la carga académica que acabamos de realizar.",
+    "",
+    `Se conservarán ${academicCalendarImportantDates.length} fechas académicas y la configuración del calendario.`,
+    "",
+    "Esta acción no se puede deshacer. ¿Querés continuar?"
+  ].join("\n");
+
+  if (!confirm(warning)) return;
+
+  const button = el("cleanupAgenda");
+  button.disabled = true;
+  button.textContent = "Limpiando…";
+
+  try {
+    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
+
+    const [publicSnapshot, privateSnapshot] = await Promise.all([
+      getDocs(collection(db, activitiesCollection)),
+      getDocs(collection(db, privateActivitiesCollection))
+    ]);
+
+    const publicToDelete = publicSnapshot.docs.filter((record) => !keepPublicIds.has(record.id));
+    const privateToDelete = privateSnapshot.docs;
+
+    const deleteInChunks = async (records, getRef) => {
+      for (let start = 0; start < records.length; start += 400) {
+        const batch = writeBatch(db);
+        records.slice(start, start + 400).forEach((record) => batch.delete(getRef(record)));
+        await batch.commit();
+      }
+    };
+
+    await deleteInChunks(publicToDelete, (record) => record.ref);
+    await deleteInChunks(privateToDelete, (record) => record.ref);
+
+    const markerBatch = writeBatch(db);
+    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
+      [academicCalendarCleanupMarker]: true,
+      academic_calendar_cleanup_at: serverTimestamp(),
+      updated_at: serverTimestamp()
+    }, { merge: true });
+    await markerBatch.commit();
+
+    state.academicCalendarCleanupDone = true;
+    updateCleanupAgendaVisibility();
+    await loadPeriod();
+    showToast(`${publicToDelete.length} registros anteriores eliminados`);
+  } catch (error) {
+    alert(`No se pudo limpiar la agenda. ${friendlyError(error)}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Eliminar datos anteriores";
   }
 }
 
