@@ -77,7 +77,7 @@ const commonActivityCategoryOptions = [
   ["service", "Servicio"]
 ];
 const activityCategoryLabels = new Map([
-  ["class", "Materia"],
+  ["class", "Clase de grado"],
   ["exam", "Examen final"],
   ["doctorate", "Doctorado"],
   ["masters", "Maestría"],
@@ -146,7 +146,7 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, filters: new Set(["presential", "hybrid", "virtual", "featured"]), searchQuery: "", calendarConfig: null };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: !configured, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -214,7 +214,7 @@ function activityCategoryOptionsForSecretary(secretary) {
     ["thesis_defense", "Defensa de tesis"], ["seminar", "Seminario"], ["course", "Curso"], ["days", "Jornada/s"]
   ];
   if (organizer === generalSecretary) return [["board", "Consejo Directivo"]];
-  if (organizer === academicSecretary) return [["class", "Materia"], ["exam", "Examen final"], ...commonActivityCategoryOptions];
+  if (organizer === academicSecretary) return [["class", "Clase de grado"], ["exam", "Examen final"], ...commonActivityCategoryOptions];
   if (commonProgramSecretaries.has(organizer)) return commonActivityCategoryOptions;
   return [...commonActivityCategoryOptions, ["other", "Otra actividad"]];
 }
@@ -315,18 +315,46 @@ function importantPeriodStatus(item) {
   return remaining <= 2 ? "Últimos días" : "Vigente";
 }
 function isHoliday(date) { return Boolean(holidayForDate(date)); }
-function matchesQuickFilter(item) {
-  const categoryMatches = isImportantPeriod(item) ? state.filters.has("featured") : state.filters.has(activityTypeKey(item));
-  if (!categoryMatches) return false;
-  const query = String(state.searchQuery || "").trim().toLocaleLowerCase(locale);
+function normalizeSearchText(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase(locale)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function searchableTextForItem(item) {
+  const rawValues = Object.values(item || {}).filter((value) => typeof value === "string" || typeof value === "number");
+  return normalizeSearchText([
+    ...rawValues,
+    organizerName(item?.secretary),
+    activityDescriptor(item),
+    activityTypeLabel(item),
+    activityStatusLabel(item),
+    isImportantPeriod(item) ? periodTypeLabel(item) : "",
+    isImportantPeriod(item) ? importantPeriodStatus(item) : ""
+  ].filter(Boolean).join(" "));
+}
+function matchesSearch(item) {
+  const query = normalizeSearchText(state.searchQuery);
   if (!query) return true;
-  const searchable = [
-    item.name, item.secretary, organizerName(item.secretary), item.responsible, item.career, item.subject,
-    item.academic_year, item.year, item.classroom, item.platform, item.activity_detail, item.academic_type,
-    item.period_description, item.requirements, item.observations, activityDescriptor(item), activityTypeLabel(item),
-    isImportantPeriod(item) ? periodTypeLabel(item) : ""
-  ].filter(Boolean).join(" ").toLocaleLowerCase(locale);
-  return searchable.includes(query);
+  return query.split(" ").filter(Boolean).every((term) => searchableTextForItem(item).includes(term));
+}
+function activityAudienceKey(item) {
+  if (isImportantPeriod(item)) return "general";
+  const career = String(item?.career || "").trim();
+  const organizer = organizerName(item?.secretary);
+  const category = activityCategoryKey(item);
+  if (career === buildingCareer) return "pregrado";
+  if (organizer === postgraduateSecretary || ["doctorate", "masters", "specialization", "diploma", "thesis_defense", "seminar"].includes(category)) return "posgrado";
+  if (career === lawCareer || (organizer === academicSecretary && ["class", "exam"].includes(category))) return "grado";
+  return "general";
+}
+
+function matchesQuickFilter(item) {
+  const modalityMatches = isImportantPeriod(item) ? state.filters.has("featured") : state.filters.has(activityTypeKey(item));
+  const audienceMatches = state.audienceFilters.has(activityAudienceKey(item));
+  return modalityMatches && audienceMatches && matchesSearch(item);
 }
 function itemHasDisplayableDay(item, start, end) {
   const itemStart = fromISODate(item.date) > localDate(start) ? fromISODate(item.date) : localDate(start);
@@ -391,7 +419,7 @@ async function init() {
     await setPersistence(auth, browserLocalPersistence).catch(() => {});
     onAuthStateChanged(auth, async (user) => {
       state.user = user;
-      state.canEdit = Boolean(user?.email && user.email.toLowerCase() === adminEmail);
+      state.canEdit = false;
       updateAuthUI();
       await loadPeriod();
     });
@@ -409,9 +437,18 @@ function bindEvents() {
   el("nextPeriod").addEventListener("click", () => movePeriod(1));
   el("currentPeriod").addEventListener("click", () => { const today = localDate(new Date()); state.cursor = today < calendarMinDate ? calendarMinDate : today > calendarMaxDate ? calendarMaxDate : today; loadPeriod(); });
   document.querySelectorAll(".view-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncViewFilters));
-  el("agendaSearch").addEventListener("input", (event) => { state.searchQuery = event.target.value; render(); });
+  document.querySelectorAll(".audience-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncAudienceFilters));
+  const searchInput = el("agendaSearch");
+  const applySearch = () => { state.searchQuery = searchInput.value; render(); };
+  searchInput.addEventListener("input", applySearch);
+  searchInput.addEventListener("search", applySearch);
+  searchInput.addEventListener("change", applySearch);
+  searchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && searchInput.value) { searchInput.value = ""; applySearch(); }
+  });
   el("newActivity").addEventListener("click", () => openActivityForm());
   el("updateCalendar").addEventListener("click", openCalendarForm);
+  el("downloadReport").addEventListener("click", downloadCurrentViewPdf);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
   el("activityForm").addEventListener("submit", saveActivity);
@@ -440,6 +477,11 @@ function bindEvents() {
 
 function syncViewFilters() {
   state.filters = new Set([...document.querySelectorAll(".view-filter-check:checked")].map((checkbox) => checkbox.value));
+  render();
+}
+
+function syncAudienceFilters() {
+  state.audienceFilters = new Set([...document.querySelectorAll(".audience-filter-check:checked")].map((checkbox) => checkbox.value));
   render();
 }
 
@@ -538,24 +580,17 @@ function toggleOtherSecretary() {
 function updateAuthUI() {
   const button = el("authButton");
   el("sessionLabel").hidden = true;
-  el("sessionLabel").textContent = state.canEdit && state.user?.email ? state.user.email : "";
+  el("sessionLabel").textContent = "";
   if (!configured) { button.setAttribute("aria-label", "Volver a la agenda pública"); button.title = "Volver a la agenda pública"; }
-  else if (state.user && state.canEdit) { button.setAttribute("aria-label", "Salir del modo administrador"); button.title = "Salir del modo administrador"; }
-  else { button.setAttribute("aria-label", "Administración"); button.title = "Administración"; }
+  else { button.setAttribute("aria-label", "Probar administración"); button.title = "Probar administración"; }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
 }
 
 async function handleAuthButton() {
-  if (!configured) {
-    const url = new URL(location.href); url.searchParams.delete("demo"); location.href = url.toString(); return;
-  }
-  if (state.user) { await signOut(auth); return; }
-  try {
-    const provider = new GoogleAuthProvider();
-    if (adminEmail) provider.setCustomParameters({ login_hint: adminEmail });
-    const result = await signInWithPopup(auth, provider);
-    if (!result.user?.email || result.user.email.toLowerCase() !== adminEmail) { await signOut(auth); alert("Esta cuenta no tiene permisos de administración."); }
-  } catch (error) { if (error?.code !== "auth/popup-closed-by-user") alert(`No se pudo iniciar sesión. ${friendlyError(error)}`); }
+  const url = new URL(location.href);
+  if (!configured) url.searchParams.delete("demo");
+  else url.searchParams.set("demo", "1");
+  location.href = url.toString();
 }
 
 function setView(view) {
@@ -1277,6 +1312,132 @@ function expandSimpleRecurrence(base, ruleText, startDate, endDate, uid) {
     occurrences.push({ ...base, date: toISODate(cursor), end_date: toISODate(addDays(cursor, durationDays)), start_time: timeFromDate(cursor), end_time: timeFromDate(end), source_uid: `${uid}-${toISODate(cursor)}` });
   }
   return occurrences;
+}
+
+function currentReportItems() {
+  const { visibleStart, visibleEnd } = periodRange();
+  return state.activities
+    .filter((item) => matchesQuickFilter(item) && overlapsPeriod(item, visibleStart, visibleEnd) && itemHasDisplayableDay(item, visibleStart, visibleEnd))
+    .sort(sortActivities);
+}
+function reportViewLabel() { return { day: "Informe diario", week: "Informe semanal", month: "Informe mensual" }[state.view] || "Informe"; }
+function reportPeriodLabel() {
+  const { visibleStart, visibleEnd } = periodRange();
+  if (state.view === "day") return formatDate(visibleStart, { day: "numeric", month: "long", year: "numeric" });
+  if (state.view === "month") return titleCase(formatDate(visibleStart, { month: "long", year: "numeric" }));
+  return `${formatDate(visibleStart, { day: "numeric", month: "long" })} - ${formatDate(visibleEnd, { day: "numeric", month: "long", year: "numeric" })}`;
+}
+function activeFilterLabels() {
+  const labels = [];
+  if (state.filters.has("presential")) labels.push("Presenciales");
+  if (state.filters.has("hybrid")) labels.push("Híbridas");
+  if (state.filters.has("virtual")) labels.push("Virtuales");
+  if (state.filters.has("featured")) labels.push("Fechas destacadas");
+  if (state.audienceFilters.has("pregrado")) labels.push("Pregrado");
+  if (state.audienceFilters.has("grado")) labels.push("Grado");
+  if (state.audienceFilters.has("posgrado")) labels.push("Posgrado");
+  if (state.audienceFilters.has("general")) labels.push("Actividades generales");
+  return labels;
+}
+function reportItemLines(item) {
+  if (isImportantPeriod(item)) {
+    const lines = [
+      `${periodTypeLabel(item)}: ${item.name || "Sin detalle"}`,
+      `Fecha/as: ${dateRangeLabel(item)}`,
+      `Estado: ${importantPeriodStatus(item)}`
+    ];
+    const detail = item.period_description || item.requirements || item.observations;
+    if (detail) lines.push(`Detalle: ${detail}`);
+    return lines;
+  }
+  const lines = [
+    item.name || "Actividad",
+    `Fecha/as: ${dateRangeLabel(item)}`,
+    `Horario: ${cleanTime(item.start_time)} a ${cleanTime(item.end_time)}`,
+    `Tipo: ${activityDescriptor(item)}`,
+    `Modalidad: ${activityTypeLabel(item)}`,
+    `Organiza: ${organizerName(item.secretary)}`
+  ];
+  if (activityStatusKey(item) !== "scheduled") lines.push(`Estado: ${activityStatusLabel(item)}${isPostponed(item) ? ` - ${postponedDateLabel(item)}` : ""}`);
+  if (item.career) lines.push(`Carrera: ${item.career}`);
+  if (item.subject && !isIngreso(item)) lines.push(`Materia: ${subjectBaseName(item.subject)}`);
+  if (itemAcademicYear(item)) lines.push(`Año: ${itemAcademicYear(item)}`);
+  if (item.classroom) lines.push(`Lugar: ${item.classroom}`);
+  if (activityTypeKey(item) !== "presential" && item.platform) lines.push(`Plataforma: ${item.platform}`);
+  if (activityTypeKey(item) !== "presential" && item.link_is_public === true && item.meeting_url) lines.push(`Enlace público: ${item.meeting_url}`);
+  return lines;
+}
+function hexRgb(hex) {
+  const clean = String(hex || "").replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(clean)) return [2, 55, 100];
+  return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
+}
+async function downloadCurrentViewPdf() {
+  if (!state.canEdit) return;
+  const JsPdf = window.jspdf?.jsPDF;
+  if (!JsPdf) { alert("No se pudo cargar el generador de PDF. Revisá la conexión a Internet y actualizá la página."); return; }
+  const items = currentReportItems();
+  if (!items.length) { alert("No hay eventos en esta vista con los filtros y la búsqueda actuales."); return; }
+  try {
+    const doc = new JsPdf({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 16;
+    const contentWidth = pageWidth - margin * 2;
+    const blue = hexRgb("#023764");
+    const gold = hexRgb("#C5AD68");
+    const gray = hexRgb("#66737C");
+    let y = 18;
+    const ensureSpace = (needed = 18) => {
+      if (y + needed <= pageHeight - 16) return;
+      doc.addPage(); y = 18;
+    };
+    doc.setFillColor(...blue); doc.rect(0, 0, pageWidth, 28, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+    doc.text("UNCUYO - Facultad de Derecho", margin, 12);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Agenda institucional de actividades", margin, 19);
+    y = 38;
+    doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(reportViewLabel(), margin, y); y += 8;
+    doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportPeriodLabel(), margin, y); y += 9;
+    doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 34, 9, 2, 2, "F");
+    doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(`${items.length} ${items.length === 1 ? "evento" : "eventos"}`, margin + 3, y + 1); y += 12;
+    const filterText = `Filtros activos: ${activeFilterLabels().join(", ") || "ninguno"}${normalizeSearchText(state.searchQuery) ? ` | Búsqueda: ${state.searchQuery.trim()}` : ""}`;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...gray);
+    doc.text(doc.splitTextToSize(filterText, contentWidth), margin, y); y += 10;
+
+    const modalityCounts = { presential: 0, hybrid: 0, virtual: 0, featured: 0 };
+    items.forEach((item) => { if (isImportantPeriod(item)) modalityCounts.featured += 1; else modalityCounts[activityTypeKey(item)] = (modalityCounts[activityTypeKey(item)] || 0) + 1; });
+    const summary = `Presenciales ${modalityCounts.presential || 0}  |  Híbridas ${modalityCounts.hybrid || 0}  |  Virtuales ${modalityCounts.virtual || 0}  |  Fechas destacadas ${modalityCounts.featured || 0}`;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...blue); doc.text(doc.splitTextToSize(summary, contentWidth), margin, y); y += 10;
+
+    items.forEach((item, index) => {
+      const lines = reportItemLines(item);
+      const title = lines.shift() || "Evento";
+      const titleLines = doc.splitTextToSize(title, contentWidth - 8);
+      const detailLines = lines.flatMap((line) => doc.splitTextToSize(line, contentWidth - 8));
+      const height = Math.max(20, 8 + titleLines.length * 5 + detailLines.length * 4.2);
+      ensureSpace(height + 5);
+      doc.setDrawColor(218, 224, 228); doc.setFillColor(248, 250, 251); doc.roundedRect(margin, y, contentWidth, height, 2, 2, "FD");
+      doc.setFillColor(...(isImportantPeriod(item) ? gold : blue)); doc.rect(margin, y, 2.5, height, "F");
+      let iy = y + 7;
+      doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(titleLines, margin + 6, iy); iy += titleLines.length * 5 + 1;
+      doc.setTextColor(50, 55, 60); doc.setFont("helvetica", "normal"); doc.setFontSize(8.7);
+      detailLines.forEach((line) => { doc.text(line, margin + 6, iy); iy += 4.2; });
+      y += height + 5;
+      if (index === items.length - 1) y += 1;
+    });
+    const totalPages = doc.getNumberOfPages();
+    for (let page = 1; page <= totalPages; page += 1) {
+      doc.setPage(page); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...gray);
+      doc.text(`Generado el ${formatDate(new Date(), { day: "2-digit", month: "2-digit", year: "numeric" })}`, margin, pageHeight - 8);
+      doc.text(`Página ${page} de ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: "right" });
+    }
+    const slug = { day: "diario", week: "semanal", month: "mensual" }[state.view] || "agenda";
+    const dateToken = toISODate(periodRange().visibleStart);
+    doc.save(`informe-${slug}-${dateToken}.pdf`);
+  } catch (error) {
+    alert(`No se pudo generar el PDF. ${friendlyError(error)}`);
+  }
 }
 
 function friendlyError(error) {

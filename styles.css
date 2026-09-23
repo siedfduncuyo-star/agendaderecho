@@ -531,3 +531,17 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   .view-switch-row .activity-count-number { font-size: 1rem; }
   .view-switch-row .activity-count-text { font-size: .66rem; }
 }
+
+
+/* v33 · filtros por nivel, modo de prueba de carga y copia */
+.audience-check-filters { margin-top: 0; }
+.share-actions { justify-content: flex-end; }
+.copy-icon-button {
+  border-color: rgba(1,74,125,.38);
+  color: var(--blue);
+}
+.copy-icon-button:hover { background: rgba(1,74,125,.08); }
+@media (max-width: 650px) {
+  .audience-check-filters { width: 100%; justify-content: flex-start; gap: 9px 13px; }
+  .audience-check-filters .type-filters-title { width: 100%; }
+}

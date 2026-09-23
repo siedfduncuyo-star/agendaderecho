@@ -63,3 +63,18 @@ Si reemplazás una versión anterior, hacé una recarga forzada del navegador (`
 - Se agrega un buscador debajo de los filtros combinables de modalidad.
 - El texto copiado elimina iconos decorativos; sólo conserva el icono de enlace cuando corresponde.
 - El botón visible de copiado se reemplaza por un icono dorado, sin texto.
+
+
+## v32 - Buscador e informes PDF
+
+- El buscador filtra la vista actual en tiempo real y busca sin distinguir mayúsculas, minúsculas ni tildes.
+- La búsqueda recorre título, área, responsable, carrera, materia, año, lugar, modalidad, tipo, estado y descripciones.
+- En modo administrador se incorpora `Informe PDF`. El informe se genera según la vista activa (Día, Semana o Mes), respeta los checks de modalidad y la búsqueda actual, y se descarga directamente como PDF.
+- El PDF incluye período, total de eventos, resumen por modalidad y el detalle ordenado de los eventos. Los enlaces privados no se incluyen en el informe.
+
+
+## v33
+- La administración queda temporalmente en modo de prueba local (`?demo=1`), sin permisos de carga sobre Firebase.
+- Se agregan filtros combinables por nivel: Pregrado, Grado, Posgrado y Actividades generales.
+- El tipo de actividad `Materia` pasa a denominarse `Clase de grado`.
+- El botón de copiar queda alineado a la derecha y en azul institucional.

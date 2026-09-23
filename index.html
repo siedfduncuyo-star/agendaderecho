@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=31" />
+    <link rel="stylesheet" href="styles.css?v=33" />
   </head>
   <body>
     <header class="site-header">
@@ -31,7 +31,7 @@
 
     <main>
       <section id="demoBanner" class="demo-banner" hidden>
-        <strong>Modo de prueba.</strong> Los cambios se guardan sólo en este dispositivo.
+        <strong>Modo de prueba de carga.</strong> Podés probar altas, ediciones y calendario sin permisos. Los cambios se guardan sólo en este dispositivo.
       </section>
 
       <section class="agenda-toolbar" aria-label="Controles de agenda">
@@ -56,6 +56,7 @@
           <div class="editor-actions editor-only" hidden>
             <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
             <button id="updateCalendar" class="button button-secondary" type="button">Actualizar calendario</button>
+            <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
           </div>
         </div>
@@ -64,11 +65,18 @@
       <div class="agenda-summary-bar">
         <div class="filter-stack">
           <div class="type-filters quick-check-filters" role="group" aria-label="Filtrar eventos por modalidad">
-            <span class="type-filters-title">Mostrar</span>
+            <span class="type-filters-title">Modalidad</span>
             <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
             <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
             <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
             <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
+          </div>
+          <div class="type-filters quick-check-filters audience-check-filters" role="group" aria-label="Filtrar eventos por nivel">
+            <span class="type-filters-title">Nivel</span>
+            <label><input class="audience-filter-check" type="checkbox" value="pregrado" checked /> Pregrado</label>
+            <label><input class="audience-filter-check" type="checkbox" value="grado" checked /> Grado</label>
+            <label><input class="audience-filter-check" type="checkbox" value="posgrado" checked /> Posgrado</label>
+            <label><input class="audience-filter-check" type="checkbox" value="general" checked /> Actividades generales</label>
           </div>
           <label class="agenda-search" for="agendaSearch">
             <span>Buscar</span>
@@ -197,7 +205,8 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script src="config.js?v=11"></script>
-    <script type="module" src="app.js?v=30"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script type="module" src="app.js?v=32"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");
