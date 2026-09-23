@@ -105,3 +105,9 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Mantiene enlaces, cuentas y notas técnicas en la colección privada; los enlaces importados no se publican.
 - Clasifica automáticamente solo cuando la fuente lo permite con claridad (Académica/Posgrado); el resto queda sin organizador.
 - La acción aparece después de completar la limpieza de datos anteriores, desaparece luego de cargarse y omite registros ya existentes por `source_uid`.
+
+
+## v43 — Tipos de actividad comunes
+- Todas las áreas organizadoras incorporan **Charla informativa** y **Otro**.
+- Al elegir **Otro**, aparece un campo obligatorio para escribir el tipo de actividad.
+- El texto personalizado se conserva y se muestra en tarjetas, detalle, búsqueda, copias e informes.

@@ -77,7 +77,9 @@ const commonActivityCategoryOptions = [
   ["workshop", "Taller"],
   ["days", "Jornada/s"],
   ["congress", "Congreso"],
-  ["service", "Servicio"]
+  ["service", "Servicio"],
+  ["info_talk", "Charla informativa"],
+  ["other", "Otro"]
 ];
 const activityCategoryLabels = new Map([
   ["class", "Clase de grado"],
@@ -97,7 +99,8 @@ const activityCategoryLabels = new Map([
   ["congress", "Congreso"],
   ["service", "Servicio"],
   ["board", "Consejo Directivo"],
-  ["other", "Otra actividad"]
+  ["info_talk", "Charla informativa"],
+  ["other", "Otro"]
 ]);
 const lawCareer = "Abogacía";
 const buildingCareer = "Tecnicatura Universitaria en Administración de Edificios de Propiedad Horizontal y Conjuntos Inmobiliarios";
@@ -243,12 +246,13 @@ function activityCategoryOptionsForSecretary(secretary) {
   const organizer = organizerName(secretary);
   if (organizer === postgraduateSecretary) return [
     ["doctorate", "Doctorado"], ["masters", "Maestría"], ["specialization", "Especialización"], ["diploma", "Diplomatura"],
-    ["thesis_defense", "Defensa de tesis"], ["seminar", "Seminario"], ["course", "Curso"], ["days", "Jornada/s"]
+    ["thesis_defense", "Defensa de tesis"], ["seminar", "Seminario"], ["course", "Curso"], ["days", "Jornada/s"],
+    ["info_talk", "Charla informativa"], ["other", "Otro"]
   ];
-  if (organizer === generalSecretary) return [["board", "Consejo Directivo"]];
+  if (organizer === generalSecretary) return [["board", "Consejo Directivo"], ["info_talk", "Charla informativa"], ["other", "Otro"]];
   if (organizer === academicSecretary) return [["class", "Clase de grado"], ["open_class", "Clase abierta"], ["exam", "Examen final"], ["global_knowledge_exam", "Examen Global de Conocimientos"], ...commonActivityCategoryOptions];
   if (commonProgramSecretaries.has(organizer)) return commonActivityCategoryOptions;
-  return [...commonActivityCategoryOptions, ["other", "Otra actividad"]];
+  return commonActivityCategoryOptions;
 }
 function inferActivityCategory(item) {
   const organizer = organizerName(item?.secretary);
@@ -268,6 +272,7 @@ function inferActivityCategory(item) {
   if (text.includes("jornada")) return "days";
   if (text.includes("congreso")) return "congress";
   if (text.includes("servicio")) return "service";
+  if (text.includes("charla informativa")) return "info_talk";
   if (text.includes("curso")) return "course";
   return "";
 }
@@ -277,7 +282,12 @@ function activityCategoryKey(item) {
 }
 function activityCategoryLabel(item) {
   if (subjectBaseName(item?.subject) === "Ingreso") return "Ingreso";
-  return activityCategoryLabels.get(activityCategoryKey(item)) || "Actividad";
+  const category = activityCategoryKey(item);
+  if (category === "other") {
+    const custom = String(item?.activity_category_custom || "").trim();
+    if (custom) return custom;
+  }
+  return activityCategoryLabels.get(category) || "Actividad";
 }
 function activityDescriptor(item) { return activityCategoryLabel(item); }
 function isIngreso(item) { return subjectBaseName(item?.subject) === "Ingreso"; }
@@ -640,8 +650,11 @@ function updateAcademicFields(preferredSubject = "", preferredYear = "", preferr
   else if (options.length === 1) el("academicType").value = options[0][0];
   const academic = scheduled && organizerName(organizer) === academicSecretary;
   const detailed = academic && ["class", "open_class", "exam"].includes(el("academicType").value);
+  const customActivityType = scheduled && el("academicType").value === "other";
   el("academicTypeField").hidden = !scheduled || !organizer;
   el("academicType").required = scheduled && Boolean(organizer);
+  el("otherActivityTypeField").hidden = !customActivityType;
+  el("otherActivityType").required = customActivityType;
   el("careerField").hidden = !detailed; el("academicYearField").hidden = !detailed; el("subjectField").hidden = !detailed;
   el("career").required = detailed; el("academicYear").required = detailed; el("subject").required = detailed;
   el("activityType").disabled = academic && el("academicType").value === "exam";
@@ -1404,6 +1417,7 @@ function openActivityForm(item = null) {
   else { el("secretary").value = ""; el("otherSecretary").value = ""; }
   toggleOtherSecretary(); el("responsible").value = item?.responsible || "";
   el("activityType").value = item ? activityTypeKey(item) : "presential";
+  el("otherActivityType").value = item?.activity_category_custom || "";
   const preferredCategory = item ? activityCategoryKey(item) : "";
   const inferredCareer = item?.career || Object.keys(academicPlans).find((career) => allSubjectsForCareer(career).some((subject) => subjectBaseName(subject) === subjectBaseName(item?.subject))) || "";
   el("career").value = inferredCareer; updateAcademicFields(item?.subject || "", normalizeAcademicYear(item?.academic_year || inferAcademicYear(inferredCareer, item?.subject)), preferredCategory);
@@ -1456,7 +1470,7 @@ function activityPayload() {
   const classroom = el("activityType").value === "virtual" ? "" : el("classroom").value === "__other__" ? el("otherClassroom").value.trim() : el("classroom").value;
   const activityStatus = el("activityStatus").value || "scheduled";
   const postponedDateTbd = activityStatus === "postponed" && el("postponedDateTbd").checked;
-  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
+  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, activity_category_custom: category === "other" ? el("otherActivityType").value.trim() : "", academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
 }
 
 function validateActivity(payload) {
@@ -1473,6 +1487,7 @@ function validateActivity(payload) {
   if (fromISODate(payload.date).getDay() === 0) return "Los domingos no forman parte de esta agenda.";
   if (payload.activity_type !== "virtual" && !payload.classroom) return "Seleccioná un aula o completá el campo Otro lugar.";
   if (!payload.activity_category) return "Seleccioná el tipo de actividad.";
+  if (payload.activity_category === "other" && !payload.activity_category_custom) return "Escribí el tipo de actividad en el campo Otro.";
   if (["class", "open_class", "exam"].includes(payload.activity_category) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año y la materia.";
   if (payload.end_time <= payload.start_time) return "La hora de finalización debe ser posterior a la de inicio.";
   if (payload.meeting_url && !isSafeUrl(payload.meeting_url)) return "El enlace debe comenzar con http:// o https://.";
