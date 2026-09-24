@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v61-performance-20260924";
+const AGENDA_BUILD = "v62-reportes-20260924";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
@@ -603,8 +603,25 @@ function loadDemoCalendarConfig() {
 }
 function writeDemoCalendarConfig(calendarConfig) { localStorage.setItem(demoCalendarStorageKey, JSON.stringify(calendarConfig)); }
 
+function removeLegacyMigrationControls() {
+  // Las cargas históricas ya fueron migradas a Firebase y no deben volver a ofrecerse.
+  const legacyIds = [
+    "bulkAcademicDates", "cleanupAgenda", "bulkHibridaciones", "bulkGradeSchedule",
+    "bulkPregradeSchedule", "bulkLegalClinics", "bulkMediationCenter", "bulkPrograms",
+    "updateIngreso2027", "bulkDatesDialog", "hibridacionesDialog", "gradeScheduleDialog",
+    "pregradeScheduleDialog", "legalClinicsDialog", "mediationCenterDialog", "programsDialog",
+    "ingreso2027Dialog"
+  ];
+  legacyIds.forEach((id) => document.getElementById(id)?.remove());
+  document.querySelectorAll("button").forEach((button) => {
+    const text = normalizeSearchText(button.textContent || "");
+    if (text.includes("cargar horarios de tecnicatura")) button.remove();
+  });
+}
+
 async function init() {
   state.calendarConfig = cloneDefaultCalendarConfig();
+  removeLegacyMigrationControls();
   el("demoBanner").hidden = true;
   populateFormOptions();
   populateCalendarYearOptions();
@@ -2361,14 +2378,16 @@ function reportDetailedItemLines(item) {
     `Nivel: ${reportAudienceLabel(activityAudienceKey(item))}`
   ];
   const organizer = displayOrganizer(item); if (organizer) lines.push(`Organiza: ${organizer}`);
-  if (activityStatusKey(item) !== "scheduled") lines.push(`Estado: ${activityStatusLabel(item)}${isPostponed(item) ? ` - ${postponedDateLabel(item)}` : ""}`);
+  if (isSuspended(item)) lines.push("Estado: Suspendida");
+  else if (isPostponed(item)) lines.push(`Estado: Reprogramada - ${postponedDateLabel(item)}`);
   if (item.career) lines.push(`Carrera: ${item.career}`);
   if (item.subject && !isIngreso(item)) lines.push(`Materia: ${subjectBaseName(item.subject)}`);
   if (itemAcademicYear(item)) lines.push(`Año: ${itemAcademicYear(item)}`);
   const reportResponsible = state.canEdit ? (item.responsible || item.public_responsible) : (item.responsible_is_public === true ? item.public_responsible : "");
   if (reportResponsible) lines.push(`Responsable: ${reportResponsible}`);
-  if (item.classroom) lines.push(`Lugar: ${item.classroom}`);
-  if (activityTypeKey(item) !== "presential" && item.platform) lines.push(`Plataforma: ${item.platform}`);
+  if (item.classroom) lines.push(`Aula / lugar: ${item.classroom}`);
+  const platform = reportPlatformName(item);
+  if (platform) lines.push(`Plataforma: ${platform}`);
   if (activityTypeKey(item) !== "presential" && item.link_is_public === true && item.meeting_url) lines.push(`Enlace público: ${item.meeting_url}`);
   return lines;
 }
@@ -2393,12 +2412,123 @@ function countReportItems(items, keyFn) {
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], locale));
 }
+function reportSuspensionIndex(records) {
+  const index = new Map();
+  records.forEach((item) => {
+    if (!isImportantPeriod(item) || periodTypeKey(item) !== "suspension") return;
+    let date = fromISODate(item.date);
+    const last = fromISODate(activityEndDate(item));
+    while (date <= last) {
+      const key = toISODate(date);
+      if (!index.has(key)) index.set(key, []);
+      index.get(key).push(item);
+      date = addDays(date, 1);
+    }
+  });
+  return index;
+}
+function reportWorkingDayCount(range, sourceItems) {
+  const recesses = sourceItems.filter((item) => isImportantPeriod(item) && periodTypeKey(item) === "recess");
+  let count = 0;
+  for (let date = localDate(range.start); date <= localDate(range.end); date = addDays(date, 1)) {
+    if (date.getDay() === 0 || !isWithinConfiguredCalendar(date) || isHoliday(date)) continue;
+    const inRecess = recesses.some((period) => date >= fromISODate(period.date) && date <= fromISODate(activityEndDate(period)));
+    if (!inRecess) count += 1;
+  }
+  return count;
+}
+function reportActivityItems(items) { return items.filter((item) => !isImportantPeriod(item)); }
+function reportIsPerformed(item, now = new Date()) {
+  if (isImportantPeriod(item) || isSuspended(item) || isPostponed(item)) return false;
+  if (hasScheduledTime(item)) return activityEndDateTime(item).getTime() <= now.getTime();
+  return localDate(fromISODate(activityEndDate(item))) < localDate(now);
+}
+function reportShiftKey(item) {
+  const explicitShift = String(item?.academic_shift || "").trim().toLowerCase();
+  if (["tm", "morning", "mañana", "manana"].includes(explicitShift)) return "morning";
+  if (["tt", "afternoon", "tarde"].includes(explicitShift)) return "afternoon";
+  if (isGroupedGradeClass(item)) return gradeTurnKey(item);
+  const start = minutesFromTime(item?.start_time);
+  if (start < 0) return "";
+  return start < 14 * 60 ? "morning" : "afternoon";
+}
+function reportShiftRanges(items) {
+  const buckets = { morning: [], afternoon: [] };
+  reportActivityItems(items).forEach((item) => {
+    if (!hasScheduledTime(item)) return;
+    const key = reportShiftKey(item);
+    if (key && buckets[key]) buckets[key].push(item);
+  });
+  return Object.entries(buckets).map(([key, rows]) => {
+    if (!rows.length) return [key, null];
+    const starts = rows.map((item) => minutesFromTime(item.start_time)).filter((value) => value >= 0);
+    const ends = rows.map((item) => minutesFromTime(item.end_time)).filter((value) => value >= 0);
+    const formatMinutes = (value) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+    return [key, { start: formatMinutes(Math.min(...starts)), end: formatMinutes(Math.max(...ends)), count: rows.length }];
+  ]).filter(([, value]) => value);
+}
+function reportRoomCounts(items) {
+  return countReportItems(
+    reportActivityItems(items).filter((item) => String(item.classroom || "").trim()),
+    (item) => String(item.classroom || "").trim()
+  );
+}
+function reportPlatformName(item) {
+  const explicit = String(item?.platform || "").trim();
+  if (explicit) return explicit;
+  const detected = detectPlatform(String(item?.meeting_url || ""));
+  return detected || "";
+}
+function reportPlatformCounts(items) {
+  return countReportItems(
+    reportActivityItems(items).filter((item) => reportPlatformName(item)),
+    reportPlatformName
+  );
+}
+function reportTimeRangeCounts(items) {
+  const counts = new Map();
+  reportActivityItems(items).forEach((item) => {
+    if (!hasScheduledTime(item)) return;
+    const key = `${cleanTime(item.start_time)}–${cleanTime(item.end_time)}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => minutesFromTime(a[0].split("–")[0]) - minutesFromTime(b[0].split("–")[0]) || a[0].localeCompare(b[0], locale));
+}
+function buildReportContext(range, items, sourceItems) {
+  const activities = reportActivityItems(items);
+  return {
+    workingDays: reportWorkingDayCount(range, sourceItems),
+    activityCount: activities.length,
+    performedCount: activities.filter((item) => reportIsPerformed(item)).length,
+    suspendedCount: activities.filter((item) => isSuspended(item)).length,
+    rescheduledCount: activities.filter((item) => isPostponed(item)).length,
+    shiftRanges: reportShiftRanges(activities),
+    rooms: reportRoomCounts(activities),
+    platforms: reportPlatformCounts(activities),
+    timeRanges: reportTimeRangeCounts(activities)
+  };
+}
+let reportLogoPromise = null;
+function ensureReportLogoDataUrl() {
+  if (!reportLogoPromise) {
+    reportLogoPromise = fetch("assets/logo-fd-blanco.png")
+      .then((response) => { if (!response.ok) throw new Error("logo"); return response.blob(); })
+      .then((blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      }))
+      .catch(() => "");
+  }
+  return reportLogoPromise;
+}
 function hexRgb(hex) {
   const clean = String(hex || "").replace("#", "");
   if (!/^[0-9a-f]{6}$/i.test(clean)) return [2, 55, 100];
   return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
 }
-function pdfBase(doc, range, outputType, items) {
+function pdfBase(doc, range, outputType, items, context, logoDataUrl = "") {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 16;
@@ -2407,16 +2537,23 @@ function pdfBase(doc, range, outputType, items) {
   const gold = hexRgb("#C5AD68");
   const gray = hexRgb("#66737C");
   let y = 18;
+  const drawHeader = () => {
+    doc.setFillColor(...blue); doc.rect(0, 0, pageWidth, 30, "F");
+    if (logoDataUrl) {
+      try { doc.addImage(logoDataUrl, "PNG", margin, 6.5, 84, 13.9, undefined, "FAST"); }
+      catch (_) { /* fallback below */ }
+    }
+    if (!logoDataUrl) {
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("UNCUYO - Facultad de Derecho", margin, 13);
+    }
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text("Agenda institucional de actividades", pageWidth - margin, 12, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.text("Informe de gestión", pageWidth - margin, 19, { align: "right" });
+  };
   const ensureSpace = (needed = 18) => {
     if (y + needed <= pageHeight - 16) return;
-    doc.addPage(); y = 18;
+    doc.addPage(); drawHeader(); y = 39;
   };
-  const header = () => {
-    doc.setFillColor(...blue); doc.rect(0, 0, pageWidth, 28, "F");
-    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("UNCUYO - Facultad de Derecho", margin, 12);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Agenda institucional de actividades", margin, 19);
-  };
-  header(); y = 38;
+  drawHeader(); y = 40;
   doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(reportTypeLabel(range, outputType), margin, y); y += 8;
   doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportRangeLabel(range), margin, y); y += 9;
   doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 37, 9, 2, 2, "F");
@@ -2426,7 +2563,7 @@ function pdfBase(doc, range, outputType, items) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...gray);
     const lines = doc.splitTextToSize(`Filtros: ${selections.join(" | ")}`, contentWidth); doc.text(lines, margin, y); y += lines.length * 4 + 5;
   }
-  return { pageWidth, pageHeight, margin, contentWidth, blue, gold, gray, ensureSpace, getY: () => y, setY: (value) => { y = value; } };
+  return { pageWidth, pageHeight, margin, contentWidth, blue, gold, gray, context, ensureSpace, getY: () => y, setY: (value) => { y = value; } };
 }
 function addPdfFooters(doc, layout) {
   const totalPages = doc.getNumberOfPages();
@@ -2454,14 +2591,66 @@ function drawStatisticalBreakdown(doc, layout, title, rows, total) {
   });
   y += 4; layout.setY(y);
 }
-function renderDetailedPdf(doc, layout, items) {
-  const modalityCounts = countReportItems(items, reportModalityLabel);
-  const summary = modalityCounts.map(([label, count]) => `${label}: ${count}`).join("  |  ");
+function drawMetricGrid(doc, layout, context) {
+  const metrics = [
+    ["Días hábiles considerados", context.workingDays],
+    ["Actividades programadas", context.activityCount],
+    ["Efectuadas", context.performedCount],
+    ["Suspendidas", context.suspendedCount],
+    ["Reprogramadas", context.rescheduledCount]
+  ];
   let y = layout.getY();
-  if (summary) {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...layout.blue);
-    const summaryLines = doc.splitTextToSize(summary, layout.contentWidth); doc.text(summaryLines, layout.margin, y); y += summaryLines.length * 4.5 + 6;
+  layout.ensureSpace(16); y = layout.getY();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Resumen de gestión", layout.margin, y); y += 6;
+  const cols = 3; const gap = 4; const cellW = (layout.contentWidth - gap * (cols - 1)) / cols; const cellH = 15;
+  for (let i = 0; i < metrics.length; i += cols) {
+    layout.setY(y); layout.ensureSpace(cellH + 4); y = layout.getY();
+    metrics.slice(i, i + cols).forEach(([label, value], col) => {
+      const x = layout.margin + col * (cellW + gap);
+      doc.setFillColor(248, 250, 251); doc.setDrawColor(218, 224, 228); doc.roundedRect(x, y, cellW, cellH, 2, 2, "FD");
+      doc.setTextColor(...layout.gray); doc.setFont("helvetica", "normal"); doc.setFontSize(7.4);
+      const labelLines = doc.splitTextToSize(label, cellW - 7); doc.text(labelLines, x + 3.5, y + 4.5);
+      doc.setTextColor(...layout.blue); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(String(value), x + cellW - 3.5, y + 11.8, { align: "right" });
+    });
+    y += cellH + 4;
   }
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...layout.gray);
+  const note = "Días hábiles: lunes a sábado, excluyendo feriados y recesos configurados. Efectuadas: actividades cuyo horario ya transcurrió y que no figuran suspendidas ni reprogramadas.";
+  const noteLines = doc.splitTextToSize(note, layout.contentWidth); doc.text(noteLines, layout.margin, y); y += noteLines.length * 3.6 + 5;
+  layout.setY(y);
+}
+function drawShiftSummary(doc, layout, context) {
+  let y = layout.getY();
+  layout.ensureSpace(16); y = layout.getY();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Rangos horarios por turno", layout.margin, y); y += 6;
+  if (!context.shiftRanges.length) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...layout.gray); doc.text("Sin horarios informados", layout.margin, y); y += 7;
+  } else {
+    context.shiftRanges.forEach(([key, data]) => {
+      layout.setY(y); layout.ensureSpace(7); y = layout.getY();
+      const label = key === "morning" ? "Turno mañana" : "Turno tarde";
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(48, 55, 60); doc.text(`${label}: ${data.start}–${data.end}`, layout.margin, y);
+      doc.setFont("helvetica", "bold"); doc.setTextColor(...layout.blue); doc.text(`${data.count} actividades`, layout.pageWidth - layout.margin, y, { align: "right" });
+      y += 5.5;
+    });
+    y += 2;
+  }
+  layout.setY(y);
+}
+function drawOperationalBreakdowns(doc, layout, context) {
+  drawStatisticalBreakdown(doc, layout, "Uso de aulas / espacios", context.rooms, context.activityCount);
+  drawStatisticalBreakdown(doc, layout, "Uso de plataformas", context.platforms, context.activityCount);
+  drawStatisticalBreakdown(doc, layout, "Cantidad de actividades por horario", context.timeRanges, context.activityCount);
+}
+
+function renderDetailedPdf(doc, layout, items) {
+  const context = layout.context;
+  drawMetricGrid(doc, layout, context);
+  drawShiftSummary(doc, layout, context);
+  drawOperationalBreakdowns(doc, layout, context);
+  let y = layout.getY();
+  layout.ensureSpace(16); y = layout.getY();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Detalle de eventos", layout.margin, y); y += 7;
   const groupBy = el("reportGroupBy").value;
   const sortedItems = sortReportItems(items, groupBy);
   let previousGroup = null;
@@ -2492,26 +2681,13 @@ function renderDetailedPdf(doc, layout, items) {
   layout.setY(y);
 }
 function renderStatisticalPdf(doc, layout, items) {
-  let y = layout.getY();
-  const activityCount = items.filter((item) => !isImportantPeriod(item)).length;
-  const featuredCount = items.length - activityCount;
-  const activeOrganizers = new Set(items.map((item) => displayOrganizer(item)).filter(Boolean)).size;
-  const cards = [
-    ["Actividades", activityCount],
-    ["Fechas destacadas", featuredCount],
-    ["Áreas organizadoras", activeOrganizers]
-  ];
-  cards.forEach(([label, value]) => {
-    layout.setY(y); layout.ensureSpace(12); y = layout.getY();
-    doc.setFillColor(248, 250, 251); doc.setDrawColor(218, 224, 228); doc.roundedRect(layout.margin, y, layout.contentWidth, 10, 2, 2, "FD");
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...layout.gray); doc.text(label, layout.margin + 4, y + 6.5);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...layout.blue); doc.text(String(value), layout.pageWidth - layout.margin - 4, y + 6.8, { align: "right" });
-    y += 13;
-  });
-  y += 3; layout.setY(y);
+  const context = layout.context;
+  drawMetricGrid(doc, layout, context);
+  drawShiftSummary(doc, layout, context);
   drawStatisticalBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
   drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
   drawStatisticalBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
+  drawOperationalBreakdowns(doc, layout, context);
 }
 let jsPdfLoadPromise = null;
 function ensureJsPdf() {
@@ -2536,14 +2712,18 @@ async function generateReportPdf(event) {
   let JsPdf;
   try { JsPdf = await ensureJsPdf(); }
   catch (_) { message.textContent = "No se pudo cargar el generador de PDF. Revisá la conexión a Internet y actualizá la página."; message.hidden = false; return; }
+  const previousSuspensionIndex = state.suspensionIndex;
   try {
     const range = selectedReportRange();
     const reportSource = configured ? await fetchActivitiesForRange(range.start, range.end, { includePrivate: state.canEdit }) : state.allActivities;
+    state.suspensionIndex = reportSuspensionIndex(reportSource);
     const items = selectedReportItems(range, reportSource);
     if (!items.length) throw new Error("No hay eventos para el período y los filtros seleccionados.");
+    const context = buildReportContext(range, items, reportSource);
     const outputType = el("reportOutputType").value;
+    const [logoDataUrl] = await Promise.all([ensureReportLogoDataUrl()]);
     const doc = new JsPdf({ orientation: "portrait", unit: "mm", format: "a4" });
-    const layout = pdfBase(doc, range, outputType, items);
+    const layout = pdfBase(doc, range, outputType, items, context, logoDataUrl);
     if (outputType === "statistical") renderStatisticalPdf(doc, layout, items);
     else renderDetailedPdf(doc, layout, items);
     addPdfFooters(doc, layout);
@@ -2554,6 +2734,8 @@ async function generateReportPdf(event) {
   } catch (error) {
     message.textContent = error?.message || `No se pudo generar el PDF. ${friendlyError(error)}`;
     message.hidden = false;
+  } finally {
+    state.suspensionIndex = previousSuspensionIndex;
   }
 }
 

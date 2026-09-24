@@ -29,3 +29,11 @@ Versión de producción optimizada para GitHub Pages + Firebase.
 - Informes PDF detallados y estadísticos.
 - Inicio/cierre de sesión con Firebase Authentication.
 
+
+
+## v62 - Informes y limpieza de migraciones
+- Se eliminan de forma defensiva los antiguos controles de cargas masivas (incluido "Cargar horarios de tecnicatura").
+- El PDF incorpora el logo institucional en el encabezado.
+- Ambos informes suman días hábiles considerados, actividades programadas, efectuadas, suspendidas y reprogramadas.
+- Se informan rangos horarios de turno mañana/tarde, uso de aulas/espacios, uso de plataformas y cantidad de actividades por horario.
+- El informe detallado mantiene aula/lugar y plataforma dentro de cada evento.
