@@ -237,6 +237,40 @@ function isPresential(item) { return normalizedModality(item) === "presential"; 
 function isHybrid(item) { return normalizedModality(item) === "hybrid"; }
 function activityTypeLabel(item) { return isTelephone(item) ? "Telefónica" : isVirtual(item) ? "Virtual" : isPresential(item) ? "Presencial" : "Híbrida"; }
 function activityTypeKey(item) { return normalizedModality(item); }
+
+function canonicalPlatformLabel(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^aula\s*virtual$/i.test(text) || /^moodle$/i.test(text)) return "Aula Virtual";
+  if (/google\s*meet/i.test(text)) return "Google Meet";
+  if (/zoom/i.test(text)) return "Zoom";
+  if (/(?:microsoft\s*)?teams/i.test(text)) return "Microsoft Teams";
+  if (/you\s*tube/i.test(text)) return "YouTube";
+  return text;
+}
+function isPlatformLikePlace(value) {
+  const text = String(value || "").trim();
+  return /^(?:aula\s*virtual|moodle|google\s*meet|zoom|(?:microsoft\s*)?teams|you\s*tube)$/i.test(text);
+}
+function effectivePlatform(item) {
+  const explicit = canonicalPlatformLabel(item?.platform);
+  const career = String(item?.career || "").trim();
+  const subject = String(item?.subject || "").trim();
+  const weekday = item?.date ? fromISODate(item.date).getDay() : -1;
+  // Tecnicatura: los miércoles son virtuales por Google Meet.
+  if (career === buildingCareer && isVirtual(item) && weekday === 3) return "Google Meet";
+  // Excepción informada en el horario: Estructura Edilicia del martes es asincrónica en Aula Virtual.
+  if (career === buildingCareer && isVirtual(item) && subject === "Estructura Edilicia" && weekday === 2) return explicit || "Aula Virtual";
+  if (explicit) return explicit;
+  const classroomAsPlatform = isPlatformLikePlace(item?.classroom) ? canonicalPlatformLabel(item.classroom) : "";
+  if (classroomAsPlatform) return classroomAsPlatform;
+  return canonicalPlatformLabel(detectPlatform(String(item?.meeting_url || "")));
+}
+function physicalClassroom(item) {
+  const room = String(item?.classroom || "").trim();
+  if (!room || room === "Aula a confirmar" || isPlatformLikePlace(room) || isRemote(item)) return "";
+  return room;
+}
 function normalizeAcademicYear(value) { return value === "Optativas / otras" ? "Optativa" : (value || ""); }
 function activityCategoryOptionsForSecretary(secretary) {
   const organizer = organizerName(secretary);
@@ -1245,7 +1279,7 @@ async function hydrateDetailsPanel(detailsNode, target, item) {
   target.dataset.loading = "1";
   const fullItem = await hydratedAdminItem(item);
   if (!detailsNode.open) { delete target.dataset.loading; return; }
-  const content = createDetailsContent(fullItem, true);
+  const content = createDetailsContent(fullItem, true, { showMoreInfoLink: false });
   content.append(createExpandedMoreButton(() => openDetail(fullItem)));
   target.replaceChildren(content);
   target.dataset.loaded = "1"; delete target.dataset.loading;
@@ -1305,7 +1339,7 @@ function createActivityRow(item) {
   }
   const placePlatform = document.createElement("span"); placePlatform.className = "summary-place-platform";
   if (!isRemote(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
-  if (!isPresential(item)) { const platformIcon = createPlatformIcon(item.platform); if (platformIcon) placePlatform.append(platformIcon); }
+  if (!isPresential(item)) { const platformIcon = createPlatformIcon(effectivePlatform(item)); if (platformIcon) placePlatform.append(platformIcon); }
   meta.append(labels, placePlatform);
   const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
   summary.append(time, title, meta, chevron);
@@ -1337,14 +1371,14 @@ function detailFieldsForItem(item) {
   else if (isInProgress(item)) fields.push(["Estado", "▶ En curso"]);
   const visibleResponsible = state.canEdit ? (item.responsible || item.public_responsible) : (item.responsible_is_public === true ? item.public_responsible : "");
   if (visibleResponsible) fields.push(["Responsable", visibleResponsible]);
-  if (!isRemote(item)) fields.push(["Aula/Lugar", item.classroom]);
+  if (!isRemote(item)) fields.push(["Aula/Lugar", physicalClassroom(item)]);
   fields.push(["Modalidad", activityTypeLabel(item)]);
-  if (!isPresential(item)) fields.push(["Plataforma", item.platform]);
+  if (!isPresential(item)) fields.push(["Plataforma", effectivePlatform(item)]);
   if (state.canEdit) fields.push(["Cuenta", item.account_used], ["Grabación", item.recording_required ? "Sí" : "No"], ["Requerimientos / observaciones", combinedNotes || "Sin indicaciones"]);
   return fields;
 }
 
-function createDetailsContent(item, includeEditorActions) {
+function createDetailsContent(item, includeEditorActions, options = {}) {
   const wrapper = document.createElement("div"); const details = document.createElement("div"); details.className = "activity-details";
   detailFieldsForItem(item).forEach(([label, value]) => {
     const block = document.createElement("div"); block.className = "detail-item";
@@ -1353,7 +1387,7 @@ function createDetailsContent(item, includeEditorActions) {
     if (label === "Organiza") { valueNode.classList.add("organizer-value"); valueNode.style.color = organizerColor(item.secretary); }
     if (["Modalidad", "Tipo de actividad", "Fecha destacada", "Estado"].includes(label)) valueNode.classList.add("activity-type-value");
     if (label === "Nueva fecha") valueNode.classList.add("activity-status-value");
-    if (label === "Plataforma") { const icon = createPlatformIcon(item.platform); if (icon) valueNode.append(icon); }
+    if (label === "Plataforma") { const icon = createPlatformIcon(effectivePlatform(item)); if (icon) valueNode.append(icon); }
     if (label === "Grabación" && item.recording_required) { const dot = document.createElement("i"); dot.className = "recording-dot detail-recording-dot"; dot.title = "Requiere grabación"; valueNode.append(dot); }
     valueNode.append(document.createTextNode(value || "—"));
     block.append(labelNode, valueNode); details.append(block);
@@ -1370,7 +1404,7 @@ function createDetailsContent(item, includeEditorActions) {
     const copy = document.createElement("button"); copy.className = "link-button"; copy.type = "button"; copy.textContent = "Copiar enlace"; copy.addEventListener("click", () => copyLink(item.meeting_url));
     actions.append(open, copy); meeting.append(actions); wrapper.append(meeting);
   }
-  if (isSafeUrl(item.more_info_url)) {
+  if (options.showMoreInfoLink !== false && isSafeUrl(item.more_info_url)) {
     const information = document.createElement("section"); information.className = "meeting-section information-section";
     const heading = document.createElement("h3"); heading.textContent = "Más información";
     const actions = document.createElement("div"); actions.className = "link-actions";
@@ -1497,11 +1531,13 @@ function publicCopyLinesForItem(item) {
     lines.push("*Estado:* Postergada");
     lines.push(`*Nueva fecha:* ${postponedDateLabel(item)}`);
   }
-  if (!isRemote(item) && item.classroom) lines.push(`*Aula/Lugar:* ${item.classroom}`);
+  const copyRoom = physicalClassroom(item);
+  if (copyRoom) lines.push(`*Aula/Lugar:* ${copyRoom}`);
   const publicResponsible = item.responsible_is_public === true ? item.public_responsible : "";
   if (publicResponsible) lines.push(`*Responsable:* ${publicResponsible}`);
   lines.push(`*Modalidad:* ${activityTypeLabel(item)}`);
-  if (!isPresential(item) && item.platform) lines.push(`*Plataforma:* ${item.platform}`);
+  const copyPlatform = effectivePlatform(item);
+  if (!isPresential(item) && copyPlatform) lines.push(`*Plataforma:* ${copyPlatform}`);
   if (!isImportantPeriod(item) && !isPresential(item) && item.link_is_public === true && isSafeUrl(item.meeting_url)) {
     lines.push(`🔗 *Enlace de la actividad:* ${item.meeting_url}`);
   }
@@ -1605,7 +1641,7 @@ function displayGroupTime(items) {
 }
 
 function displayGroupRooms(items) {
-  const rooms = [...new Set(items.map((item) => String(item.classroom || "").trim()).filter((room) => room && room !== "Aula a confirmar"))];
+  const rooms = [...new Set(items.map((item) => physicalClassroom(item)).filter(Boolean))];
   if (!rooms.length) return "";
   const labels = rooms.map((room) => room.replace(/^Aula\s+/i, ""));
   return `${labels.length === 1 ? "Aula" : "Aulas"} ${labels.join(", ")}`;
@@ -2393,7 +2429,8 @@ function reportDetailedItemLines(item) {
   if (itemAcademicYear(item)) lines.push(`Año: ${itemAcademicYear(item)}`);
   const reportResponsible = state.canEdit ? (item.responsible || item.public_responsible) : (item.responsible_is_public === true ? item.public_responsible : "");
   if (reportResponsible) lines.push(`Responsable: ${reportResponsible}`);
-  if (item.classroom) lines.push(`Aula / lugar: ${item.classroom}`);
+  const room = physicalClassroom(item);
+  if (room) lines.push(`Aula / lugar: ${room}`);
   const platform = reportPlatformName(item);
   if (platform) lines.push(`Plataforma: ${platform}`);
   if (activityTypeKey(item) !== "presential" && item.link_is_public === true && item.meeting_url) lines.push(`Enlace público: ${item.meeting_url}`);
@@ -2498,16 +2535,12 @@ function reportShiftCounts(items) {
   ];
 }
 
-function reportPlatformName(item) {
-  const explicit = String(item?.platform || "").trim();
-  if (explicit) return explicit;
-  return detectPlatform(String(item?.meeting_url || "")) || "";
-}
+function reportPlatformName(item) { return effectivePlatform(item); }
 
 function reportRoomCounts(items) {
   return countReportItems(
-    reportActivityItems(items).filter((item) => String(item.classroom || "").trim()),
-    (item) => String(item.classroom || "").trim()
+    reportActivityItems(items).filter((item) => physicalClassroom(item)),
+    (item) => physicalClassroom(item)
   );
 }
 

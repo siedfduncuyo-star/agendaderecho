@@ -1,12 +1,11 @@
-# Agenda de Actividades – v66
+# Agenda Facultad de Derecho UNCUYO — v68
 
-Versión reparada sobre v65.
+Ajustes de plataformas y aulas:
 
-- Corrige el error de inicio `startOfDay is not defined`.
-- El PDF se titula “Informe de actividades” y muestra la fecha de solicitud/emisión.
-- El resumen incluye Días hábiles, Programadas y Efectuadas al día de solicitud.
-- Se eliminan Suspendidas y Reprogramadas del resumen.
-- Orden del informe: Secretaría/área, Nivel, Día, Horario/turno, Aulas, Plataformas.
-- Cada categoría tiene representación gráfica y porcentajes.
-- La distribución por horario se resume en Turno Mañana (08:00–14:30) y Turno Tarde (14:30–21:00).
-- Se mantiene el detalle completo de eventos en el informe detallado.
+- Las clases virtuales de la Tecnicatura de los miércoles se muestran y contabilizan como **Google Meet**.
+- La clase asincrónica de **Estructura Edilicia** de los martes se contabiliza como **Aula Virtual** (plataforma), nunca como aula física.
+- `Aula Virtual`, `Moodle`, `Google Meet`, `Zoom`, `Microsoft Teams` y `YouTube` quedan excluidos de **Uso de aulas / espacios**.
+- Esas referencias se contabilizan en **Uso de plataformas**.
+- Los detalles y copias públicas usan el mismo criterio para evitar mezclar espacios físicos y plataformas.
+
+No modifica datos existentes en Firebase; normaliza su interpretación en la agenda y en los informes.
