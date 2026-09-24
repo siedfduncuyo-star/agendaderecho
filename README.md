@@ -1,3 +1,7 @@
+# Agenda de Actividades · v52 rendimiento
+
+Esta versión optimiza la carga de Firestore: solo consulta el período visible, carga datos privados únicamente para los eventos visibles y usa un conteo agregado para el total. Los informes cargan el rango solicitado solo al generarse.
+
 # Agenda de Actividades · v51
 
 Versión conectada a Firebase/Firestore para publicación en GitHub Pages.
