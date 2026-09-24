@@ -19,7 +19,8 @@ const academicCalendarBulkMarker = "academic_calendar_2026_2027_loaded";
 const academicCalendarCleanupMarker = "academic_calendar_cleanup_done";
 const hibridacionesBulkMarker = "hibridaciones_2026_from_2026_08_16_loaded";
 const gradeScheduleBulkMarker = "grade_schedule_2026_from_2026_08_16_loaded_v2";
-const legalClinicsBulkMarker = "legal_clinics_2026_from_2026_08_16_loaded";
+const legalClinicsBulkMarker = "legal_clinics_2026_from_2026_08_16_loaded_v2";
+const mediationCenterBulkMarker = "mediation_center_2026_from_2026_08_16_loaded";
 const calendarFirstYear = 2026;
 const calendarLastYear = 2030;
 const calendarMinDate = new Date(calendarFirstYear, 0, 1);
@@ -185,7 +186,7 @@ const hibridaciones2026FromAugust16 = [{"record_kind":"activity","date":"2026-08
 
 const gradeSchedule2026Weekly = [{"id":"1tm-lun-historia","weekday":"MO","start_time":"08:45","end_time":"10:10","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-lun-politico","weekday":"MO","start_time":"10:15","end_time":"12:25","subject":"Derecho Político · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mar-politico","weekday":"TU","start_time":"08:45","end_time":"10:10","subject":"Derecho Político · TM","academic_year":"Primer año","classroom":"","activity_type":"virtual"},{"id":"1tm-mar-civil","weekday":"TU","start_time":"12:30","end_time":"13:55","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mie-historia","weekday":"WE","start_time":"08:45","end_time":"10:55","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mie-civil","weekday":"WE","start_time":"11:00","end_time":"12:25","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-lun-politico","weekday":"MO","start_time":"16:15","end_time":"18:25","subject":"Derecho Político · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-lun-civil","weekday":"MO","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mar-politico","weekday":"TU","start_time":"17:00","end_time":"18:25","subject":"Derecho Político · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mar-civil","weekday":"TU","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mie-historia","weekday":"WE","start_time":"16:15","end_time":"18:25","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mie-civil","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"2tm-lun-obligaciones","weekday":"MO","start_time":"09:30","end_time":"10:55","subject":"Derecho de las Obligaciones II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-lun-consumidor","weekday":"MO","start_time":"11:00","end_time":"13:10","subject":"Derecho del Consumidor y Defensa de la Competencia · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-lun-penal","weekday":"MO","start_time":"13:15","end_time":"15:25","subject":"Derecho Penal Parte General II · TM","academic_year":"Segundo año","classroom":"Aula F","activity_type":"presential"},{"id":"2tm-mar-finanzas","weekday":"TU","start_time":"08:00","end_time":"09:25","subject":"Finanzas Públicas y Derecho Tributario · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-ingles3","weekday":"TU","start_time":"09:30","end_time":"10:55","subject":"Inglés III · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-obligaciones","weekday":"TU","start_time":"11:00","end_time":"12:25","subject":"Derecho de las Obligaciones II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-penal","weekday":"TU","start_time":"12:30","end_time":"13:55","subject":"Derecho Penal Parte General II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mie-finanzas","weekday":"WE","start_time":"08:00","end_time":"10:10","subject":"Finanzas Públicas y Derecho Tributario · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mie-pps2","weekday":"WE","start_time":"10:15","end_time":"12:25","subject":"Práctica Profesional Supervisada II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"3-lun-comercial2","weekday":"MO","start_time":"14:45","end_time":"16:10","subject":"Derecho Comercial y Societario II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-lun-contratos2","weekday":"MO","start_time":"16:15","end_time":"17:40","subject":"Contratos Civiles y Comerciales II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-lun-pps4","weekday":"MO","start_time":"17:45","end_time":"19:55","subject":"Práctica Profesional Supervisada IV","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mar-contratos2","weekday":"TU","start_time":"16:15","end_time":"17:40","subject":"Contratos Civiles y Comerciales II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mar-mediacion1","weekday":"TU","start_time":"17:45","end_time":"19:55","subject":"Mediación I","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mie-penal-especial2","weekday":"WE","start_time":"16:15","end_time":"17:40","subject":"Derecho Penal Parte Especial II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mie-filosofia","weekday":"WE","start_time":"17:45","end_time":"19:55","subject":"Filosofía del Derecho","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"opt-mar-salud","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho de la Salud y Responsabilidad Médica","academic_year":"Optativa","classroom":"Aula C","activity_type":"presential"},{"id":"opt-mie-criminologia","weekday":"WE","start_time":"14:00","end_time":"16:10","subject":"Criminología","academic_year":"Optativa","classroom":"Aula E","activity_type":"presential"},{"id":"opt-mie-transporte","weekday":"WE","start_time":"14:00","end_time":"16:10","subject":"Derecho del Transporte","academic_year":"Optativa","classroom":"Aula K","activity_type":"hybrid"},{"id":"opt-mie-publico-prov","weekday":"WE","start_time":"16:00","end_time":"18:10","subject":"Derecho Público Provincial y Municipal","academic_year":"Optativa","classroom":"Aula K","activity_type":"hybrid"},{"id":"4-lun-familias","weekday":"MO","start_time":"14:45","end_time":"16:55","subject":"Derecho de las Familias","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-lun-procesal-esp","weekday":"MO","start_time":"17:00","end_time":"19:10","subject":"Derecho Procesal Civil y Comercial. Parte Especial","academic_year":"Cuarto año","classroom":"Aula F","activity_type":"presential"},{"id":"4-lun-concursal","weekday":"MO","start_time":"19:15","end_time":"20:40","subject":"Derecho Concursal","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-metodologia1","weekday":"TU","start_time":"16:15","end_time":"17:40","subject":"Metodología de la Investigación I","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-familias","weekday":"TU","start_time":"17:45","end_time":"19:10","subject":"Derecho de las Familias","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-concursal","weekday":"TU","start_time":"19:15","end_time":"20:40","subject":"Derecho Concursal","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-ddhh","weekday":"WE","start_time":"14:45","end_time":"16:55","subject":"Derechos Humanos","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-reales2","weekday":"WE","start_time":"17:00","end_time":"18:25","subject":"Derechos Reales II","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-procesal-esp","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho Procesal Civil y Comercial. Parte Especial","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"opt-mar-aduanero","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Aduanero","academic_year":"Optativa","classroom":"Aula K","activity_type":"presential"},{"id":"opt-mar-prop-horiz","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Propiedad Horizontal y Conjuntos Inmobiliarios","academic_year":"Optativa","classroom":"Aula J","activity_type":"presential"},{"id":"opt-mar-proc-const","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Procesal Constitucional","academic_year":"Optativa","classroom":"Aula D","activity_type":"presential"},{"id":"opt-mar-informatico","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Informático","academic_year":"Optativa","classroom":"Aula M","activity_type":"presential"},{"id":"opt-mar-bancario","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Bancario Bursátil y Seguros","academic_year":"Optativa","classroom":"Aula E","activity_type":"presential"},{"id":"5-lun-rec-naturales","weekday":"MO","start_time":"14:45","end_time":"16:55","subject":"Derecho de los Recursos Naturales, Aguas; y Protección del Medio Ambiente","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-lun-adm2","weekday":"MO","start_time":"17:00","end_time":"18:25","subject":"Derecho Administrativo II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mar-pps8","weekday":"TU","start_time":"14:00","end_time":"15:25","subject":"Práctica Profesional Supervisada VIII","academic_year":"Quinto año","classroom":"Aula L","activity_type":"presential"},{"id":"5-mar-int-priv","weekday":"TU","start_time":"15:30","end_time":"16:55","subject":"Derecho Internacional Privado","academic_year":"Quinto año","classroom":"Aula A","activity_type":"presential"},{"id":"5-mar-proc-penal2","weekday":"TU","start_time":"17:00","end_time":"19:10","subject":"Derecho Procesal Penal II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mar-metodologia2","weekday":"TU","start_time":"19:15","end_time":"20:40","subject":"Metodología de la Investigación II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mie-proc-penal2","weekday":"WE","start_time":"14:45","end_time":"16:10","subject":"Derecho Procesal Penal II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mie-int-priv","weekday":"WE","start_time":"16:15","end_time":"18:25","subject":"Derecho Internacional Privado","academic_year":"Quinto año","classroom":"Aula F","activity_type":"presential"},{"id":"5-mie-rec-naturales","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho de los Recursos Naturales, Aguas; y Protección del Medio Ambiente","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"1tm-jue-ingles1","weekday":"TH","start_time":"08:45","end_time":"10:55","subject":"Inglés I · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-jue-civil","weekday":"TH","start_time":"11:00","end_time":"12:25","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-jue-ingles1","weekday":"TH","start_time":"16:15","end_time":"18:25","subject":"Inglés I · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-jue-historia","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"2tm-jue-ingles3","weekday":"TH","start_time":"09:30","end_time":"10:55","subject":"Inglés III · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-jue-consumidor","weekday":"TH","start_time":"11:00","end_time":"12:25","subject":"Derecho del Consumidor y Defensa de la Competencia · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"3-jue-penal-especial2","weekday":"TH","start_time":"15:30","end_time":"16:55","subject":"Derecho Penal Parte Especial II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-jue-comercial2","weekday":"TH","start_time":"17:00","end_time":"18:25","subject":"Derecho Comercial y Societario II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-jue-filosofia","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Filosofía del Derecho","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"4-jue-metodologia1","weekday":"TH","start_time":"14:45","end_time":"16:10","subject":"Metodología de la Investigación I","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-jue-reales2","weekday":"TH","start_time":"16:15","end_time":"17:40","subject":"Derechos Reales II","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-jue-pps6","weekday":"TH","start_time":"17:45","end_time":"19:55","subject":"Práctica Profesional Supervisada VI","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"5-jue-pps8","weekday":"TH","start_time":"14:45","end_time":"16:10","subject":"Práctica Profesional Supervisada VIII","academic_year":"Quinto año","classroom":"Aula L","activity_type":"presential"},{"id":"5-jue-adm2","weekday":"TH","start_time":"16:15","end_time":"18:25","subject":"Derecho Administrativo II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-jue-metodologia2","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Metodología de la Investigación II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"}];
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false, mediationCenterBulkLoaded: false };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -197,6 +198,7 @@ const bulkDatesDialog = el("bulkDatesDialog");
 const hibridacionesDialog = el("hibridacionesDialog");
 const gradeScheduleDialog = el("gradeScheduleDialog");
 const legalClinicsDialog = el("legalClinicsDialog");
+const mediationCenterDialog = el("mediationCenterDialog");
 const reportDialog = el("reportDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
@@ -638,6 +640,7 @@ function bindEvents() {
   el("bulkHibridaciones").addEventListener("click", openBulkHibridaciones);
   el("bulkGradeSchedule").addEventListener("click", openBulkGradeSchedule);
   el("bulkLegalClinics").addEventListener("click", openBulkLegalClinics);
+  el("bulkMediationCenter").addEventListener("click", openBulkMediationCenter);
   el("downloadReport").addEventListener("click", openReportForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
@@ -649,6 +652,7 @@ function bindEvents() {
   el("hibridacionesForm").addEventListener("submit", saveBulkHibridaciones);
   el("gradeScheduleForm").addEventListener("submit", saveBulkGradeSchedule);
   el("legalClinicsForm").addEventListener("submit", saveBulkLegalClinics);
+  el("mediationCenterForm").addEventListener("submit", saveBulkMediationCenter);
   el("reportForm").addEventListener("submit", generateReportPdf);
   el("reportPeriodType").addEventListener("change", updateReportFormFields);
   el("reportOutputType").addEventListener("change", updateReportFormFields);
@@ -669,7 +673,7 @@ function bindEvents() {
   el("periodType").addEventListener("change", () => { syncPeriodOrganizer(); toggleSuspensionScopeField(); });
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
-  [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog, hibridacionesDialog, gradeScheduleDialog, legalClinicsDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+  [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog, hibridacionesDialog, gradeScheduleDialog, legalClinicsDialog, mediationCenterDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
   activityDialog.addEventListener("cancel", (event) => event.preventDefault());
   setInterval(() => { if (!document.hidden) render(); }, 60000);
 }
@@ -828,6 +832,7 @@ function updateAuthUI() {
   updateBulkHibridacionesVisibility();
   updateBulkGradeScheduleVisibility();
   updateBulkLegalClinicsVisibility();
+  updateBulkMediationCenterVisibility();
 }
 
 function updateBulkAcademicDatesVisibility() {
@@ -858,6 +863,12 @@ function updateBulkLegalClinicsVisibility() {
   const button = el("bulkLegalClinics");
   if (!button) return;
   button.hidden = !state.canEdit || state.legalClinicsBulkLoaded;
+}
+
+function updateBulkMediationCenterVisibility() {
+  const button = el("bulkMediationCenter");
+  if (!button) return;
+  button.hidden = !state.canEdit || state.mediationCenterBulkLoaded;
 }
 
 async function handleLogout() {
@@ -957,6 +968,7 @@ async function loadPeriod() {
       state.hibridacionesBulkLoaded = Boolean(configRecord?.[hibridacionesBulkMarker]);
       state.gradeScheduleBulkLoaded = Boolean(configRecord?.[gradeScheduleBulkMarker]);
       state.legalClinicsBulkLoaded = Boolean(configRecord?.[legalClinicsBulkMarker]);
+      state.mediationCenterBulkLoaded = Boolean(configRecord?.[mediationCenterBulkMarker]);
       records = records.filter((item) => !isCalendarConfigRecord(item));
       state.allActivities = records.sort(sortActivities);
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
@@ -967,13 +979,14 @@ async function loadPeriod() {
       state.hibridacionesBulkLoaded = false;
       state.gradeScheduleBulkLoaded = false;
       state.legalClinicsBulkLoaded = false;
+      state.mediationCenterBulkLoaded = false;
       const records = loadDemoData().filter((item) => !isCalendarConfigRecord(item)).sort(sortActivities); state.allActivities = records;
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     }
   } catch (error) {
     status.textContent = `No se pudo cargar la agenda. ${friendlyError(error)}`; return;
   }
-  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); updateCleanupAgendaVisibility(); updateBulkHibridacionesVisibility(); updateBulkGradeScheduleVisibility(); updateBulkLegalClinicsVisibility(); render();
+  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); updateCleanupAgendaVisibility(); updateBulkHibridacionesVisibility(); updateBulkGradeScheduleVisibility(); updateBulkLegalClinicsVisibility(); updateBulkMediationCenterVisibility(); render();
 }
 
 function updateNavigationState() {
@@ -1146,7 +1159,7 @@ function detailFieldsForItem(item) {
   } else if (isPostponed(item)) fields.push(["Estado", "Postergada"], ["Nueva fecha", postponedDateLabel(item)]);
   else if (isInProgress(item)) fields.push(["Estado", "▶ En curso"]);
   const visibleResponsible = state.canEdit ? (item.responsible || item.public_responsible) : (item.responsible_is_public === true ? item.public_responsible : "");
-  if (visibleResponsible) fields.push(["Responsable / contacto", visibleResponsible]);
+  if (visibleResponsible) fields.push(["Responsable", visibleResponsible]);
   if (!isRemote(item)) fields.push(["Aula/Lugar", item.classroom]);
   fields.push(["Modalidad", activityTypeLabel(item)]);
   if (!isPresential(item)) fields.push(["Plataforma", item.platform]);
@@ -1314,7 +1327,7 @@ function publicCopyLinesForItem(item) {
   }
   if (!isRemote(item) && item.classroom) lines.push(`*Aula/Lugar:* ${item.classroom}`);
   const publicResponsible = item.responsible_is_public === true ? item.public_responsible : "";
-  if (publicResponsible) lines.push(`*Responsable / contacto:* ${publicResponsible}`);
+  if (publicResponsible) lines.push(`*Responsable:* ${publicResponsible}`);
   lines.push(`*Modalidad:* ${activityTypeLabel(item)}`);
   if (!isPresential(item) && item.platform) lines.push(`*Plataforma:* ${item.platform}`);
   if (!isImportantPeriod(item) && !isPresential(item) && item.link_is_public === true && isSafeUrl(item.meeting_url)) {
@@ -2159,10 +2172,10 @@ async function saveBulkGradeSchedule(event) {
 
 
 const legalClinicSeries2026 = [
-  { id: "civil", weekday: 5, start_time: "09:30", end_time: "12:00", name: "Consultorio Jurídico Gratuito · Derecho Civil", responsible: "Abog. Blanca Mangione", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Derecho Civil", monthlyMode: true },
-  { id: "familia", weekday: 3, start_time: "11:30", end_time: "14:00", name: "Consultorio Jurídico Gratuito · Familia", responsible: "Abog. Gabriela Aromataris", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Familia", monthlyMode: true },
-  { id: "laboral", weekday: 4, start_time: "15:00", end_time: "17:20", name: "Consultorio Jurídico Gratuito · Laboral, Previsional y Administrativo", responsible: "Abog. Pablo De Bernardi", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Laboral, Previsional y Administrativo", monthlyMode: true },
-  { id: "penal", weekday: 2, start_time: "14:00", end_time: "16:20", name: "Consultorio Jurídico Gratuito · Derecho Penal", responsible: "Abog. Renzo Valente", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Derecho Penal", monthlyMode: true },
+  { id: "civil", weekday: 5, start_time: "09:30", end_time: "12:00", name: "Consultorio Jurídico Gratuito · Derecho Civil", responsible: "Abog. Blanca Mangione", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Derecho Civil", monthlyMode: true },
+  { id: "familia", weekday: 3, start_time: "11:30", end_time: "14:00", name: "Consultorio Jurídico Gratuito · Familia", responsible: "Abog. Gabriela Aromataris", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Familia", monthlyMode: true },
+  { id: "laboral", weekday: 4, start_time: "15:00", end_time: "17:20", name: "Consultorio Jurídico Gratuito · Laboral, Previsional y Administrativo", responsible: "Abog. Pablo De Bernardi", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Laboral, Previsional y Administrativo", monthlyMode: true },
+  { id: "penal", weekday: 2, start_time: "14:00", end_time: "16:20", name: "Consultorio Jurídico Gratuito · Derecho Penal", responsible: "Abog. Renzo Valente", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Derecho Penal", monthlyMode: true },
   { id: "discapacidad", weekday: 1, start_time: "12:00", end_time: "14:30", name: "Consultorio Jurídico Gratuito · Discapacidad y Adulto Mayor", responsible: "", location: "Defensoría · Gutiérrez 51, Ciudad de Mendoza", specialty: "Discapacidad y Adulto Mayor", monthlyMode: false }
 ];
 
@@ -2259,10 +2272,20 @@ async function saveBulkLegalClinics(event) {
       showToast("Los Consultorios Jurídicos ya fueron cargados");
       return;
     }
-    const knownSourceUids = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
+    const existingBySourceUid = new Map(existing.docs.map((record) => [record.data().source_uid, record]).filter(([uid]) => Boolean(uid)));
     const allOccurrences = legalClinicOccurrences();
-    const pending = allOccurrences.filter((item) => !knownSourceUids.has(item.source_uid));
+    const pending = allOccurrences.filter((item) => !existingBySourceUid.has(item.source_uid));
+    const existingOccurrences = allOccurrences.filter((item) => existingBySourceUid.has(item.source_uid));
     if (pending.length) await writeNewActivities(pending);
+    for (let start = 0; start < existingOccurrences.length; start += 100) {
+      const batch = writeBatch(db);
+      existingOccurrences.slice(start, start + 100).forEach((item) => {
+        const current = existingBySourceUid.get(item.source_uid);
+        batch.update(current.ref, { ...publicActivityUpdate(item), updated_at: serverTimestamp() });
+        batch.set(doc(db, privateActivitiesCollection, current.id), privateActivityData(item), { merge: true });
+      });
+      await batch.commit();
+    }
     const markerBatch = writeBatch(db);
     markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
       record_kind: "calendar_config",
@@ -2279,13 +2302,137 @@ async function saveBulkLegalClinics(event) {
     legalClinicsDialog.close();
     await loadPeriod();
     const skipped = allOccurrences.length - pending.length;
-    showToast(skipped ? `${pending.length} atenciones nuevas cargadas · ${skipped} ya existían` : `${pending.length} atenciones de Consultorios Jurídicos cargadas`);
+    showToast(existingOccurrences.length ? `${pending.length} atenciones nuevas · ${existingOccurrences.length} actualizadas` : `${pending.length} atenciones de Consultorios Jurídicos cargadas`);
   } catch (error) {
     message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
     message.hidden = false;
   } finally {
     button.disabled = false;
     button.textContent = "Cargar consultorios";
+  }
+}
+
+
+const mediationCenterSeries2026 = [
+  { id: "lunes", weekday: 1, start_time: "16:00", end_time: "20:00" },
+  { id: "martes", weekday: 2, start_time: "10:00", end_time: "13:00" },
+  { id: "miercoles", weekday: 3, start_time: "10:00", end_time: "13:00" },
+  { id: "viernes", weekday: 5, start_time: "15:00", end_time: "20:00" }
+];
+
+function mediationCenterOccurrences() {
+  const start = fromISODate("2026-08-16");
+  const end = fromISODate("2026-11-27");
+  const records = [];
+  mediationCenterSeries2026.forEach((series) => {
+    for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
+      if (cursor.getDay() !== series.weekday) continue;
+      if (!isWithinConfiguredCalendar(cursor) || isHoliday(cursor)) continue;
+      const iso = toISODate(cursor);
+      records.push({
+        record_kind: "activity",
+        date: iso,
+        end_date: iso,
+        start_time: series.start_time,
+        end_time: series.end_time,
+        name: "Centro de Mediación",
+        secretary: extensionSecretary,
+        activity_category: "service",
+        activity_category_custom: "",
+        academic_activity_type: "",
+        career: "",
+        academic_year: "",
+        subject: "",
+        responsible: "Mgter. Sara Curi",
+        responsible_is_public: true,
+        public_responsible: "Mgter. Sara Curi",
+        classroom: "Área de Mediación",
+        activity_type: "presential",
+        activity_status: "scheduled",
+        postponed_date: "",
+        postponed_date_tbd: false,
+        platform: "",
+        account_used: "",
+        meeting_url: "",
+        link_is_public: false,
+        more_info_url: "",
+        requirements: "",
+        observations: "",
+        recording_required: false,
+        source_uid: `centro-mediacion-2026-${series.id}-${iso}`,
+        calendar_source: "Centro de Mediación 2026"
+      });
+    }
+  });
+  return records.sort(sortActivities);
+}
+
+function openBulkMediationCenter() {
+  if (!state.canEdit || state.mediationCenterBulkLoaded) return;
+  const preview = el("mediationCenterPreview");
+  preview.replaceChildren();
+  mediationCenterSeries2026.forEach((series) => {
+    const li = document.createElement("li");
+    const title = document.createElement("strong");
+    title.textContent = "Centro de Mediación";
+    const meta = document.createElement("span");
+    const dayName = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][series.weekday];
+    meta.textContent = `${dayName} · ${series.start_time}–${series.end_time} · Mgter. Sara Curi`;
+    li.append(title, meta);
+    preview.append(li);
+  });
+  const occurrences = mediationCenterOccurrences();
+  el("mediationCenterCount").textContent = `${occurrences.length} atenciones previstas`;
+  el("mediationCenterMessage").hidden = true;
+  mediationCenterDialog.showModal();
+}
+
+async function saveBulkMediationCenter(event) {
+  event.preventDefault();
+  if (!state.canEdit || state.mediationCenterBulkLoaded) return;
+  const button = el("runBulkMediationCenter");
+  const message = el("mediationCenterMessage");
+  button.disabled = true;
+  button.textContent = "Cargando…";
+  message.hidden = true;
+  try {
+    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
+    const existing = await getDocs(collection(db, activitiesCollection));
+    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
+    if (configRecord?.data()?.[mediationCenterBulkMarker] === true) {
+      state.mediationCenterBulkLoaded = true;
+      updateBulkMediationCenterVisibility();
+      mediationCenterDialog.close();
+      showToast("El Centro de Mediación ya fue cargado");
+      return;
+    }
+    const knownSourceUids = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
+    const allOccurrences = mediationCenterOccurrences();
+    const pending = allOccurrences.filter((item) => !knownSourceUids.has(item.source_uid));
+    if (pending.length) await writeNewActivities(pending);
+    const markerBatch = writeBatch(db);
+    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
+      record_kind: "calendar_config",
+      date: `${calendarFirstYear}-01-01`,
+      end_date: `${calendarLastYear}-12-31`,
+      name: "Configuración del calendario",
+      [mediationCenterBulkMarker]: true,
+      mediation_center_2026_loaded_at: serverTimestamp(),
+      updated_at: serverTimestamp()
+    }, { merge: true });
+    await markerBatch.commit();
+    state.mediationCenterBulkLoaded = true;
+    updateBulkMediationCenterVisibility();
+    mediationCenterDialog.close();
+    await loadPeriod();
+    const skipped = allOccurrences.length - pending.length;
+    showToast(skipped ? `${pending.length} atenciones nuevas cargadas · ${skipped} ya existían` : `${pending.length} atenciones del Centro de Mediación cargadas`);
+  } catch (error) {
+    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
+    message.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Cargar Centro de Mediación";
   }
 }
 

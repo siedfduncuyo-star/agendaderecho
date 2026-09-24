@@ -1,4 +1,4 @@
-# Agenda de Actividades · v47
+# Agenda de Actividades · v48
 
 Versión conectada a Firebase/Firestore para publicación en GitHub Pages.
 
@@ -131,7 +131,7 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - El turno mañana comprende actividades que comienzan antes de las 14:00; el turno tarde, las que comienzan desde las 14:00.
 - Las suspensiones históricas del Calendario Académico que refieren al dictado de clases continúan afectando solo clases.
 
-## v47 · Consultorios Jurídicos Gratuitos
+## v48 · Consultorios Jurídicos Gratuitos
 - Incorpora una carga masiva única de los Consultorios Jurídicos Gratuitos desde el 16/08/2026 hasta el 19/12/2026.
 - Secretaría organizadora: **Secretaría de Extensión, Vinculación y Territorio**.
 - Nuevo tipo de actividad: **Consultorio jurídico**.
@@ -141,3 +141,14 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - La atención de Discapacidad y Adulto Mayor se mantiene presencial en la Defensoría.
 - El docente a cargo puede marcarse como responsable público mediante `Mostrar responsable en la vista pública`; los demás responsables siguen siendo privados por defecto.
 - La carga usa `source_uid` estable y un marcador en `agenda_calendar_config`, por lo que no duplica registros y el botón desaparece al completarse.
+
+
+## v48
+
+- En la vista pública, el campo visible pasa a llamarse simplemente **Responsable**.
+- Los Consultorios Jurídicos presenciales usan como lugar **Espacio de Atención Consultorios Jurídicos Gratuitos**.
+- Se agrega una carga única del **Centro de Mediación**, Secretaría de Extensión, Vinculación y Territorio.
+- Responsable público: **Mgter. Sara Curi**.
+- Horarios: lunes 16:00–20:00; martes 10:00–13:00; miércoles 10:00–13:00; viernes 15:00–20:00.
+- Repite desde el 16 de agosto hasta el viernes 27 de noviembre de 2026, omitiendo feriados configurados.
+- Lugar: **Área de Mediación**.

@@ -67,6 +67,7 @@
             <button id="bulkHibridaciones" class="button button-secondary" type="button" hidden>Cargar hibridaciones 16/8+</button>
             <button id="bulkGradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de grado</button>
             <button id="bulkLegalClinics" class="button button-secondary" type="button" hidden>Cargar consultorios jurídicos</button>
+            <button id="bulkMediationCenter" class="button button-secondary" type="button" hidden>Cargar Centro de Mediación</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -228,7 +229,7 @@
         <p class="dialog-intro">Carga las atenciones semanales de los Consultorios Jurídicos Gratuitos desde el 16 de agosto hasta el 19 de diciembre de 2026.</p>
         <div class="bulk-dates-summary"><strong id="legalClinicsCount">5 consultorios</strong><span>Secretaría de Extensión, Vinculación y Territorio</span></div>
         <p class="bulk-dates-note">En las cuatro áreas principales, las dos primeras atenciones de cada mes se registran como <strong>presenciales</strong> en la Facultad y las restantes como <strong>telefónicas</strong>. La atención de Discapacidad y Adulto Mayor se registra como presencial en la Defensoría.</p>
-        <p class="bulk-dates-note">Para estos registros, el <strong>docente a cargo se muestra públicamente</strong>. El resto de las actividades de la agenda mantiene el responsable como información privada, salvo que se marque expresamente lo contrario.</p>
+        <p class="bulk-dates-note">Para estos registros, el <strong>responsable se muestra públicamente</strong>. El resto de las actividades de la agenda mantiene el responsable como información privada, salvo que se marque expresamente lo contrario.</p>
         <ul id="legalClinicsPreview" class="bulk-dates-preview"></ul>
         <p class="report-note">La carga se ejecuta una sola vez y utiliza identificadores estables para evitar duplicados.</p>
         <div id="legalClinicsMessage" class="form-error" role="alert" hidden></div>
@@ -236,6 +237,23 @@
           <button class="button button-secondary" type="button" data-close="legalClinicsDialog">Cancelar</button>
           <button id="runBulkLegalClinics" class="button button-primary" type="submit">Cargar consultorios</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="mediationCenterDialog" class="dialog bulk-dates-dialog">
+      <form id="mediationCenterForm">
+        <header class="dialog-header">
+          <div><span class="eyebrow">Carga única</span><h2>Centro de Mediación</h2></div>
+          <button class="close-button" type="button" data-close="mediationCenterDialog" aria-label="Cerrar">×</button>
+        </header>
+        <div class="bulk-dates-summary"><strong id="mediationCenterCount">Atenciones previstas</strong><span>Secretaría de Extensión, Vinculación y Territorio</span></div>
+        <p class="bulk-dates-note">Se cargarán las atenciones del <strong>Centro de Mediación</strong> desde el 16 de agosto hasta la última semana de noviembre de 2026. El responsable se mostrará públicamente como <strong>Mgter. Sara Curi</strong>.</p>
+        <ul id="mediationCenterPreview" class="bulk-dates-preview"></ul>
+        <div id="mediationCenterMessage" class="form-error" role="alert" hidden></div>
+        <footer class="dialog-footer">
+          <button class="button button-secondary" type="button" data-close="mediationCenterDialog">Cancelar</button>
+          <button id="runBulkMediationCenter" class="button button-primary" type="submit">Cargar Centro de Mediación</button>
+        </footer>
       </form>
     </dialog>
 
