@@ -68,6 +68,7 @@
             <button id="bulkGradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de grado</button>
             <button id="bulkLegalClinics" class="button button-secondary" type="button" hidden>Cargar consultorios jurídicos</button>
             <button id="bulkMediationCenter" class="button button-secondary" type="button" hidden>Cargar Centro de Mediación</button>
+            <button id="bulkPrograms" class="button button-secondary" type="button" hidden>Cargar ingreso y posgrados</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -82,7 +83,6 @@
             <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
             <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
             <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
-            <label><input class="view-filter-check" type="checkbox" value="telephone" checked /> Telefónicas</label>
             <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
           </div>
           <div class="type-filters quick-check-filters audience-check-filters" role="group" aria-label="Filtrar eventos por nivel">
@@ -284,6 +284,24 @@
       </form>
     </dialog>
 
+
+    <dialog id="programsDialog" class="dialog bulk-dates-dialog">
+      <form id="programsForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Carga masiva</p><h2>Ingreso y actividades de Posgrado</h2></div>
+          <button class="close-button" type="button" data-close="programsDialog" aria-label="Cerrar">×</button>
+        </div>
+        <div class="bulk-dates-summary"><strong id="programsCount">Eventos preparados</strong><span>Desde el 16 de agosto de 2026</span></div>
+        <p class="dialog-intro">Incluye Modalidad Extensiva del Ingreso 2027, Maestría en Derecho de las Familias, Diplomatura en Derechos de las Personas con Discapacidad y Diplomatura en Mediación y Gestión Participativa de Conflictos. Los horarios no informados en las fuentes quedan como “Horario a confirmar”.</p>
+        <ul id="programsPreview" class="bulk-dates-preview"></ul>
+        <div id="programsMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="programsDialog">Cancelar</button>
+          <button id="runBulkPrograms" class="button button-primary" type="submit">Cargar actividades</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="calendarDialog" class="dialog calendar-dialog">
       <form id="calendarForm">
         <div class="dialog-header">
@@ -347,7 +365,6 @@
               <option value="presential">Presenciales</option>
               <option value="hybrid">Híbridas</option>
               <option value="virtual">Virtuales</option>
-              <option value="telephone">Telefónicas</option>
               <option value="featured">Fechas destacadas</option>
             </select>
           </label>
@@ -386,9 +403,9 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script src="config.js?v=11"></script>
+    <script src="config.js?v=12"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js?v=37"></script>
+    <script type="module" src="app.js?v=38"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

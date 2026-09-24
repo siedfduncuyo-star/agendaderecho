@@ -152,3 +152,16 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Horarios: lunes 16:00–20:00; martes 10:00–13:00; miércoles 10:00–13:00; viernes 15:00–20:00.
 - Repite desde el 16 de agosto hasta el viernes 27 de noviembre de 2026, omitiendo feriados configurados.
 - Lugar: **Área de Mediación**.
+
+## v49 · Ingreso y Posgrado
+
+- Se elimina el check público **Telefónicas**. Las atenciones telefónicas continúan visibles, pero ya no tienen un filtro independiente.
+- Los **Consultorios Jurídicos Gratuitos** y el **Centro de Mediación** quedan excluidos de las suspensiones generales de actividades.
+- Nueva carga única `Cargar ingreso y posgrados`, con 121 eventos desde el 16/08/2026:
+  - Modalidad Extensiva del Ingreso 2027.
+  - Maestría en Derecho de las Familias y sus seminarios 2026.
+  - Diplomatura de Posgrado en Derechos de las Personas con Discapacidad.
+  - Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos.
+- Las clases presenciales de la Maestría en Derecho de las Familias se ubican en **Aula Magna**.
+- Para Ingreso Extensivo se cargan miércoles virtuales y viernes presenciales, dejando provisoriamente separadas las comisiones híbridas conocidas: Comisión 1 TM (Aula B) y Comisión 3 TT (Aula B). El resto queda agrupado como `Otras comisiones` hasta completar aulas y enlaces.
+- Cuando una fuente informa fecha y duración pero no el horario concreto, la agenda muestra **Horario a confirmar** en lugar de inventar una hora.
