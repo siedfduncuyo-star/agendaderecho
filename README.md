@@ -184,3 +184,25 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Fuerza `config.js?v=53-20260924` y `app.js?v=53-20260924` para evitar que GitHub Pages/navegador reutilicen la v51.
 - Mantiene la carga por período visible y el resto de optimizaciones de la v52.
 - No modifica ni borra datos de Firebase.
+
+## v54
+- Las suspensiones se muestran antes que cualquier otra fecha destacada o actividad.
+- Después se muestran los demás períodos/fechas importantes.
+- Las actividades quedan debajo, ordenadas por horario.
+- Una suspensión no afecta actividades Virtuales ni Telefónicas.
+
+## v55
+- Divide las clases de Grado en dos grupos diarios: **Turno mañana** y **Turno tarde**.
+- En Primer y Segundo año respeta las marcas TM/TT; en el resto usa el horario de inicio (antes de 14:00 = mañana; desde 14:00 = tarde).
+- Dentro de cada grupo, en vista Día, cada clase muestra cuánto falta para comenzar o cuánto tiempo lleva transcurrido.
+- Las clases ya finalizadas se atenúan progresivamente igual que las actividades individuales.
+- Si todas las clases de un grupo ya terminaron, también se atenúa la tarjeta agrupada.
+
+
+## v56 · Turno académico de Grado
+
+- La agrupación **Clases de Grado · Turno mañana / Turno tarde** prioriza el turno académico real de la comisión/cátedra sobre la hora de la clase.
+- En 1.º y 2.º año se reconoce TM/TT por el dato explícito y por el identificador estable de la carga masiva.
+- Una clase del TM que se extienda después de las 14:00 (por ejemplo, Derecho Penal Parte General II) continúa dentro de **Turno mañana**.
+- Solo cuando una actividad de Grado no tiene turno académico asignado se usa la hora de inicio: antes de las 14:00 = mañana; desde las 14:00 = tarde.
+- No requiere recargar ni modificar los documentos ya existentes en Firebase.

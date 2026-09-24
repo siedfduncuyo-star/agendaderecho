@@ -344,13 +344,16 @@ function activityMatchesSuspensionScope(item, period) {
   return scope === "morning" ? start < 14 * 60 : start >= 14 * 60;
 }
 function isSuspensionImmuneActivity(item) {
-  if (!item || isImportantPeriod(item)) return false;
-  if (activityCategoryKey(item) === "legal_clinic") return true;
-  const source = normalizeSearchText(item?.calendar_source || "");
-  return source.includes("centro de mediacion 2026");
+  // La única excepción general a una suspensión institucional son las actividades
+  // que continúan a distancia: Virtuales o Telefónicas. Se evalúan en
+  // suspensionPeriodForActivity().
+  return false;
 }
 function suspensionPeriodForActivity(item) {
   if (!item || isImportantPeriod(item) || isSuspensionImmuneActivity(item)) return null;
+  // Las actividades virtuales y telefónicas continúan aunque exista una suspensión
+  // institucional de turno o de día completo.
+  if (isVirtual(item) || isTelephone(item)) return null;
   const key = String(item.date || "");
   if (!key) return null;
   return (state.allActivities || []).find((period) => {
@@ -1495,6 +1498,33 @@ function isGroupedGradeClass(item) {
     && !isIngreso(item);
 }
 
+function gradeTurnKey(item) {
+  // Si la comisión/cátedra ya tiene turno académico asignado, ese dato manda
+  // aunque una clase concreta se dicte en un horario que cruza al otro turno.
+  const explicitShift = String(item?.academic_shift || "").trim().toLowerCase();
+  if (["tm", "morning", "mañana", "manana"].includes(explicitShift)) return "morning";
+  if (["tt", "afternoon", "tarde"].includes(explicitShift)) return "afternoon";
+
+  // Las cargas masivas de 1.º y 2.º año conservan el turno en el identificador
+  // estable (por ejemplo: grado-2026-2tm-lun-penal-2026-08-17).
+  const sourceUid = String(item?.source_uid || "").toLowerCase();
+  if (/grado-2026-(?:1|2)tm-/.test(sourceUid)) return "morning";
+  if (/grado-2026-(?:1|2)tt-/.test(sourceUid)) return "afternoon";
+
+  // También respetamos TM/TT si quedó escrito en materia o nombre.
+  const text = `${item?.subject || ""} ${item?.name || ""}`;
+  if (/\bTM\b/i.test(text)) return "morning";
+  if (/\bTT\b/i.test(text)) return "afternoon";
+
+  // Solo cuando no existe turno académico explícito usamos el horario.
+  const start = minutesFromTime(item?.start_time);
+  return start >= 0 && start < 14 * 60 ? "morning" : "afternoon";
+}
+
+function gradeTurnLabel(turn) {
+  return turn === "morning" ? "Turno mañana" : "Turno tarde";
+}
+
 function ingresoDisplayGroupKey(item) {
   if (isImportantPeriod(item) || !isIngreso(item)) return "";
   const source = String(item.calendar_source || "");
@@ -1517,15 +1547,17 @@ function displayGroupRooms(items) {
   return `${labels.length === 1 ? "Aula" : "Aulas"} ${labels.join(", ")}`;
 }
 
-function makeActivityDisplayGroup(kind, items) {
+function makeActivityDisplayGroup(kind, items, options = {}) {
   const sorted = [...items].sort(sortActivities);
   const first = sorted[0];
+  const gradeTurn = options.gradeTurn || "";
   const title = kind === "grade"
-    ? "Clases de Grado"
+    ? `Clases de Grado · ${gradeTurnLabel(gradeTurn)}`
     : "Ingreso 2027 · Modalidad extensiva";
   return {
     __activityGroup: true,
     group_kind: kind,
+    group_turn: gradeTurn,
     items: sorted,
     date: first.date,
     end_date: first.date,
@@ -1545,10 +1577,13 @@ function displayEntriesForDate(date) {
   const entries = [...periods];
 
   const grade = activities.filter(isGroupedGradeClass);
-  if (grade.length >= 2) {
-    grade.forEach((item) => consumed.add(item));
-    entries.push(makeActivityDisplayGroup("grade", grade));
-  }
+  const gradeByTurn = new Map([["morning", []], ["afternoon", []]]);
+  grade.forEach((item) => gradeByTurn.get(gradeTurnKey(item)).push(item));
+  gradeByTurn.forEach((groupItems, turn) => {
+    if (!groupItems.length) return;
+    groupItems.forEach((item) => consumed.add(item));
+    entries.push(makeActivityDisplayGroup("grade", groupItems, { gradeTurn: turn }));
+  });
 
   const ingresoGroups = new Map();
   activities.forEach((item) => {
@@ -1565,6 +1600,23 @@ function displayEntriesForDate(date) {
 
   activities.filter((item) => !consumed.has(item)).forEach((item) => entries.push(item));
   return entries.sort((a, b) => {
+    const priority = (item) => {
+      if (isImportantPeriod(item) && periodTypeKey(item) === "suspension") return 0;
+      if (isImportantPeriod(item)) return 1;
+      return 2;
+    };
+    const aPriority = priority(a);
+    const bPriority = priority(b);
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    if (aPriority < 2) {
+      const aStart = String(a.date || "");
+      const bStart = String(b.date || "");
+      const byDate = aStart.localeCompare(bStart, locale);
+      if (byDate) return byDate;
+      return String(a.name || "").localeCompare(String(b.name || ""), locale);
+    }
+
     const aTime = a.__activityGroup ? (a.start_time || "99:99") : (cleanTime(a.start_time) || "99:99");
     const bTime = b.__activityGroup ? (b.start_time || "99:99") : (cleanTime(b.start_time) || "99:99");
     return `${aTime}${a.name || ""}`.localeCompare(`${bTime}${b.name || ""}`, locale);
@@ -1605,8 +1657,26 @@ function createActivityGroupContent(group) {
     if (item.classroom) parts.push(item.classroom);
     parts.push(activityTypeLabel(item));
     if (itemAcademicYear(item) && group.group_kind === "grade") parts.push(itemAcademicYear(item));
+    if (isSuspended(item)) parts.push(suspensionStateLabel(item));
     meta.textContent = parts.filter(Boolean).join(" · ");
+    if (isSuspended(item)) row.classList.add("is-suspended");
+    if (state.view === "day" && isPastActivity(item)) row.classList.add("is-past-activity");
     body.append(title, meta);
+    if (state.view === "day") {
+      const timing = dailyTiming(item);
+      if (timing) {
+        const timingBadge = document.createElement("span");
+        timingBadge.className = `activity-group-timing ${timing.kind}`;
+        timingBadge.textContent = timing.label;
+        body.append(timingBadge);
+      }
+      if (isInProgress(item)) {
+        const live = document.createElement("span");
+        live.className = "activity-group-live";
+        live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso';
+        body.append(live);
+      }
+    }
     row.append(time, body);
     row.addEventListener("click", () => openDetail(item));
     list.append(row);
@@ -1643,6 +1713,16 @@ function createActivityGroupRow(group) {
   badge.className = "activity-category-badge";
   badge.textContent = group.group_kind === "grade" ? `${group.items.length} clases` : `${group.items.length} comisiones/turnos`;
   labels.append(badge);
+  const suspendedItems = group.items.filter(isSuspended);
+  if (state.view === "day" && group.items.length && group.items.every((item) => isPastActivity(item))) details.classList.add("is-past-activity");
+  if (suspendedItems.length) {
+    const suspendedBadge = document.createElement("span");
+    suspendedBadge.className = "activity-status-badge suspended";
+    suspendedBadge.textContent = suspendedItems.length === group.items.length
+      ? "Suspendidas"
+      : `${suspendedItems.length} suspendidas`;
+    labels.append(suspendedBadge);
+  }
   const rooms = document.createElement("span");
   rooms.className = "summary-room";
   rooms.textContent = displayGroupRooms(group.items) || (group.items.every(isRemote) ? "Virtual" : "");
@@ -1690,10 +1770,18 @@ function renderMonth() {
         const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-activity-group";
         button.style.borderLeftColor = organizerColor(item.secretary);
         const badge = document.createElement("span"); badge.className = "month-group-label"; badge.textContent = item.group_kind === "grade" ? `${item.items.length} clases` : `${item.items.length} comisiones/turnos`;
+        const suspendedItems = item.items.filter(isSuspended);
         const time = document.createElement("strong"); time.textContent = displayGroupTime(item.items);
         const title = document.createElement("span"); title.textContent = item.name;
         const roomsText = displayGroupRooms(item.items);
-        button.append(badge, time, title);
+        button.append(badge);
+        if (suspendedItems.length) {
+          const stateBadge = document.createElement("span");
+          stateBadge.className = "month-status suspended";
+          stateBadge.textContent = suspendedItems.length === item.items.length ? "Suspendidas" : `${suspendedItems.length} suspendidas`;
+          button.append(stateBadge);
+        }
+        button.append(time, title);
         if (roomsText) { const rooms = document.createElement("small"); rooms.textContent = roomsText; button.append(rooms); }
         button.addEventListener("click", () => openActivityGroupDetail(item)); cell.append(button);
         return;
@@ -2331,6 +2419,7 @@ function gradeScheduleOccurrences() {
         academic_activity_type: "class",
         career: lawCareer,
         academic_year: slot.academic_year,
+        academic_shift: /^(?:1|2)tm-/.test(slot.id) ? "TM" : /^(?:1|2)tt-/.test(slot.id) ? "TT" : "",
         subject: slot.subject,
         responsible: "",
         classroom: slot.activity_type === "virtual" ? "" : slot.classroom,
