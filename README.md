@@ -1,26 +1,12 @@
-# Agenda Facultad de Derecho – v64
+# Agenda de Actividades – v66
 
-Ajustes del informe PDF sobre la base estable v63:
+Versión reparada sobre v65.
 
-- Se elimina el texto “Informe de gestión” del encabezado.
-- Se incorpora la fecha de emisión del informe debajo del período consultado.
-- “Resumen de gestión” pasa a llamarse “Resumen del período”.
-- Rangos horarios fijos de referencia:
-  - Turno Mañana: 08:00 a 14:30 (6 h 30 min)
-  - Turno Tarde: 14:30 a 21:00 (6 h 30 min)
-- Se elimina “Cantidad de actividades por horario”.
-- Se incorpora distribución por día (lunes a sábado).
-- Se incorporan gráficos de torta con porcentajes para:
-  - modalidad;
-  - secretaría / área;
-  - nivel;
-  - día de la semana.
-- Se mantienen uso de aulas/espacios, uso de plataformas y detalle de eventos.
-
-No modifica datos de Firebase ni reglas de seguridad.
-
-
-## v65 · tarjetas
-- Vuelve la flecha a la derecha para desplegar el resumen.
-- “Más información” queda dentro de la tarjeta desplegada.
-- Actividades suspendidas o ya finalizadas se muestran en tono apagado, también dentro de los grupos de clases.
+- Corrige el error de inicio `startOfDay is not defined`.
+- El PDF se titula “Informe de actividades” y muestra la fecha de solicitud/emisión.
+- El resumen incluye Días hábiles, Programadas y Efectuadas al día de solicitud.
+- Se eliminan Suspendidas y Reprogramadas del resumen.
+- Orden del informe: Secretaría/área, Nivel, Día, Horario/turno, Aulas, Plataformas.
+- Cada categoría tiene representación gráfica y porcentajes.
+- La distribución por horario se resume en Turno Mañana (08:00–14:30) y Turno Tarde (14:30–21:00).
+- Se mantiene el detalle completo de eventos en el informe detallado.

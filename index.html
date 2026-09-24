@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;family=Poppins:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="styles.css?v=65-cards-20260924" rel="stylesheet"/>
+<link href="styles.css?v=66-report-fix-20260924" rel="stylesheet"/>
 </head>
 <body>
 <header class="site-header">
@@ -264,8 +264,8 @@
 </div>
 <div class="form-error" hidden="" id="reportMessage" role="alert"></div>
 <div class="report-note">
-<strong>Detallado:</strong> incluye resumen de gestión, uso de aulas y plataformas, rangos horarios y listado completo de eventos.
-          <strong>Estadístico:</strong> resume días hábiles, efectuadas, suspendidas, reprogramadas y distribuciones operativas.
+<strong>Detallado:</strong> incluye resumen del período, gráficos por secretaría/área, nivel, día y turno, uso de aulas y plataformas, y listado completo de eventos.
+          <strong>Estadístico:</strong> resume días hábiles, actividades programadas y efectuadas al día de solicitud, con las mismas distribuciones gráficas.
         </div>
 <div class="dialog-actions">
 <button class="button button-secondary" data-close="reportDialog" type="button">Cancelar</button>
@@ -283,8 +283,8 @@
 </div>
 </dialog>
 <div aria-live="polite" class="toast" hidden="" id="toast" role="status"></div>
-<script src="config.js?v=65-cards-20260924"></script>
-<script src="app.js?v=65-cards-20260924" type="module"></script>
+<script src="config.js?v=66-report-fix-20260924"></script>
+<script src="app.js?v=66-report-fix-20260924" type="module"></script>
 <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

@@ -179,6 +179,7 @@ const calendarDialog = el("calendarDialog");
 const reportDialog = el("reportDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
+function startOfDay(date) { return localDate(date); }
 function startOfWeek(date) { const copy = localDate(date); const day = copy.getDay() || 7; copy.setDate(copy.getDate() - day + 1); return copy; }
 function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
 function addDays(date, amount) { const copy = new Date(date); copy.setDate(copy.getDate() + amount); return copy; }
@@ -2337,7 +2338,7 @@ function reportRangeLabel(range) {
 }
 function reportTypeLabel(range, outputType) {
   const period = ({ day: "diario", week: "semanal", month: "mensual", year: "anual", range: "por rango de fechas" })[range.type] || "";
-  return `Informe ${outputType === "statistical" ? "estadístico" : "detallado"} ${period}`.trim();
+  return `${outputType === "statistical" ? "Estadístico" : "Detallado"} · ${period}`.trim();
 }
 function reportSelectionLabels() {
   const modality = el("reportModality");
@@ -2484,6 +2485,19 @@ function reportShiftRanges(items) {
   });
 }
 
+function reportShiftCounts(items) {
+  const counts = { morning: 0, afternoon: 0 };
+  reportActivityItems(items).forEach((item) => {
+    if (!hasScheduledTime(item)) return;
+    const key = reportShiftKey(item);
+    if (key in counts) counts[key] += 1;
+  });
+  return [
+    ["Turno Mañana", counts.morning],
+    ["Turno Tarde", counts.afternoon]
+  ];
+}
+
 function reportPlatformName(item) {
   const explicit = String(item?.platform || "").trim();
   if (explicit) return explicit;
@@ -2527,15 +2541,16 @@ function reportTimeRangeCounts(items) {
 
 function buildReportContext(range, items, sourceItems) {
   const activities = reportActivityItems(items);
+  const requestedAt = new Date();
   return {
+    requestedAt,
     workingDays: reportWorkingDayCount(range, sourceItems),
     activityCount: activities.length,
-    performedCount: activities.filter((item) => reportIsPerformed(item)).length,
-    suspendedCount: activities.filter((item) => isSuspended(item)).length,
-    rescheduledCount: activities.filter((item) => isPostponed(item)).length,
+    performedCount: activities.filter((item) => reportIsPerformed(item, requestedAt)).length,
     rooms: reportRoomCounts(activities),
     platforms: reportPlatformCounts(activities),
-    days: reportDayCounts(activities)
+    days: reportDayCounts(activities),
+    shifts: reportShiftCounts(activities)
   };
 }
 
@@ -2585,10 +2600,11 @@ function pdfBase(doc, range, outputType, items, context, logoDataUrl = "") {
     doc.addPage(); drawHeader(); y = 39;
   };
   drawHeader();
-  doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(reportTypeLabel(range, outputType), margin, y); y += 8;
-  doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportRangeLabel(range), margin, y); y += 6;
-  const issuedLabel = `Fecha de emisión: ${titleCase(formatDate(new Date(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}`;
-  doc.setFontSize(8.7); doc.setTextColor(...gray); doc.text(issuedLabel, margin, y); y += 8;
+  const requestedAt = context.requestedAt || new Date();
+  const requestedLong = titleCase(formatDate(requestedAt, { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
+  doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text("Informe de actividades", margin, y); y += 7;
+  doc.setFontSize(9.4); doc.setFont("helvetica", "bold"); doc.setTextColor(...gray); doc.text(`Solicitado el ${requestedLong}`, margin, y); y += 6;
+  doc.setFontSize(9.2); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(`${reportTypeLabel(range, outputType)} · ${reportRangeLabel(range)}`, margin, y); y += 8;
   doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 37, 9, 2, 2, "F");
   doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(`${items.length} ${items.length === 1 ? "evento" : "eventos"}`, margin + 3, y + 1); y += 12;
   const selections = reportSelectionLabels();
@@ -2602,7 +2618,8 @@ function addPdfFooters(doc, layout) {
   const totalPages = doc.getNumberOfPages();
   for (let page = 1; page <= totalPages; page += 1) {
     doc.setPage(page); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...layout.gray);
-    doc.text(`Generado el ${formatDate(new Date(), { day: "2-digit", month: "2-digit", year: "numeric" })}`, layout.margin, layout.pageHeight - 8);
+    const issuedAt = layout.context?.requestedAt || new Date();
+    doc.text(`Emitido el ${formatDate(issuedAt, { day: "2-digit", month: "2-digit", year: "numeric" })}`, layout.margin, layout.pageHeight - 8);
     doc.text(`Página ${page} de ${totalPages}`, layout.pageWidth - layout.margin, layout.pageHeight - 8, { align: "right" });
   }
 }
@@ -2627,45 +2644,43 @@ function drawStatisticalBreakdown(doc, layout, title, rows, total) {
 
 function drawReportMetrics(doc, layout) {
   const context = layout.context;
+  const requestedAt = context.requestedAt || new Date();
+  const requestedShort = formatDate(requestedAt, { day: "2-digit", month: "2-digit", year: "numeric" });
   const metrics = [
     ["Días hábiles", context.workingDays],
     ["Programadas", context.activityCount],
-    ["Efectuadas", context.performedCount],
-    ["Suspendidas", context.suspendedCount],
-    ["Reprogramadas", context.rescheduledCount]
+    [`Efectuadas al ${requestedShort}`, context.performedCount]
   ];
   let y = layout.getY();
-  layout.ensureSpace(16); y = layout.getY();
+  layout.ensureSpace(18); y = layout.getY();
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Resumen del período", layout.margin, y); y += 6;
-  const cols = 3, gap = 4, cellH = 15, cellW = (layout.contentWidth - gap * (cols - 1)) / cols;
-  for (let row = 0; row < metrics.length; row += cols) {
-    layout.setY(y); layout.ensureSpace(cellH + 4); y = layout.getY();
-    metrics.slice(row, row + cols).forEach(([label, value], col) => {
-      const x = layout.margin + col * (cellW + gap);
-      doc.setFillColor(248, 250, 251); doc.setDrawColor(218, 224, 228); doc.roundedRect(x, y, cellW, cellH, 2, 2, "FD");
-      doc.setTextColor(...layout.gray); doc.setFont("helvetica", "normal"); doc.setFontSize(7.4); doc.text(label, x + 3.5, y + 5);
-      doc.setTextColor(...layout.blue); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(String(value), x + cellW - 3.5, y + 11.8, { align: "right" });
-    });
-    y += cellH + 4;
-  }
+  const cols = 3, gap = 4, cellH = 18, cellW = (layout.contentWidth - gap * (cols - 1)) / cols;
+  metrics.forEach(([label, value], col) => {
+    const x = layout.margin + col * (cellW + gap);
+    doc.setFillColor(248, 250, 251); doc.setDrawColor(218, 224, 228); doc.roundedRect(x, y, cellW, cellH, 2, 2, "FD");
+    doc.setTextColor(...layout.gray); doc.setFont("helvetica", "normal"); doc.setFontSize(7.2);
+    const labelLines = doc.splitTextToSize(label, cellW - 7);
+    doc.text(labelLines.slice(0, 2), x + 3.5, y + 4.7);
+    doc.setTextColor(...layout.blue); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(String(value), x + cellW - 3.5, y + 14.5, { align: "right" });
+  });
+  y += cellH + 4;
   doc.setFont("helvetica", "normal"); doc.setFontSize(7.4); doc.setTextColor(...layout.gray);
-  const note = doc.splitTextToSize("Días hábiles: lunes a sábado, excluyendo feriados y recesos configurados. Efectuadas: actividades cuyo horario ya transcurrió y que no figuran suspendidas ni reprogramadas.", layout.contentWidth);
+  const note = doc.splitTextToSize("Días hábiles: lunes a sábado, excluyendo feriados y recesos configurados. Efectuadas: actividades cuyo horario ya transcurrió al momento de solicitar el informe.", layout.contentWidth);
   doc.text(note, layout.margin, y); y += note.length * 3.5 + 5;
   layout.setY(y);
 }
 
-function drawShiftRanges(doc, layout) {
+function drawShiftDistribution(doc, layout) {
+  const rows = layout.context.shifts || [];
+  drawPieBreakdown(doc, layout, "Distribución por horario / turno", rows, reportRowsTotal(rows));
   let y = layout.getY();
-  layout.ensureSpace(22); y = layout.getY();
-  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Rangos horarios", layout.margin, y); y += 7;
-
+  layout.ensureSpace(18); y = layout.getY();
   const ranges = [
     ["Turno Mañana:", "08:00 a 14:30", "(6 h 30 min)"],
     ["Turno Tarde:", "14:30 a 21:00", "(6 h 30 min)"]
   ];
-
+  doc.setTextColor(48, 55, 60); doc.setFontSize(9.2);
   ranges.forEach(([label, hours, duration]) => {
-    doc.setTextColor(48, 55, 60); doc.setFontSize(9.2);
     doc.setFont("helvetica", "bold"); doc.text(label, layout.margin, y);
     const labelWidth = doc.getTextWidth(label);
     doc.setFont("helvetica", "normal"); doc.text(hours, layout.margin + labelWidth + 2, y);
@@ -2673,13 +2688,13 @@ function drawShiftRanges(doc, layout) {
     doc.setFont("helvetica", "italic"); doc.text(duration, layout.margin + labelWidth + hoursWidth + 4, y);
     y += 6;
   });
-  y += 2;
+  y += 3;
   layout.setY(y);
 }
 
 function drawOperationalReportBreakdowns(doc, layout) {
-  drawStatisticalBreakdown(doc, layout, "Uso de aulas / espacios", layout.context.rooms, layout.context.activityCount);
-  drawStatisticalBreakdown(doc, layout, "Uso de plataformas", layout.context.platforms, layout.context.activityCount);
+  drawPieBreakdown(doc, layout, "Uso de aulas / espacios", layout.context.rooms, reportRowsTotal(layout.context.rooms));
+  drawPieBreakdown(doc, layout, "Uso de plataformas", layout.context.platforms, reportRowsTotal(layout.context.platforms));
 }
 
 function pieChartDataUrl(title, rows, total) {
@@ -2725,6 +2740,10 @@ function pieChartDataUrl(title, rows, total) {
   return canvas.toDataURL("image/png");
 }
 
+function reportRowsTotal(rows) {
+  return rows.reduce((sum, [, count]) => sum + Number(count || 0), 0);
+}
+
 function drawPieBreakdown(doc, layout, title, rows, total) {
   const dataUrl = pieChartDataUrl(title, rows, total);
   if (dataUrl) {
@@ -2738,11 +2757,13 @@ function drawPieBreakdown(doc, layout, title, rows, total) {
 
 function renderDetailedPdf(doc, layout, items) {
   drawReportMetrics(doc, layout);
-  drawShiftRanges(doc, layout);
-  drawPieBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
-  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
-  drawPieBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
-  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, layout.context.activityCount);
+  const activities = reportActivityItems(items);
+  const bySecretary = countReportItems(activities, (item) => displayOrganizer(item) || "Sin secretaría / área");
+  const byLevel = countReportItems(activities, (item) => reportAudienceLabel(activityAudienceKey(item)));
+  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", bySecretary, reportRowsTotal(bySecretary));
+  drawPieBreakdown(doc, layout, "Distribución por nivel", byLevel, reportRowsTotal(byLevel));
+  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, reportRowsTotal(layout.context.days));
+  drawShiftDistribution(doc, layout);
   drawOperationalReportBreakdowns(doc, layout);
   let y = layout.getY();
   layout.ensureSpace(14); y = layout.getY();
@@ -2778,11 +2799,13 @@ function renderDetailedPdf(doc, layout, items) {
 }
 function renderStatisticalPdf(doc, layout, items) {
   drawReportMetrics(doc, layout);
-  drawShiftRanges(doc, layout);
-  drawPieBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
-  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
-  drawPieBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
-  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, layout.context.activityCount);
+  const activities = reportActivityItems(items);
+  const bySecretary = countReportItems(activities, (item) => displayOrganizer(item) || "Sin secretaría / área");
+  const byLevel = countReportItems(activities, (item) => reportAudienceLabel(activityAudienceKey(item)));
+  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", bySecretary, reportRowsTotal(bySecretary));
+  drawPieBreakdown(doc, layout, "Distribución por nivel", byLevel, reportRowsTotal(byLevel));
+  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, reportRowsTotal(layout.context.days));
+  drawShiftDistribution(doc, layout);
   drawOperationalReportBreakdowns(doc, layout);
 }
 let jsPdfLoadPromise = null;
