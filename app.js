@@ -2480,6 +2480,17 @@ function reportPlatformCounts(items) {
   );
 }
 
+function reportDayCounts(items) {
+  const labels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const counts = [0, 0, 0, 0, 0, 0];
+  reportActivityItems(items).forEach((item) => {
+    const date = fromISODate(item.date);
+    const day = date.getDay();
+    if (day >= 1 && day <= 6) counts[day - 1] += 1;
+  });
+  return labels.map((label, index) => [label, counts[index]]);
+}
+
 function reportTimeRangeCounts(items) {
   const counts = new Map();
   reportActivityItems(items).forEach((item) => {
@@ -2498,10 +2509,9 @@ function buildReportContext(range, items, sourceItems) {
     performedCount: activities.filter((item) => reportIsPerformed(item)).length,
     suspendedCount: activities.filter((item) => isSuspended(item)).length,
     rescheduledCount: activities.filter((item) => isPostponed(item)).length,
-    shiftRanges: reportShiftRanges(activities),
     rooms: reportRoomCounts(activities),
     platforms: reportPlatformCounts(activities),
-    timeRanges: reportTimeRangeCounts(activities)
+    days: reportDayCounts(activities)
   };
 }
 
@@ -2544,8 +2554,7 @@ function pdfBase(doc, range, outputType, items, context, logoDataUrl = "") {
     if (!logoDataUrl) {
       doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("UNCUYO - Facultad de Derecho", margin, 13);
     }
-    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text("Agenda institucional de actividades", pageWidth - margin, 12, { align: "right" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.text("Informe de gestión", pageWidth - margin, 19, { align: "right" });
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text("Agenda institucional de actividades", pageWidth - margin, 15, { align: "right" });
   };
   const ensureSpace = (needed = 18) => {
     if (y + needed <= pageHeight - 16) return;
@@ -2553,7 +2562,9 @@ function pdfBase(doc, range, outputType, items, context, logoDataUrl = "") {
   };
   drawHeader();
   doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(reportTypeLabel(range, outputType), margin, y); y += 8;
-  doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportRangeLabel(range), margin, y); y += 9;
+  doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportRangeLabel(range), margin, y); y += 6;
+  const issuedLabel = `Fecha de emisión: ${titleCase(formatDate(new Date(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}`;
+  doc.setFontSize(8.7); doc.setTextColor(...gray); doc.text(issuedLabel, margin, y); y += 8;
   doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 37, 9, 2, 2, "F");
   doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(`${items.length} ${items.length === 1 ? "evento" : "eventos"}`, margin + 3, y + 1); y += 12;
   const selections = reportSelectionLabels();
@@ -2601,7 +2612,7 @@ function drawReportMetrics(doc, layout) {
   ];
   let y = layout.getY();
   layout.ensureSpace(16); y = layout.getY();
-  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Resumen de gestión", layout.margin, y); y += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Resumen del período", layout.margin, y); y += 6;
   const cols = 3, gap = 4, cellH = 15, cellW = (layout.contentWidth - gap * (cols - 1)) / cols;
   for (let row = 0; row < metrics.length; row += cols) {
     layout.setY(y); layout.ensureSpace(cellH + 4); y = layout.getY();
@@ -2621,32 +2632,93 @@ function drawReportMetrics(doc, layout) {
 
 function drawShiftRanges(doc, layout) {
   let y = layout.getY();
-  layout.ensureSpace(14); y = layout.getY();
-  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Rangos horarios por turno", layout.margin, y); y += 6;
-  if (!layout.context.shiftRanges.length) {
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...layout.gray); doc.text("Sin horarios informados", layout.margin, y); y += 7;
-  } else {
-    layout.context.shiftRanges.forEach(([key, data]) => {
-      layout.setY(y); layout.ensureSpace(7); y = layout.getY();
-      const label = key === "morning" ? "Turno mañana" : "Turno tarde";
-      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(48, 55, 60); doc.text(`${label}: ${data.start}–${data.end}`, layout.margin, y);
-      doc.setFont("helvetica", "bold"); doc.setTextColor(...layout.blue); doc.text(`${data.count} actividades`, layout.pageWidth - layout.margin, y, { align: "right" });
-      y += 5.5;
-    });
-    y += 2;
-  }
+  layout.ensureSpace(22); y = layout.getY();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Rangos horarios", layout.margin, y); y += 7;
+
+  const ranges = [
+    ["Turno Mañana:", "08:00 a 14:30", "(6 h 30 min)"],
+    ["Turno Tarde:", "14:30 a 21:00", "(6 h 30 min)"]
+  ];
+
+  ranges.forEach(([label, hours, duration]) => {
+    doc.setTextColor(48, 55, 60); doc.setFontSize(9.2);
+    doc.setFont("helvetica", "bold"); doc.text(label, layout.margin, y);
+    const labelWidth = doc.getTextWidth(label);
+    doc.setFont("helvetica", "normal"); doc.text(hours, layout.margin + labelWidth + 2, y);
+    const hoursWidth = doc.getTextWidth(hours);
+    doc.setFont("helvetica", "italic"); doc.text(duration, layout.margin + labelWidth + hoursWidth + 4, y);
+    y += 6;
+  });
+  y += 2;
   layout.setY(y);
 }
 
 function drawOperationalReportBreakdowns(doc, layout) {
   drawStatisticalBreakdown(doc, layout, "Uso de aulas / espacios", layout.context.rooms, layout.context.activityCount);
   drawStatisticalBreakdown(doc, layout, "Uso de plataformas", layout.context.platforms, layout.context.activityCount);
-  drawStatisticalBreakdown(doc, layout, "Cantidad de actividades por horario", layout.context.timeRanges, layout.context.activityCount);
+}
+
+function pieChartDataUrl(title, rows, total) {
+  const valid = rows.filter(([, count]) => count > 0);
+  if (!valid.length || !total) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 980;
+  canvas.height = Math.max(420, 145 + valid.length * 34);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#023764"; ctx.font = "700 30px Arial, sans-serif"; ctx.fillText(title, 36, 46);
+  const colors = ["#023764", "#C5AD68", "#5E7E99", "#91A8BA", "#7A6B50", "#4E6B73", "#8AA29E", "#B9A5A5", "#6D8090", "#D5C79D", "#49657A", "#A5B7C3"];
+  const cx = 225, cy = Math.max(220, canvas.height / 2), radius = 150;
+  let angle = -Math.PI / 2;
+  valid.forEach(([label, count], index) => {
+    const portion = count / total;
+    const next = angle + portion * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, radius, angle, next); ctx.closePath();
+    ctx.fillStyle = colors[index % colors.length]; ctx.fill();
+    if (portion >= 0.06) {
+      const mid = (angle + next) / 2;
+      const tx = cx + Math.cos(mid) * radius * 0.63;
+      const ty = cy + Math.sin(mid) * radius * 0.63;
+      ctx.fillStyle = "#ffffff"; ctx.font = "700 22px Arial, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(`${(portion * 100).toLocaleString(locale, { maximumFractionDigits: 1 })}%`, tx, ty);
+    }
+    angle = next;
+  });
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  let ly = 96;
+  valid.forEach(([label, count], index) => {
+    const percentage = (count / total) * 100;
+    ctx.fillStyle = colors[index % colors.length]; ctx.fillRect(455, ly - 17, 20, 20);
+    ctx.fillStyle = "#30373c"; ctx.font = "400 21px Arial, sans-serif";
+    const text = `${label} — ${count} (${percentage.toLocaleString(locale, { maximumFractionDigits: 1 })}%)`;
+    const maxWidth = 470;
+    let shown = text;
+    while (ctx.measureText(shown).width > maxWidth && shown.length > 8) shown = `${shown.slice(0, -4)}…`;
+    ctx.fillText(shown, 488, ly);
+    ly += 34;
+  });
+  return canvas.toDataURL("image/png");
+}
+
+function drawPieBreakdown(doc, layout, title, rows, total) {
+  const dataUrl = pieChartDataUrl(title, rows, total);
+  if (dataUrl) {
+    layout.ensureSpace(82);
+    const y = layout.getY();
+    doc.addImage(dataUrl, "PNG", layout.margin, y, layout.contentWidth, 76, undefined, "FAST");
+    layout.setY(y + 80);
+  }
+  drawStatisticalBreakdown(doc, layout, title, rows, total);
 }
 
 function renderDetailedPdf(doc, layout, items) {
   drawReportMetrics(doc, layout);
   drawShiftRanges(doc, layout);
+  drawPieBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, layout.context.activityCount);
   drawOperationalReportBreakdowns(doc, layout);
   let y = layout.getY();
   layout.ensureSpace(14); y = layout.getY();
@@ -2683,9 +2755,10 @@ function renderDetailedPdf(doc, layout, items) {
 function renderStatisticalPdf(doc, layout, items) {
   drawReportMetrics(doc, layout);
   drawShiftRanges(doc, layout);
-  drawStatisticalBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
-  drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
-  drawStatisticalBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
+  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, layout.context.activityCount);
   drawOperationalReportBreakdowns(doc, layout);
 }
 let jsPdfLoadPromise = null;

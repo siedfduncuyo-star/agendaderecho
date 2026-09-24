@@ -1,12 +1,20 @@
-# Agenda Facultad de Derecho — v63 estable
+# Agenda Facultad de Derecho – v64
 
-Versión de reparación basada en v61 (última base estable).
+Ajustes del informe PDF sobre la base estable v63:
 
-- Mantiene la optimización de rendimiento de v61.
-- Revierte los cambios de arranque de v62 que podían interferir con la carga.
-- Informe PDF con logo institucional.
-- Resumen de días hábiles, programadas, efectuadas, suspendidas y reprogramadas.
-- Rango horario y cantidad de actividades por turno mañana/tarde.
-- Uso de aulas/espacios, plataformas y cantidad de actividades por horario.
-- Detalle de aula/lugar y plataforma por actividad.
-- Sin cambios en Firebase ni en los datos ya cargados.
+- Se elimina el texto “Informe de gestión” del encabezado.
+- Se incorpora la fecha de emisión del informe debajo del período consultado.
+- “Resumen de gestión” pasa a llamarse “Resumen del período”.
+- Rangos horarios fijos de referencia:
+  - Turno Mañana: 08:00 a 14:30 (6 h 30 min)
+  - Turno Tarde: 14:30 a 21:00 (6 h 30 min)
+- Se elimina “Cantidad de actividades por horario”.
+- Se incorpora distribución por día (lunes a sábado).
+- Se incorporan gráficos de torta con porcentajes para:
+  - modalidad;
+  - secretaría / área;
+  - nivel;
+  - día de la semana.
+- Se mantienen uso de aulas/espacios, uso de plataformas y detalle de eventos.
+
+No modifica datos de Firebase ni reglas de seguridad.
