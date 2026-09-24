@@ -656,3 +656,16 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
 /* Fechas de calendario sin tarjeta (receso / reinicio) */
 .calendar-marker-badge { margin-left: 4px; }
 .month-calendar-marker { display: block; width: fit-content; margin-top: 3px; }
+
+/* v46 · Suspensiones institucionales por turno */
+.activity-row.period-suspension {
+  background: #fff7f7;
+  border-top-color: #e7cccc;
+  border-right-color: #e7cccc;
+  border-bottom-color: #e7cccc;
+}
+.activity-row.period-suspension .period-marker,
+.activity-row.period-suspension .summary-activity-name {
+  color: #8f2f2f;
+}
+.month-period:has(.month-period-label) { transition: opacity .15s ease; }

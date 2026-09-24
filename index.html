@@ -110,6 +110,7 @@
         <div class="form-grid">
           <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Fecha destacada</option></select></label>
           <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Receso</option><option value="restart">Reinicio de actividades</option><option value="suspension">Suspensión de actividades</option><option value="classes">Cursado</option><option value="academic_closure">Cierre académico</option><option value="other">Otra fecha destacada</option></select></label>
+          <label id="suspensionScopeField" class="wide" data-period-only hidden>Alcance de la suspensión<select id="suspensionScope"><option value="morning">Turno mañana</option><option value="afternoon">Turno tarde</option><option value="full_day">Día completo</option></select><small>Las actividades del turno seleccionado quedarán marcadas como suspendidas en la agenda.</small></label>
           <label class="wide"><span id="nameLabel">Título</span><input id="name" type="text" maxlength="160" required /></label>
           <label>Fecha de inicio<input id="date" type="date" min="2026-01-01" max="2030-12-31" required /></label>
           <label>Fecha de finalización<input id="endDate" type="date" min="2026-01-01" max="2030-12-31" required /></label>
@@ -127,7 +128,7 @@
           <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
           <label id="postponedTbdField" class="recording-field wide" data-scheduled-only hidden><input id="postponedDateTbd" type="checkbox" /><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
           <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option></select></label>
-          <label>Organiza<select id="secretary" required></select></label>
+          <label id="organizerField">Organiza<select id="secretary" required></select></label>
           <label id="otherSecretaryField" hidden>Otro organizador<input id="otherSecretary" type="text" maxlength="120" /></label>
           <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option></select></label>
           <label id="otherActivityTypeField" data-scheduled-only hidden>Especificar tipo de actividad<input id="otherActivityType" type="text" maxlength="120" placeholder="Escribí el tipo de actividad" /></label>

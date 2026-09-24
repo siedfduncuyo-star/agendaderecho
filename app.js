@@ -300,8 +300,48 @@ function activityStatusKey(item) {
   const stored = String(item?.activity_status || "scheduled").trim().toLocaleLowerCase(locale);
   return ["scheduled", "suspended", "postponed"].includes(stored) ? stored : "scheduled";
 }
-function activityStatusLabel(item) { return { scheduled: "Programada", suspended: "Suspendida", postponed: "Postergada" }[activityStatusKey(item)]; }
-function isSuspended(item) { return activityStatusKey(item) === "suspended"; }
+function suspensionScopeKey(item) {
+  const stored = String(item?.suspension_scope || "").trim().toLocaleLowerCase(locale);
+  return ["morning", "afternoon", "full_day"].includes(stored) ? stored : "full_day";
+}
+function suspensionScopeLabel(item) {
+  return { morning: "Turno mañana", afternoon: "Turno tarde", full_day: "Día completo" }[suspensionScopeKey(item)];
+}
+function suspensionTargetsAllActivities(period) {
+  const stored = String(period?.suspension_applies_to || "").trim().toLocaleLowerCase(locale);
+  if (stored === "all") return true;
+  if (stored === "classes") return false;
+  const text = normalizeSearchText([period?.name, period?.period_description, period?.requirements, period?.calendar_source].filter(Boolean).join(" "));
+  return !(text.includes("dictado de clases") || text.includes("calendario academico"));
+}
+function activityMatchesSuspensionScope(item, period) {
+  const scope = suspensionScopeKey(period);
+  if (scope === "full_day") return true;
+  const start = minutesFromTime(item?.start_time);
+  if (start < 0) return false;
+  return scope === "morning" ? start < 14 * 60 : start >= 14 * 60;
+}
+function suspensionPeriodForActivity(item) {
+  if (!item || isImportantPeriod(item)) return null;
+  const key = String(item.date || "");
+  if (!key) return null;
+  return (state.allActivities || []).find((period) => {
+    if (!isImportantPeriod(period) || periodTypeKey(period) !== "suspension") return false;
+    if (!(period.date <= key && activityEndDate(period) >= key)) return false;
+    if (!suspensionTargetsAllActivities(period) && !["class", "open_class"].includes(activityCategoryKey(item))) return false;
+    return activityMatchesSuspensionScope(item, period);
+  }) || null;
+}
+function isExplicitlySuspended(item) { return activityStatusKey(item) === "suspended"; }
+function suspensionStateLabel(item) {
+  const period = suspensionPeriodForActivity(item);
+  return period ? `Suspendida · ${suspensionScopeLabel(period)}` : "Suspendida";
+}
+function activityStatusLabel(item) {
+  if (isSuspended(item)) return suspensionStateLabel(item);
+  return { scheduled: "Programada", suspended: "Suspendida", postponed: "Postergada" }[activityStatusKey(item)];
+}
+function isSuspended(item) { return isExplicitlySuspended(item) || Boolean(suspensionPeriodForActivity(item)); }
 function isPostponed(item) { return activityStatusKey(item) === "postponed"; }
 function postponedDateLabel(item) {
   if (!isPostponed(item)) return "";
@@ -356,7 +396,11 @@ function periodTypeKey(item) {
   if (text.includes("regularidad") || text.includes("siu-guaran")) return "academic_closure";
   return "other";
 }
-function periodTypeLabel(item) { return { inscriptions: "Inscripciones", exam_tables: "Mesas de examen", recess: "Receso", restart: "Reinicio de actividades", suspension: "Suspensión de actividades", classes: "Cursado", academic_closure: "Cierre académico", other: "Otra fecha destacada" }[periodTypeKey(item)]; }
+function periodTypeLabel(item) {
+  const key = periodTypeKey(item);
+  const base = { inscriptions: "Inscripciones", exam_tables: "Mesas de examen", recess: "Receso", restart: "Reinicio de actividades", suspension: "Suspensión de actividades", classes: "Cursado", academic_closure: "Cierre académico", other: "Otra fecha destacada" }[key];
+  return key === "suspension" ? `${base} · ${suspensionScopeLabel(item)}` : base;
+}
 function importantPeriodStatus(item) {
   const today = localDate(new Date());
   const start = localDate(fromISODate(item.date));
@@ -371,7 +415,7 @@ function importantPeriodStatus(item) {
 }
 function isCalendarMarkerPeriod(item) { return isImportantPeriod(item) && ["recess", "restart"].includes(periodTypeKey(item)); }
 function displayOrganizer(item) {
-  if (isImportantPeriod(item) && ["recess", "restart"].includes(periodTypeKey(item))) return "";
+  if (isImportantPeriod(item) && ["recess", "restart", "suspension"].includes(periodTypeKey(item))) return "";
   return organizerName(item?.secretary);
 }
 function periodDisplayInstances(item) {
@@ -607,7 +651,7 @@ function bindEvents() {
   el("classroom").addEventListener("change", toggleOtherClassroom);
   el("activityType").addEventListener("change", toggleActivityTypeFields);
   el("recordKind").addEventListener("change", toggleRecordKindFields);
-  el("periodType").addEventListener("change", syncPeriodOrganizer);
+  el("periodType").addEventListener("change", () => { syncPeriodOrganizer(); toggleSuspensionScopeField(); });
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
   [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog, hibridacionesDialog, gradeScheduleDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
@@ -716,12 +760,22 @@ function toggleRecordKindFields() {
   el("requirementsLabel").textContent = scheduled ? "Requerimientos / observaciones" : "Descripción / información importante";
   el("formTitle").textContent = editing ? (scheduled ? "Editar actividad" : "Editar fecha destacada") : (scheduled ? "Nueva actividad" : "Nueva fecha destacada");
   el("saveActivity").textContent = scheduled ? "Guardar actividad" : "Guardar fecha destacada";
-  toggleRecurrenceFields(); updateAcademicFields(el("subject").value); toggleActivityTypeFields(); toggleActivityStatusFields();
+  toggleRecurrenceFields(); updateAcademicFields(el("subject").value); toggleActivityTypeFields(); toggleActivityStatusFields(); toggleSuspensionScopeField(); syncPeriodOrganizer();
+}
+
+function toggleSuspensionScopeField() {
+  const isPeriod = el("recordKind").value === "period";
+  const isSuspension = isPeriod && el("periodType").value === "suspension";
+  el("suspensionScopeField").hidden = !isSuspension;
+  el("suspensionScope").required = isSuspension;
+  if (!isSuspension) el("suspensionScope").value = "full_day";
+  el("nameLabel").textContent = isPeriod ? (isSuspension ? "Motivo / detalle" : "Detalle") : "Título";
 }
 
 function syncPeriodOrganizer() {
-  if (el("recordKind").value !== "period") return;
-  if (!["recess", "restart"].includes(el("periodType").value)) return;
+  const neutralPeriod = el("recordKind").value === "period" && ["recess", "restart", "suspension"].includes(el("periodType").value);
+  el("organizerField").hidden = neutralPeriod;
+  if (!neutralPeriod) return;
   el("secretary").value = "";
   el("otherSecretary").value = "";
   toggleOtherSecretary();
@@ -988,6 +1042,7 @@ function createDayHeading(date) {
 
 function createPeriodRow(item) {
   const details = document.createElement("details"); details.className = "activity-row period-row";
+  if (periodTypeKey(item) === "suspension") details.classList.add("period-suspension");
   details.style.setProperty("--organizer-color", organizerColor(item.secretary));
   const summary = document.createElement("summary"); summary.className = "activity-summary";
   const marker = document.createElement("span"); marker.className = "summary-time period-marker"; marker.textContent = periodTypeLabel(item);
@@ -1027,7 +1082,7 @@ function createActivityRow(item) {
   const labels = document.createElement("span"); labels.className = "summary-labels";
   const type = document.createElement("span"); type.className = "summary-type"; type.textContent = activityTypeLabel(item); labels.append(type);
   const categoryBadge = document.createElement("span"); categoryBadge.className = "activity-category-badge"; categoryBadge.textContent = activityDescriptor(item); labels.append(categoryBadge);
-  if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge suspended"; stateBadge.textContent = "Suspendida"; labels.append(stateBadge); }
+  if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge suspended"; stateBadge.textContent = suspensionStateLabel(item); labels.append(stateBadge); }
   if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; labels.append(stateBadge); }
   if (isInProgress(item)) { const live = document.createElement("span"); live.className = "in-progress-badge"; live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso'; labels.append(live); }
   if (state.view === "day") {
@@ -1059,8 +1114,11 @@ function detailFieldsForItem(item) {
   if (item.career) fields.push(["Carrera", item.career]);
   if (itemAcademicYear(item)) fields.push(["Año", itemAcademicYear(item)]);
   if (item.subject && !isIngreso(item)) fields.push(["Materia", item.subject]);
-  if (isSuspended(item)) fields.push(["Estado", "Suspendida"]);
-  else if (isPostponed(item)) fields.push(["Estado", "Postergada"], ["Nueva fecha", postponedDateLabel(item)]);
+  if (isSuspended(item)) {
+    fields.push(["Estado", suspensionStateLabel(item)]);
+    const suspension = suspensionPeriodForActivity(item);
+    if (suspension?.name) fields.push(["Motivo de suspensión", suspension.name]);
+  } else if (isPostponed(item)) fields.push(["Estado", "Postergada"], ["Nueva fecha", postponedDateLabel(item)]);
   else if (isInProgress(item)) fields.push(["Estado", "▶ En curso"]);
   if (state.canEdit) fields.push(["Responsable / contacto", item.responsible]);
   if (!isVirtual(item)) fields.push(["Aula/Lugar", item.classroom]);
@@ -1219,8 +1277,11 @@ function publicCopyLinesForItem(item) {
   if (item.career) lines.push(`*Carrera:* ${item.career}`);
   if (itemAcademicYear(item)) lines.push(`*Año:* ${itemAcademicYear(item)}`);
   if (item.subject && !isIngreso(item)) lines.push(`*Materia:* ${item.subject}`);
-  if (isSuspended(item)) lines.push("*Estado:* Suspendida");
-  else if (isPostponed(item)) {
+  if (isSuspended(item)) {
+    lines.push(`*Estado:* ${suspensionStateLabel(item)}`);
+    const suspension = suspensionPeriodForActivity(item);
+    if (suspension?.name) lines.push(`*Motivo de suspensión:* ${suspension.name}`);
+  } else if (isPostponed(item)) {
     lines.push("*Estado:* Postergada");
     lines.push(`*Nueva fecha:* ${postponedDateLabel(item)}`);
   }
@@ -1316,7 +1377,7 @@ function renderMonth() {
       button.style.borderLeftColor = organizerColor(item.secretary);
       const activityType = activityTypeKey(item);
       const badge = document.createElement("span"); badge.className = `month-${activityType}`; badge.textContent = activityTypeLabel(item); button.append(badge);
-      if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = "Suspendida"; button.append(stateBadge); }
+      if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = suspensionStateLabel(item); button.append(stateBadge); }
       if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; button.append(stateBadge); }
       if (isInProgress(item)) { const live = document.createElement("span"); live.className = "month-in-progress"; live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso'; button.append(live); }
       const time = document.createElement("strong"); time.textContent = cleanTime(item.start_time); button.append(time, document.createTextNode(item.name));
@@ -1348,7 +1409,7 @@ function openDetail(item) {
   if (isImportantPeriod(item)) {
     el("detailDate").textContent = `${periodTypeLabel(item)} · ${dateRangeLabel(item)} · ${importantPeriodStatus(item)}`;
   } else {
-    const stateText = isSuspended(item) ? " · Suspendida" : isPostponed(item) ? ` · Postergada · ${postponedDateLabel(item)}` : "";
+    const stateText = isSuspended(item) ? ` · ${suspensionStateLabel(item)}` : isPostponed(item) ? ` · Postergada · ${postponedDateLabel(item)}` : "";
     el("detailDate").textContent = `${dateRangeLabel(item)} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)}${stateText}`;
   }
   el("detailTitle").textContent = item.name; el("detailBody").replaceChildren(createDetailsContent(item, true)); detailDialog.showModal();
@@ -1416,6 +1477,7 @@ function openActivityForm(item = null) {
   el("activityForm").reset(); el("formError").hidden = true; el("activityId").value = item?.id || ""; el("originalActivityName").value = item?.name || "";
   el("recordKind").value = isImportantPeriod(item) ? "period" : "activity";
   el("periodType").value = isImportantPeriod(item) ? periodTypeKey(item) : "inscriptions";
+  el("suspensionScope").value = isImportantPeriod(item) && periodTypeKey(item) === "suspension" ? suspensionScopeKey(item) : "full_day";
   el("originalActivityDate").value = item?.date || "";
   el("bulkEditField").hidden = !item?.id || isImportantPeriod(item); el("updateSameName").checked = false;
   const { start, end } = periodRange(); const today = localDate(new Date()); const defaultDate = today >= start && today <= end ? today : start;
@@ -1426,7 +1488,7 @@ function openActivityForm(item = null) {
   el("activityStatus").value = item ? activityStatusKey(item) : "scheduled";
   el("postponedDate").value = item?.postponed_date || "";
   el("postponedDateTbd").checked = item?.postponed_date_tbd === true;
-  const storedOrganizer = isImportantPeriod(item) && ["recess", "restart"].includes(periodTypeKey(item)) ? "" : organizerName(item?.secretary);
+  const storedOrganizer = isImportantPeriod(item) && ["recess", "restart", "suspension"].includes(periodTypeKey(item)) ? "" : organizerName(item?.secretary);
   el("name").value = item?.name || "";
   if (secretaryOptions.includes(storedOrganizer)) { el("secretary").value = storedOrganizer; el("otherSecretary").value = ""; }
   else if (storedOrganizer) { el("secretary").value = "__other__"; el("otherSecretary").value = storedOrganizer; }
@@ -1476,12 +1538,12 @@ function activityPayload() {
   const recordKind = el("recordKind").value;
   const periodType = el("periodType").value;
   let secretary = el("secretary").value === "__other__" ? el("otherSecretary").value.trim() : el("secretary").value;
-  if (recordKind === "period" && ["recess", "restart"].includes(periodType)) secretary = "";
+  if (recordKind === "period" && ["recess", "restart", "suspension"].includes(periodType)) secretary = "";
   const academic = organizerName(secretary) === academicSecretary;
   const category = el("academicType").value;
   const detailedAcademic = academic && ["class", "open_class", "exam"].includes(category);
   if (recordKind === "period") {
-    return { record_kind: "period", period_type: periodType, date: el("date").value, end_date: el("endDate").value, start_time: "", end_time: "", name: el("name").value.trim(), secretary, activity_category: "", academic_activity_type: "", career: "", academic_year: "", subject: "", responsible: "", classroom: "", activity_type: "", activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false, platform: "", account_used: "", meeting_url: "", link_is_public: false, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: false };
+    return { record_kind: "period", period_type: periodType, suspension_scope: periodType === "suspension" ? el("suspensionScope").value : "", suspension_applies_to: periodType === "suspension" ? "all" : "", date: el("date").value, end_date: el("endDate").value, start_time: "", end_time: "", name: el("name").value.trim(), secretary, activity_category: "", academic_activity_type: "", career: "", academic_year: "", subject: "", responsible: "", classroom: "", activity_type: "", activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false, platform: "", account_used: "", meeting_url: "", link_is_public: false, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: false };
   }
   const classroom = el("activityType").value === "virtual" ? "" : el("classroom").value === "__other__" ? el("otherClassroom").value.trim() : el("classroom").value;
   const activityStatus = el("activityStatus").value || "scheduled";
@@ -1497,6 +1559,7 @@ function validateActivity(payload) {
   if (payload.more_info_url && !isSafeUrl(payload.more_info_url)) return "El enlace de más información debe comenzar con http:// o https://.";
   if (isImportantPeriod(payload)) {
     if (!payload.period_type) return "Seleccioná el tipo de fecha destacada.";
+    if (payload.period_type === "suspension" && !["morning", "afternoon", "full_day"].includes(payload.suspension_scope)) return "Seleccioná el alcance de la suspensión.";
     return "";
   }
   if (!payload.secretary) return "Seleccioná quién organiza o completá el campo Otro organizador.";
@@ -1630,12 +1693,14 @@ function bulkAcademicDatePayload(item) {
   return {
     record_kind: "period",
     period_type: item.period_type,
+    suspension_scope: item.period_type === "suspension" ? "full_day" : "",
+    suspension_applies_to: item.period_type === "suspension" ? "classes" : "",
     date: item.date,
     end_date: item.end_date,
     start_time: "",
     end_time: "",
     name: item.name,
-    secretary: ["recess", "restart"].includes(item.period_type) ? "" : academicSecretary,
+    secretary: ["recess", "restart", "suspension"].includes(item.period_type) ? "" : academicSecretary,
     activity_category: "",
     academic_activity_type: "",
     career: "",

@@ -123,3 +123,10 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Si una clase ya existe por la importación de Hibridaciones (por ejemplo Derecho del Transporte o Derecho Público Provincial y Municipal), esa ocurrencia se omite.
 - La carga queda marcada en Firebase y el botón desaparece después de completarse.
 - El PDF recibido no contiene columnas de jueves o viernes; esta versión no infiere esos horarios.
+
+## v46 · Suspensión por turno
+- Las fechas destacadas de tipo **Suspensión de actividades** permiten elegir **Turno mañana**, **Turno tarde** o **Día completo**.
+- El motivo se carga en el campo **Motivo / detalle** y no requiere organizador.
+- Las actividades alcanzadas por una suspensión manual se muestran como suspendidas sin modificar cada registro individual.
+- El turno mañana comprende actividades que comienzan antes de las 14:00; el turno tarde, las que comienzan desde las 14:00.
+- Las suspensiones históricas del Calendario Académico que refieren al dictado de clases continúan afectando solo clases.
