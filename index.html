@@ -65,6 +65,7 @@
             <button id="bulkAcademicDates" class="button button-secondary" type="button">Cargar fechas académicas</button>
             <button id="cleanupAgenda" class="button button-danger" type="button" hidden>Eliminar datos anteriores</button>
             <button id="bulkHibridaciones" class="button button-secondary" type="button" hidden>Cargar hibridaciones 16/8+</button>
+            <button id="bulkGradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de grado</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -188,6 +189,27 @@
         <div class="dialog-actions">
           <button class="button button-secondary" type="button" data-close="hibridacionesDialog">Cancelar</button>
           <button id="runBulkHibridaciones" class="button button-primary" type="submit">Cargar actividades</button>
+        </div>
+      </form>
+    </dialog>
+
+
+    <dialog id="gradeScheduleDialog" class="dialog bulk-dates-dialog">
+      <form id="gradeScheduleForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Carga masiva</p><h2>Horarios de Grado · Segundo semestre 2026</h2></div>
+          <button class="close-button" type="button" data-close="gradeScheduleDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Carga los horarios semanales de Abogacía desde el 16 de agosto hasta el fin del cursado del 6 de noviembre de 2026.</p>
+        <div class="bulk-dates-summary"><strong id="gradeScheduleCount">70 horarios semanales</strong><span>Secretaría Académica · Grado</span></div>
+        <p class="bulk-dates-note"><strong>Importante:</strong> el PDF recibido contiene columnas de lunes, martes y miércoles. Esta carga reproduce exactamente esos días; no inventa horarios de jueves o viernes. Las semanas con suspensión de clases y los feriados configurados se excluyen automáticamente.</p>
+        <p class="bulk-dates-note">Las filas genéricas “Optativa” no se cargan como eventos: se utilizan las optativas específicas que figuran en el mismo documento. Si una clase ya existe por la carga de Hibridaciones, se omite para evitar duplicados.</p>
+        <ul id="gradeSchedulePreview" class="bulk-dates-preview"></ul>
+        <p class="report-note">La carga se ejecuta una sola vez. Cada encuentro usa un identificador estable y el botón desaparece al completarse correctamente.</p>
+        <div id="gradeScheduleMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="gradeScheduleDialog">Cancelar</button>
+          <button id="runBulkGradeSchedule" class="button button-primary" type="submit">Cargar horarios</button>
         </div>
       </form>
     </dialog>

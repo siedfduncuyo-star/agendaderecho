@@ -111,3 +111,15 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Todas las áreas organizadoras incorporan **Charla informativa** y **Otro**.
 - Al elegir **Otro**, aparece un campo obligatorio para escribir el tipo de actividad.
 - El texto personalizado se conserva y se muestra en tarjetas, detalle, búsqueda, copias e informes.
+
+
+## v44 - Carga masiva de horarios de Grado
+
+- Incorpora una carga única de los horarios del PDF `Horarios.pdf`.
+- Período: desde el 16/08/2026 hasta el fin del cursado del 06/11/2026.
+- 70 franjas semanales de Abogacía (lunes, martes, miércoles y jueves, según el PDF corregido).
+- Se excluyen automáticamente feriados y períodos de suspensión del dictado de clases.
+- Las filas genéricas `Optativa` no se duplican: se cargan las optativas específicas listadas en el documento.
+- Si una clase ya existe por la importación de Hibridaciones (por ejemplo Derecho del Transporte o Derecho Público Provincial y Municipal), esa ocurrencia se omite.
+- La carga queda marcada en Firebase y el botón desaparece después de completarse.
+- El PDF recibido no contiene columnas de jueves o viernes; esta versión no infiere esos horarios.
