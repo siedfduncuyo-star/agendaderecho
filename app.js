@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v62-reportes-20260924";
+const AGENDA_BUILD = "v63-stable-report-fix-20260924";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
@@ -603,25 +603,8 @@ function loadDemoCalendarConfig() {
 }
 function writeDemoCalendarConfig(calendarConfig) { localStorage.setItem(demoCalendarStorageKey, JSON.stringify(calendarConfig)); }
 
-function removeLegacyMigrationControls() {
-  // Las cargas históricas ya fueron migradas a Firebase y no deben volver a ofrecerse.
-  const legacyIds = [
-    "bulkAcademicDates", "cleanupAgenda", "bulkHibridaciones", "bulkGradeSchedule",
-    "bulkPregradeSchedule", "bulkLegalClinics", "bulkMediationCenter", "bulkPrograms",
-    "updateIngreso2027", "bulkDatesDialog", "hibridacionesDialog", "gradeScheduleDialog",
-    "pregradeScheduleDialog", "legalClinicsDialog", "mediationCenterDialog", "programsDialog",
-    "ingreso2027Dialog"
-  ];
-  legacyIds.forEach((id) => document.getElementById(id)?.remove());
-  document.querySelectorAll("button").forEach((button) => {
-    const text = normalizeSearchText(button.textContent || "");
-    if (text.includes("cargar horarios de tecnicatura")) button.remove();
-  });
-}
-
 async function init() {
   state.calendarConfig = cloneDefaultCalendarConfig();
-  removeLegacyMigrationControls();
   el("demoBanner").hidden = true;
   populateFormOptions();
   populateCalendarYearOptions();
@@ -2412,6 +2395,7 @@ function countReportItems(items, keyFn) {
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], locale));
 }
+
 function reportSuspensionIndex(records) {
   const index = new Map();
   records.forEach((item) => {
@@ -2427,6 +2411,7 @@ function reportSuspensionIndex(records) {
   });
   return index;
 }
+
 function reportWorkingDayCount(range, sourceItems) {
   const recesses = sourceItems.filter((item) => isImportantPeriod(item) && periodTypeKey(item) === "recess");
   let count = 0;
@@ -2437,21 +2422,27 @@ function reportWorkingDayCount(range, sourceItems) {
   }
   return count;
 }
-function reportActivityItems(items) { return items.filter((item) => !isImportantPeriod(item)); }
+
+function reportActivityItems(items) {
+  return items.filter((item) => !isImportantPeriod(item));
+}
+
 function reportIsPerformed(item, now = new Date()) {
   if (isImportantPeriod(item) || isSuspended(item) || isPostponed(item)) return false;
   if (hasScheduledTime(item)) return activityEndDateTime(item).getTime() <= now.getTime();
-  return localDate(fromISODate(activityEndDate(item))) < localDate(now);
+  return fromISODate(activityEndDate(item)) < localDate(now);
 }
+
 function reportShiftKey(item) {
   const explicitShift = String(item?.academic_shift || "").trim().toLowerCase();
   if (["tm", "morning", "mañana", "manana"].includes(explicitShift)) return "morning";
   if (["tt", "afternoon", "tarde"].includes(explicitShift)) return "afternoon";
-  if (isGroupedGradeClass(item)) return gradeTurnKey(item);
+  if (typeof isGroupedGradeClass === "function" && isGroupedGradeClass(item) && typeof gradeTurnKey === "function") return gradeTurnKey(item);
   const start = minutesFromTime(item?.start_time);
   if (start < 0) return "";
   return start < 14 * 60 ? "morning" : "afternoon";
 }
+
 function reportShiftRanges(items) {
   const buckets = { morning: [], afternoon: [] };
   reportActivityItems(items).forEach((item) => {
@@ -2459,32 +2450,36 @@ function reportShiftRanges(items) {
     const key = reportShiftKey(item);
     if (key && buckets[key]) buckets[key].push(item);
   });
-  return Object.entries(buckets).map(([key, rows]) => {
-    if (!rows.length) return [key, null];
+  const formatMinutes = (value) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+  return Object.entries(buckets).flatMap(([key, rows]) => {
+    if (!rows.length) return [];
     const starts = rows.map((item) => minutesFromTime(item.start_time)).filter((value) => value >= 0);
     const ends = rows.map((item) => minutesFromTime(item.end_time)).filter((value) => value >= 0);
-    const formatMinutes = (value) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
-    return [key, { start: formatMinutes(Math.min(...starts)), end: formatMinutes(Math.max(...ends)), count: rows.length }];
-  ]).filter(([, value]) => value);
+    if (!starts.length || !ends.length) return [];
+    return [[key, { start: formatMinutes(Math.min(...starts)), end: formatMinutes(Math.max(...ends)), count: rows.length }]];
+  });
 }
+
+function reportPlatformName(item) {
+  const explicit = String(item?.platform || "").trim();
+  if (explicit) return explicit;
+  return detectPlatform(String(item?.meeting_url || "")) || "";
+}
+
 function reportRoomCounts(items) {
   return countReportItems(
     reportActivityItems(items).filter((item) => String(item.classroom || "").trim()),
     (item) => String(item.classroom || "").trim()
   );
 }
-function reportPlatformName(item) {
-  const explicit = String(item?.platform || "").trim();
-  if (explicit) return explicit;
-  const detected = detectPlatform(String(item?.meeting_url || ""));
-  return detected || "";
-}
+
 function reportPlatformCounts(items) {
   return countReportItems(
     reportActivityItems(items).filter((item) => reportPlatformName(item)),
     reportPlatformName
   );
 }
+
 function reportTimeRangeCounts(items) {
   const counts = new Map();
   reportActivityItems(items).forEach((item) => {
@@ -2494,6 +2489,7 @@ function reportTimeRangeCounts(items) {
   });
   return [...counts.entries()].sort((a, b) => minutesFromTime(a[0].split("–")[0]) - minutesFromTime(b[0].split("–")[0]) || a[0].localeCompare(b[0], locale));
 }
+
 function buildReportContext(range, items, sourceItems) {
   const activities = reportActivityItems(items);
   return {
@@ -2508,10 +2504,11 @@ function buildReportContext(range, items, sourceItems) {
     timeRanges: reportTimeRangeCounts(activities)
   };
 }
+
 let reportLogoPromise = null;
 function ensureReportLogoDataUrl() {
   if (!reportLogoPromise) {
-    reportLogoPromise = fetch("assets/logo-fd-blanco.png")
+    reportLogoPromise = fetch("assets/logo-fd-blanco.png", { cache: "force-cache" })
       .then((response) => { if (!response.ok) throw new Error("logo"); return response.blob(); })
       .then((blob) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -2523,6 +2520,7 @@ function ensureReportLogoDataUrl() {
   }
   return reportLogoPromise;
 }
+
 function hexRgb(hex) {
   const clean = String(hex || "").replace("#", "");
   if (!/^[0-9a-f]{6}$/i.test(clean)) return [2, 55, 100];
@@ -2536,15 +2534,15 @@ function pdfBase(doc, range, outputType, items, context, logoDataUrl = "") {
   const blue = hexRgb("#023764");
   const gold = hexRgb("#C5AD68");
   const gray = hexRgb("#66737C");
-  let y = 18;
+  let y = 40;
   const drawHeader = () => {
     doc.setFillColor(...blue); doc.rect(0, 0, pageWidth, 30, "F");
     if (logoDataUrl) {
-      try { doc.addImage(logoDataUrl, "PNG", margin, 6.5, 84, 13.9, undefined, "FAST"); }
-      catch (_) { /* fallback below */ }
+      try { doc.addImage(logoDataUrl, "PNG", margin, 6.5, 82, 13.5, undefined, "FAST"); }
+      catch (_) { /* usa texto de respaldo */ }
     }
     if (!logoDataUrl) {
-      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("UNCUYO - Facultad de Derecho", margin, 13);
+      doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("UNCUYO - Facultad de Derecho", margin, 13);
     }
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text("Agenda institucional de actividades", pageWidth - margin, 12, { align: "right" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.text("Informe de gestión", pageWidth - margin, 19, { align: "right" });
@@ -2553,7 +2551,7 @@ function pdfBase(doc, range, outputType, items, context, logoDataUrl = "") {
     if (y + needed <= pageHeight - 16) return;
     doc.addPage(); drawHeader(); y = 39;
   };
-  drawHeader(); y = 40;
+  drawHeader();
   doc.setTextColor(...blue); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(reportTypeLabel(range, outputType), margin, y); y += 8;
   doc.setFontSize(11); doc.setFont("helvetica", "normal"); doc.setTextColor(...gray); doc.text(reportRangeLabel(range), margin, y); y += 9;
   doc.setFillColor(...gold); doc.roundedRect(margin, y - 5, 37, 9, 2, 2, "F");
@@ -2591,10 +2589,12 @@ function drawStatisticalBreakdown(doc, layout, title, rows, total) {
   });
   y += 4; layout.setY(y);
 }
-function drawMetricGrid(doc, layout, context) {
+
+function drawReportMetrics(doc, layout) {
+  const context = layout.context;
   const metrics = [
-    ["Días hábiles considerados", context.workingDays],
-    ["Actividades programadas", context.activityCount],
+    ["Días hábiles", context.workingDays],
+    ["Programadas", context.activityCount],
     ["Efectuadas", context.performedCount],
     ["Suspendidas", context.suspendedCount],
     ["Reprogramadas", context.rescheduledCount]
@@ -2602,31 +2602,31 @@ function drawMetricGrid(doc, layout, context) {
   let y = layout.getY();
   layout.ensureSpace(16); y = layout.getY();
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Resumen de gestión", layout.margin, y); y += 6;
-  const cols = 3; const gap = 4; const cellW = (layout.contentWidth - gap * (cols - 1)) / cols; const cellH = 15;
-  for (let i = 0; i < metrics.length; i += cols) {
+  const cols = 3, gap = 4, cellH = 15, cellW = (layout.contentWidth - gap * (cols - 1)) / cols;
+  for (let row = 0; row < metrics.length; row += cols) {
     layout.setY(y); layout.ensureSpace(cellH + 4); y = layout.getY();
-    metrics.slice(i, i + cols).forEach(([label, value], col) => {
+    metrics.slice(row, row + cols).forEach(([label, value], col) => {
       const x = layout.margin + col * (cellW + gap);
       doc.setFillColor(248, 250, 251); doc.setDrawColor(218, 224, 228); doc.roundedRect(x, y, cellW, cellH, 2, 2, "FD");
-      doc.setTextColor(...layout.gray); doc.setFont("helvetica", "normal"); doc.setFontSize(7.4);
-      const labelLines = doc.splitTextToSize(label, cellW - 7); doc.text(labelLines, x + 3.5, y + 4.5);
+      doc.setTextColor(...layout.gray); doc.setFont("helvetica", "normal"); doc.setFontSize(7.4); doc.text(label, x + 3.5, y + 5);
       doc.setTextColor(...layout.blue); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(String(value), x + cellW - 3.5, y + 11.8, { align: "right" });
     });
     y += cellH + 4;
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...layout.gray);
-  const note = "Días hábiles: lunes a sábado, excluyendo feriados y recesos configurados. Efectuadas: actividades cuyo horario ya transcurrió y que no figuran suspendidas ni reprogramadas.";
-  const noteLines = doc.splitTextToSize(note, layout.contentWidth); doc.text(noteLines, layout.margin, y); y += noteLines.length * 3.6 + 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.4); doc.setTextColor(...layout.gray);
+  const note = doc.splitTextToSize("Días hábiles: lunes a sábado, excluyendo feriados y recesos configurados. Efectuadas: actividades cuyo horario ya transcurrió y que no figuran suspendidas ni reprogramadas.", layout.contentWidth);
+  doc.text(note, layout.margin, y); y += note.length * 3.5 + 5;
   layout.setY(y);
 }
-function drawShiftSummary(doc, layout, context) {
+
+function drawShiftRanges(doc, layout) {
   let y = layout.getY();
-  layout.ensureSpace(16); y = layout.getY();
+  layout.ensureSpace(14); y = layout.getY();
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Rangos horarios por turno", layout.margin, y); y += 6;
-  if (!context.shiftRanges.length) {
+  if (!layout.context.shiftRanges.length) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...layout.gray); doc.text("Sin horarios informados", layout.margin, y); y += 7;
   } else {
-    context.shiftRanges.forEach(([key, data]) => {
+    layout.context.shiftRanges.forEach(([key, data]) => {
       layout.setY(y); layout.ensureSpace(7); y = layout.getY();
       const label = key === "morning" ? "Turno mañana" : "Turno tarde";
       doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(48, 55, 60); doc.text(`${label}: ${data.start}–${data.end}`, layout.margin, y);
@@ -2637,19 +2637,19 @@ function drawShiftSummary(doc, layout, context) {
   }
   layout.setY(y);
 }
-function drawOperationalBreakdowns(doc, layout, context) {
-  drawStatisticalBreakdown(doc, layout, "Uso de aulas / espacios", context.rooms, context.activityCount);
-  drawStatisticalBreakdown(doc, layout, "Uso de plataformas", context.platforms, context.activityCount);
-  drawStatisticalBreakdown(doc, layout, "Cantidad de actividades por horario", context.timeRanges, context.activityCount);
+
+function drawOperationalReportBreakdowns(doc, layout) {
+  drawStatisticalBreakdown(doc, layout, "Uso de aulas / espacios", layout.context.rooms, layout.context.activityCount);
+  drawStatisticalBreakdown(doc, layout, "Uso de plataformas", layout.context.platforms, layout.context.activityCount);
+  drawStatisticalBreakdown(doc, layout, "Cantidad de actividades por horario", layout.context.timeRanges, layout.context.activityCount);
 }
 
 function renderDetailedPdf(doc, layout, items) {
-  const context = layout.context;
-  drawMetricGrid(doc, layout, context);
-  drawShiftSummary(doc, layout, context);
-  drawOperationalBreakdowns(doc, layout, context);
+  drawReportMetrics(doc, layout);
+  drawShiftRanges(doc, layout);
+  drawOperationalReportBreakdowns(doc, layout);
   let y = layout.getY();
-  layout.ensureSpace(16); y = layout.getY();
+  layout.ensureSpace(14); y = layout.getY();
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...layout.blue); doc.text("Detalle de eventos", layout.margin, y); y += 7;
   const groupBy = el("reportGroupBy").value;
   const sortedItems = sortReportItems(items, groupBy);
@@ -2681,13 +2681,12 @@ function renderDetailedPdf(doc, layout, items) {
   layout.setY(y);
 }
 function renderStatisticalPdf(doc, layout, items) {
-  const context = layout.context;
-  drawMetricGrid(doc, layout, context);
-  drawShiftSummary(doc, layout, context);
+  drawReportMetrics(doc, layout);
+  drawShiftRanges(doc, layout);
   drawStatisticalBreakdown(doc, layout, "Distribución por modalidad", countReportItems(items, reportModalityLabel), items.length);
   drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
   drawStatisticalBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
-  drawOperationalBreakdowns(doc, layout, context);
+  drawOperationalReportBreakdowns(doc, layout);
 }
 let jsPdfLoadPromise = null;
 function ensureJsPdf() {
@@ -2721,7 +2720,7 @@ async function generateReportPdf(event) {
     if (!items.length) throw new Error("No hay eventos para el período y los filtros seleccionados.");
     const context = buildReportContext(range, items, reportSource);
     const outputType = el("reportOutputType").value;
-    const [logoDataUrl] = await Promise.all([ensureReportLogoDataUrl()]);
+    const logoDataUrl = await ensureReportLogoDataUrl();
     const doc = new JsPdf({ orientation: "portrait", unit: "mm", format: "a4" });
     const layout = pdfBase(doc, range, outputType, items, context, logoDataUrl);
     if (outputType === "statistical") renderStatisticalPdf(doc, layout, items);
@@ -2732,13 +2731,13 @@ async function generateReportPdf(event) {
     doc.save(`informe-${slugType}-${slugPeriod}-${toISODate(range.start)}.pdf`);
     reportDialog.close();
   } catch (error) {
+    console.error("PDF report error", error);
     message.textContent = error?.message || `No se pudo generar el PDF. ${friendlyError(error)}`;
     message.hidden = false;
   } finally {
     state.suspensionIndex = previousSuspensionIndex;
   }
 }
-
 
 function friendlyError(error) {
   const code = error?.code || "";
