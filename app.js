@@ -1245,8 +1245,8 @@ function createPeriodRow(item) {
   const statusBadge = document.createElement("span"); statusBadge.className = "period-status"; statusBadge.textContent = importantPeriodStatus(item);
   const dates = document.createElement("span"); dates.className = "summary-room period-range"; dates.textContent = dateRangeLabel(item);
   meta.append(statusBadge, dates);
-  const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
-  summary.append(marker, title, meta, chevron);
+  const moreButton = document.createElement("span"); moreButton.className = "summary-more-button"; moreButton.textContent = "Más información";
+  summary.append(marker, title, meta, moreButton);
   const expanded = document.createElement("div"); expanded.className = "activity-expanded"; expanded.append(createDetailsContent(item, true));
   details.append(summary, expanded); return details;
 }
@@ -1282,8 +1282,8 @@ function createActivityRow(item) {
   if (!isRemote(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
   if (!isPresential(item)) { const platformIcon = createPlatformIcon(item.platform); if (platformIcon) placePlatform.append(platformIcon); }
   meta.append(labels, placePlatform);
-  const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
-  summary.append(time, title, meta, chevron);
+  const moreButton = document.createElement("span"); moreButton.className = "summary-more-button"; moreButton.textContent = "Más información";
+  summary.append(time, title, meta, moreButton);
   const expanded = document.createElement("div"); expanded.className = "activity-expanded"; expanded.append(createDetailsContent(item, true));
   details.append(summary, expanded); return details;
 }
@@ -1793,10 +1793,10 @@ function createActivityGroupRow(group) {
   rooms.className = "summary-room";
   rooms.textContent = displayGroupRooms(group.items) || (group.items.every(isRemote) ? "Virtual" : "");
   meta.append(labels, rooms);
-  const chevron = document.createElement("span");
-  chevron.className = "summary-chevron";
-  chevron.textContent = "⌄";
-  summary.append(time, title, meta, chevron);
+  const moreButton = document.createElement("span");
+  moreButton.className = "summary-more-button";
+  moreButton.textContent = "Más información";
+  summary.append(time, title, meta, moreButton);
 
   const expanded = document.createElement("div");
   expanded.className = "activity-expanded activity-group-expanded";

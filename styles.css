@@ -866,3 +866,133 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   .agenda-summary-bar .quick-check-filters,
   .agenda-summary-bar .audience-check-filters { gap: 2px 3px; padding: 4px 5px; }
 }
+
+/* v60 · mejoras de lectura en móvil y acceso al detalle */
+.activity-summary {
+  grid-template-columns: 118px minmax(0,1fr) minmax(110px,190px) auto;
+}
+.summary-more-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid #b8cfdd;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: var(--blue);
+  font-size: .66rem;
+  line-height: 1.05;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.activity-row[open] .summary-more-button {
+  background: var(--blue-soft);
+  border-color: #9ebed2;
+}
+.activity-row,
+.activity-summary,
+.summary-title,
+.summary-meta,
+.summary-labels,
+.summary-place-platform { min-width: 0; }
+.period-marker { max-width: 100%; overflow-wrap: anywhere; word-break: normal; }
+
+@media (max-width: 650px) {
+  .day-list { min-width: 0; }
+  .activity-row { max-width: 100%; }
+  .activity-summary {
+    grid-template-columns: 68px minmax(0,1fr);
+    gap: 5px 8px;
+    min-height: 0;
+    padding: 8px 9px;
+  }
+  .summary-time {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    min-width: 0;
+    font-size: .68rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .summary-title {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    font-size: .79rem;
+    line-height: 1.24;
+  }
+  .summary-meta {
+    grid-column: 2;
+    grid-row: 2;
+    align-items: flex-start;
+    justify-content: flex-start;
+    margin-top: 0;
+    gap: 4px;
+  }
+  .summary-labels,
+  .summary-place-platform {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+  .academic-type-badge,
+  .activity-category-badge,
+  .activity-status-badge,
+  .daily-time-badge,
+  .in-progress-badge {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .summary-more-button {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    min-height: 26px;
+    margin-top: 1px;
+    padding: 4px 7px;
+    font-size: .62rem;
+  }
+  .activity-expanded {
+    padding: 0 9px 10px 9px;
+  }
+
+  /* Las fechas destacadas usan todo el ancho: evita que “Inscripciones” se desborde. */
+  .period-row .activity-summary {
+    grid-template-columns: minmax(0,1fr);
+    gap: 4px;
+  }
+  .period-row .period-marker {
+    grid-column: 1;
+    grid-row: 1;
+    width: fit-content;
+    max-width: 100%;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: #f0dde2;
+    font-size: .59rem;
+    line-height: 1.15;
+    letter-spacing: .025em;
+    overflow-wrap: anywhere;
+  }
+  .period-row .summary-title {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .period-row .summary-meta {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+  }
+  .period-row .summary-more-button {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .period-row .period-range {
+    max-width: 100%;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}
