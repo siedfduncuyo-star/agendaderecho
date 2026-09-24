@@ -2462,6 +2462,91 @@ async function saveBulkMediationCenter(event) {
   }
 }
 
+
+function programSourceLabel(source) {
+  const labels = {
+    "Modalidad Extensiva – Curso de Ingreso 2027": "Ingreso 2027 · Modalidad extensiva",
+    "CRONOGRAMA ESP y MAESTRÍA FLIAS 2026": "Especialización y Maestría en Derecho de las Familias",
+    "Cronograma Diplomatura Discapacidad 2026": "Diplomatura en Derechos de las Personas con Discapacidad",
+    "Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026": "Diplomatura en Mediación y Gestión Participativa de Conflictos"
+  };
+  return labels[source] || source || "Actividad";
+}
+
+function openBulkPrograms() {
+  if (!state.canEdit || state.programsBulkLoaded) return;
+  const preview = el("programsPreview");
+  preview.replaceChildren();
+  const grouped = new Map();
+  programs2026FromAugust16.forEach((item) => {
+    const key = item.calendar_source || "Otras actividades";
+    grouped.set(key, (grouped.get(key) || 0) + 1);
+  });
+  [...grouped.entries()].forEach(([source, count]) => {
+    const li = document.createElement("li");
+    const title = document.createElement("strong");
+    title.textContent = programSourceLabel(source);
+    const meta = document.createElement("span");
+    meta.textContent = `${count} ${count === 1 ? "evento" : "eventos"}`;
+    li.append(title, meta);
+    preview.append(li);
+  });
+  el("programsCount").textContent = `${programs2026FromAugust16.length} eventos preparados`;
+  el("programsMessage").hidden = true;
+  programsDialog.showModal();
+}
+
+async function saveBulkPrograms(event) {
+  event.preventDefault();
+  if (!state.canEdit || state.programsBulkLoaded) return;
+  const button = el("runBulkPrograms");
+  const message = el("programsMessage");
+  button.disabled = true;
+  button.textContent = "Cargando…";
+  message.hidden = true;
+  try {
+    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
+    const existing = await getDocs(collection(db, activitiesCollection));
+    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
+    if (configRecord?.data()?.[programsBulkMarker] === true) {
+      state.programsBulkLoaded = true;
+      updateBulkProgramsVisibility();
+      programsDialog.close();
+      showToast("La carga de ingreso y posgrados ya fue realizada");
+      return;
+    }
+
+    const knownSourceUids = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
+    const pending = programs2026FromAugust16.filter((item) => !knownSourceUids.has(item.source_uid));
+    if (pending.length) await writeNewActivities(pending);
+
+    const markerBatch = writeBatch(db);
+    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
+      record_kind: "calendar_config",
+      date: `${calendarFirstYear}-01-01`,
+      end_date: `${calendarLastYear}-12-31`,
+      name: "Configuración del calendario",
+      [programsBulkMarker]: true,
+      programs_ingreso_posgrado_2026_loaded_at: serverTimestamp(),
+      updated_at: serverTimestamp()
+    }, { merge: true });
+    await markerBatch.commit();
+
+    state.programsBulkLoaded = true;
+    updateBulkProgramsVisibility();
+    programsDialog.close();
+    await loadPeriod();
+    const skipped = programs2026FromAugust16.length - pending.length;
+    showToast(skipped ? `${pending.length} eventos nuevos cargados · ${skipped} ya existían` : `${pending.length} eventos cargados`);
+  } catch (error) {
+    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
+    message.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Cargar actividades";
+  }
+}
+
 function openImportForm() { if (!state.canEdit) return; el("importForm").reset(); el("icsFileName").textContent = "Ningún archivo seleccionado"; el("importMessage").hidden = true; importDialog.showModal(); }
 
 async function importCalendarFile(event) {
