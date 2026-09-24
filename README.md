@@ -1,7 +1,9 @@
-# Agenda de Actividades · Facultad de Derecho · v57
+# Agenda de Actividades — v58
 
-Versión basada en v56. Agrega una carga masiva única para los horarios de Primer Año de la Tecnicatura Universitaria en Administración de Edificios de Propiedad Horizontal y Conjuntos Inmobiliarios, Segundo Semestre 2026, desde el 16 de agosto al 6 de noviembre.
+Cambios principales:
 
-También agrupa estas actividades como **Clases de Pregrado · Tecnicatura** para que la agenda no se vuelva pesada visualmente. Los miércoles se cargan como virtuales por Google Meet; la clase de Estructura Edilicia del martes por la noche se conserva como virtual asincrónica.
-
-No modifica las reglas de Firebase. La carga masiva se marca como completada en la configuración del calendario para que el botón desaparezca después de ejecutarla.
+- La agenda siempre abre en **Día · Hoy**.
+- Se siguen recordando en el navegador los filtros y el buscador.
+- Las actividades suspendidas muestran solamente **Suspendida**.
+- **Colación** queda exceptuada de la suspensión automática general.
+- Se mantienen todas las funciones y cargas acumuladas de la v57.

@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import { browserLocalPersistence, getAuth, GoogleAuthProvider, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v57-20260924";
+const AGENDA_BUILD = "v58-20260924";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
@@ -363,10 +363,16 @@ function activityMatchesSuspensionScope(item, period) {
   return scope === "morning" ? start < 14 * 60 : start >= 14 * 60;
 }
 function isSuspensionImmuneActivity(item) {
-  // La única excepción general a una suspensión institucional son las actividades
-  // que continúan a distancia: Virtuales o Telefónicas. Se evalúan en
-  // suspensionPeriodForActivity().
-  return false;
+  // Algunas actividades institucionales especiales no deben cancelarse
+  // automáticamente por una suspensión general del dictado o de actividades.
+  // Por ahora, Colación queda expresamente exceptuada. Las modalidades
+  // Virtual y Telefónica se excluyen además en suspensionPeriodForActivity().
+  const text = normalizeSearchText([
+    item?.name,
+    item?.activity_category_custom,
+    item?.subject
+  ].filter(Boolean).join(" "));
+  return text.includes("colacion");
 }
 function suspensionPeriodForActivity(item) {
   if (!item || isImportantPeriod(item) || isSuspensionImmuneActivity(item)) return null;
@@ -384,8 +390,7 @@ function suspensionPeriodForActivity(item) {
 }
 function isExplicitlySuspended(item) { return activityStatusKey(item) === "suspended"; }
 function suspensionStateLabel(item) {
-  const period = suspensionPeriodForActivity(item);
-  return period ? `Suspendida · ${suspensionScopeLabel(period)}` : "Suspendida";
+  return "Suspendida";
 }
 function activityStatusLabel(item) {
   if (isSuspended(item)) return suspensionStateLabel(item);
@@ -585,11 +590,7 @@ function restoreViewPreferences() {
     const raw = localStorage.getItem(viewPreferencesStorageKey);
     if (!raw) return;
     const saved = JSON.parse(raw);
-    if (["day", "week", "month"].includes(saved?.view)) state.view = saved.view;
-    if (validISODate(saved?.cursor)) {
-      const restoredDate = fromISODate(saved.cursor);
-      if (restoredDate >= calendarMinDate && restoredDate <= calendarMaxDate) state.cursor = restoredDate;
-    }
+    // La agenda siempre abre en Día · Hoy. Solo recordamos filtros y búsqueda.
     const modalityValues = new Set(["presential", "hybrid", "virtual", "telephone", "featured"]);
     if (Array.isArray(saved?.filters)) {
       state.filters = new Set(saved.filters.filter((value) => modalityValues.has(value)));
@@ -639,6 +640,10 @@ async function init() {
   populateFormOptions();
   populateCalendarYearOptions();
   restoreViewPreferences();
+  // Siempre iniciar en la vista diaria del día actual, sin perder filtros guardados.
+  state.view = "day";
+  const today = localDate(new Date());
+  state.cursor = today < calendarMinDate ? calendarMinDate : today > calendarMaxDate ? calendarMaxDate : today;
   applyViewPreferencesToControls();
   bindEvents();
   applyViewStateUI();
