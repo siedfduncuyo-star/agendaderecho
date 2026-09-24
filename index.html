@@ -66,6 +66,7 @@
             <button id="cleanupAgenda" class="button button-danger" type="button" hidden>Eliminar datos anteriores</button>
             <button id="bulkHibridaciones" class="button button-secondary" type="button" hidden>Cargar hibridaciones 16/8+</button>
             <button id="bulkGradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de grado</button>
+            <button id="bulkLegalClinics" class="button button-secondary" type="button" hidden>Cargar consultorios jurídicos</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -80,6 +81,7 @@
             <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
             <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
             <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
+            <label><input class="view-filter-check" type="checkbox" value="telephone" checked /> Telefónicas</label>
             <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
           </div>
           <div class="type-filters quick-check-filters audience-check-filters" role="group" aria-label="Filtrar eventos por nivel">
@@ -127,7 +129,7 @@
           <label id="activityStatusField" data-scheduled-only>Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
           <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
           <label id="postponedTbdField" class="recording-field wide" data-scheduled-only hidden><input id="postponedDateTbd" type="checkbox" /><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
-          <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option></select></label>
+          <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option><option value="telephone">Telefónica</option></select></label>
           <label id="organizerField">Organiza<select id="secretary" required></select></label>
           <label id="otherSecretaryField" hidden>Otro organizador<input id="otherSecretary" type="text" maxlength="120" /></label>
           <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option></select></label>
@@ -136,6 +138,7 @@
           <label id="academicYearField" data-scheduled-only hidden>Año<select id="academicYear"></select></label>
           <label id="subjectField" class="wide" data-scheduled-only hidden><span id="subjectLabel">Materia</span><select id="subject"></select></label>
           <label data-scheduled-only>Responsable<input id="responsible" type="text" maxlength="100" required /></label>
+          <label class="recording-field wide" data-scheduled-only><input id="publicResponsible" type="checkbox" /><span><strong>Mostrar responsable en la vista pública</strong><small>Usalo solo cuando el nombre de la persona responsable forme parte de la información pública de la actividad.</small></span></label>
           <label id="classroomField" data-scheduled-only>Aula/Lugar<select id="classroom" required></select></label>
           <label id="otherClassroomField" data-scheduled-only hidden>Otro lugar<input id="otherClassroom" type="text" maxlength="100" /></label>
           <label data-scheduled-only>Plataforma<input id="platform" type="text" list="platformOptions" maxlength="80" placeholder="Zoom, Google Meet…" /></label>
@@ -203,7 +206,7 @@
         </div>
         <p class="dialog-intro">Carga los horarios semanales de Abogacía desde el 16 de agosto hasta el fin del cursado del 6 de noviembre de 2026.</p>
         <div class="bulk-dates-summary"><strong id="gradeScheduleCount">70 horarios semanales</strong><span>Secretaría Académica · Grado</span></div>
-        <p class="bulk-dates-note"><strong>Importante:</strong> el PDF recibido contiene columnas de lunes, martes y miércoles. Esta carga reproduce exactamente esos días; no inventa horarios de jueves o viernes. Las semanas con suspensión de clases y los feriados configurados se excluyen automáticamente.</p>
+        <p class="bulk-dates-note"><strong>Importante:</strong> el PDF corregido contiene columnas de lunes a jueves. Esta carga reproduce exactamente esos días; no inventa horarios de viernes. Las semanas con suspensión de clases y los feriados configurados se excluyen automáticamente.</p>
         <p class="bulk-dates-note">Las filas genéricas “Optativa” no se cargan como eventos: se utilizan las optativas específicas que figuran en el mismo documento. Si una clase ya existe por la carga de Hibridaciones, se omite para evitar duplicados.</p>
         <ul id="gradeSchedulePreview" class="bulk-dates-preview"></ul>
         <p class="report-note">La carga se ejecuta una sola vez. Cada encuentro usa un identificador estable y el botón desaparece al completarse correctamente.</p>
@@ -211,6 +214,27 @@
         <div class="dialog-actions">
           <button class="button button-secondary" type="button" data-close="gradeScheduleDialog">Cancelar</button>
           <button id="runBulkGradeSchedule" class="button button-primary" type="submit">Cargar horarios</button>
+        </div>
+      </form>
+    </dialog>
+
+
+    <dialog id="legalClinicsDialog" class="dialog bulk-dates-dialog">
+      <form id="legalClinicsForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Carga masiva</p><h2>Consultorios Jurídicos Gratuitos</h2></div>
+          <button class="close-button" type="button" data-close="legalClinicsDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Carga las atenciones semanales de los Consultorios Jurídicos Gratuitos desde el 16 de agosto hasta el 19 de diciembre de 2026.</p>
+        <div class="bulk-dates-summary"><strong id="legalClinicsCount">5 consultorios</strong><span>Secretaría de Extensión, Vinculación y Territorio</span></div>
+        <p class="bulk-dates-note">En las cuatro áreas principales, las dos primeras atenciones de cada mes se registran como <strong>presenciales</strong> en la Facultad y las restantes como <strong>telefónicas</strong>. La atención de Discapacidad y Adulto Mayor se registra como presencial en la Defensoría.</p>
+        <p class="bulk-dates-note">Para estos registros, el <strong>docente a cargo se muestra públicamente</strong>. El resto de las actividades de la agenda mantiene el responsable como información privada, salvo que se marque expresamente lo contrario.</p>
+        <ul id="legalClinicsPreview" class="bulk-dates-preview"></ul>
+        <p class="report-note">La carga se ejecuta una sola vez y utiliza identificadores estables para evitar duplicados.</p>
+        <div id="legalClinicsMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="legalClinicsDialog">Cancelar</button>
+          <button id="runBulkLegalClinics" class="button button-primary" type="submit">Cargar consultorios</button>
         </div>
       </form>
     </dialog>
@@ -305,6 +329,7 @@
               <option value="presential">Presenciales</option>
               <option value="hybrid">Híbridas</option>
               <option value="virtual">Virtuales</option>
+              <option value="telephone">Telefónicas</option>
               <option value="featured">Fechas destacadas</option>
             </select>
           </label>

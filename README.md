@@ -1,4 +1,4 @@
-# Agenda de Actividades · v36
+# Agenda de Actividades · v47
 
 Versión conectada a Firebase/Firestore para publicación en GitHub Pages.
 
@@ -130,3 +130,14 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Las actividades alcanzadas por una suspensión manual se muestran como suspendidas sin modificar cada registro individual.
 - El turno mañana comprende actividades que comienzan antes de las 14:00; el turno tarde, las que comienzan desde las 14:00.
 - Las suspensiones históricas del Calendario Académico que refieren al dictado de clases continúan afectando solo clases.
+
+## v47 · Consultorios Jurídicos Gratuitos
+- Incorpora una carga masiva única de los Consultorios Jurídicos Gratuitos desde el 16/08/2026 hasta el 19/12/2026.
+- Secretaría organizadora: **Secretaría de Extensión, Vinculación y Territorio**.
+- Nuevo tipo de actividad: **Consultorio jurídico**.
+- Áreas: Derecho Civil, Familia, Laboral/Previsional/Administrativo, Derecho Penal y Discapacidad/Adulto Mayor.
+- En las áreas principales, las dos primeras semanas de cada mes se muestran como **Presencial** y las restantes como **Telefónica**.
+- Se incorpora **Telefónica** como modalidad y como filtro público/reportable.
+- La atención de Discapacidad y Adulto Mayor se mantiene presencial en la Defensoría.
+- El docente a cargo puede marcarse como responsable público mediante `Mostrar responsable en la vista pública`; los demás responsables siguen siendo privados por defecto.
+- La carga usa `source_uid` estable y un marcador en `agenda_calendar_config`, por lo que no duplica registros y el botón desaparece al completarse.

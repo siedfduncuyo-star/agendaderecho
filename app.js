@@ -19,6 +19,7 @@ const academicCalendarBulkMarker = "academic_calendar_2026_2027_loaded";
 const academicCalendarCleanupMarker = "academic_calendar_cleanup_done";
 const hibridacionesBulkMarker = "hibridaciones_2026_from_2026_08_16_loaded";
 const gradeScheduleBulkMarker = "grade_schedule_2026_from_2026_08_16_loaded_v2";
+const legalClinicsBulkMarker = "legal_clinics_2026_from_2026_08_16_loaded";
 const calendarFirstYear = 2026;
 const calendarLastYear = 2030;
 const calendarMinDate = new Date(calendarFirstYear, 0, 1);
@@ -66,6 +67,7 @@ const platformAssets = [
 const academicSecretary = "Secretaría Académica";
 const postgraduateSecretary = "Secretaría de Posgrado";
 const generalSecretary = "Secretaría General";
+const extensionSecretary = "Secretaría de Extensión, Vinculación y Territorio";
 const commonProgramSecretaries = new Set([
   academicSecretary,
   "Secretaría de Investigación, Ciencia y Técnica",
@@ -101,6 +103,7 @@ const activityCategoryLabels = new Map([
   ["service", "Servicio"],
   ["board", "Consejo Directivo"],
   ["info_talk", "Charla informativa"],
+  ["legal_clinic", "Consultorio jurídico"],
   ["other", "Otro"]
 ]);
 const lawCareer = "Abogacía";
@@ -182,7 +185,7 @@ const hibridaciones2026FromAugust16 = [{"record_kind":"activity","date":"2026-08
 
 const gradeSchedule2026Weekly = [{"id":"1tm-lun-historia","weekday":"MO","start_time":"08:45","end_time":"10:10","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-lun-politico","weekday":"MO","start_time":"10:15","end_time":"12:25","subject":"Derecho Político · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mar-politico","weekday":"TU","start_time":"08:45","end_time":"10:10","subject":"Derecho Político · TM","academic_year":"Primer año","classroom":"","activity_type":"virtual"},{"id":"1tm-mar-civil","weekday":"TU","start_time":"12:30","end_time":"13:55","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mie-historia","weekday":"WE","start_time":"08:45","end_time":"10:55","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mie-civil","weekday":"WE","start_time":"11:00","end_time":"12:25","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-lun-politico","weekday":"MO","start_time":"16:15","end_time":"18:25","subject":"Derecho Político · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-lun-civil","weekday":"MO","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mar-politico","weekday":"TU","start_time":"17:00","end_time":"18:25","subject":"Derecho Político · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mar-civil","weekday":"TU","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mie-historia","weekday":"WE","start_time":"16:15","end_time":"18:25","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mie-civil","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"2tm-lun-obligaciones","weekday":"MO","start_time":"09:30","end_time":"10:55","subject":"Derecho de las Obligaciones II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-lun-consumidor","weekday":"MO","start_time":"11:00","end_time":"13:10","subject":"Derecho del Consumidor y Defensa de la Competencia · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-lun-penal","weekday":"MO","start_time":"13:15","end_time":"15:25","subject":"Derecho Penal Parte General II · TM","academic_year":"Segundo año","classroom":"Aula F","activity_type":"presential"},{"id":"2tm-mar-finanzas","weekday":"TU","start_time":"08:00","end_time":"09:25","subject":"Finanzas Públicas y Derecho Tributario · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-ingles3","weekday":"TU","start_time":"09:30","end_time":"10:55","subject":"Inglés III · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-obligaciones","weekday":"TU","start_time":"11:00","end_time":"12:25","subject":"Derecho de las Obligaciones II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-penal","weekday":"TU","start_time":"12:30","end_time":"13:55","subject":"Derecho Penal Parte General II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mie-finanzas","weekday":"WE","start_time":"08:00","end_time":"10:10","subject":"Finanzas Públicas y Derecho Tributario · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mie-pps2","weekday":"WE","start_time":"10:15","end_time":"12:25","subject":"Práctica Profesional Supervisada II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"3-lun-comercial2","weekday":"MO","start_time":"14:45","end_time":"16:10","subject":"Derecho Comercial y Societario II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-lun-contratos2","weekday":"MO","start_time":"16:15","end_time":"17:40","subject":"Contratos Civiles y Comerciales II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-lun-pps4","weekday":"MO","start_time":"17:45","end_time":"19:55","subject":"Práctica Profesional Supervisada IV","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mar-contratos2","weekday":"TU","start_time":"16:15","end_time":"17:40","subject":"Contratos Civiles y Comerciales II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mar-mediacion1","weekday":"TU","start_time":"17:45","end_time":"19:55","subject":"Mediación I","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mie-penal-especial2","weekday":"WE","start_time":"16:15","end_time":"17:40","subject":"Derecho Penal Parte Especial II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mie-filosofia","weekday":"WE","start_time":"17:45","end_time":"19:55","subject":"Filosofía del Derecho","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"opt-mar-salud","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho de la Salud y Responsabilidad Médica","academic_year":"Optativa","classroom":"Aula C","activity_type":"presential"},{"id":"opt-mie-criminologia","weekday":"WE","start_time":"14:00","end_time":"16:10","subject":"Criminología","academic_year":"Optativa","classroom":"Aula E","activity_type":"presential"},{"id":"opt-mie-transporte","weekday":"WE","start_time":"14:00","end_time":"16:10","subject":"Derecho del Transporte","academic_year":"Optativa","classroom":"Aula K","activity_type":"hybrid"},{"id":"opt-mie-publico-prov","weekday":"WE","start_time":"16:00","end_time":"18:10","subject":"Derecho Público Provincial y Municipal","academic_year":"Optativa","classroom":"Aula K","activity_type":"hybrid"},{"id":"4-lun-familias","weekday":"MO","start_time":"14:45","end_time":"16:55","subject":"Derecho de las Familias","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-lun-procesal-esp","weekday":"MO","start_time":"17:00","end_time":"19:10","subject":"Derecho Procesal Civil y Comercial. Parte Especial","academic_year":"Cuarto año","classroom":"Aula F","activity_type":"presential"},{"id":"4-lun-concursal","weekday":"MO","start_time":"19:15","end_time":"20:40","subject":"Derecho Concursal","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-metodologia1","weekday":"TU","start_time":"16:15","end_time":"17:40","subject":"Metodología de la Investigación I","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-familias","weekday":"TU","start_time":"17:45","end_time":"19:10","subject":"Derecho de las Familias","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-concursal","weekday":"TU","start_time":"19:15","end_time":"20:40","subject":"Derecho Concursal","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-ddhh","weekday":"WE","start_time":"14:45","end_time":"16:55","subject":"Derechos Humanos","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-reales2","weekday":"WE","start_time":"17:00","end_time":"18:25","subject":"Derechos Reales II","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-procesal-esp","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho Procesal Civil y Comercial. Parte Especial","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"opt-mar-aduanero","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Aduanero","academic_year":"Optativa","classroom":"Aula K","activity_type":"presential"},{"id":"opt-mar-prop-horiz","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Propiedad Horizontal y Conjuntos Inmobiliarios","academic_year":"Optativa","classroom":"Aula J","activity_type":"presential"},{"id":"opt-mar-proc-const","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Procesal Constitucional","academic_year":"Optativa","classroom":"Aula D","activity_type":"presential"},{"id":"opt-mar-informatico","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Informático","academic_year":"Optativa","classroom":"Aula M","activity_type":"presential"},{"id":"opt-mar-bancario","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Bancario Bursátil y Seguros","academic_year":"Optativa","classroom":"Aula E","activity_type":"presential"},{"id":"5-lun-rec-naturales","weekday":"MO","start_time":"14:45","end_time":"16:55","subject":"Derecho de los Recursos Naturales, Aguas; y Protección del Medio Ambiente","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-lun-adm2","weekday":"MO","start_time":"17:00","end_time":"18:25","subject":"Derecho Administrativo II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mar-pps8","weekday":"TU","start_time":"14:00","end_time":"15:25","subject":"Práctica Profesional Supervisada VIII","academic_year":"Quinto año","classroom":"Aula L","activity_type":"presential"},{"id":"5-mar-int-priv","weekday":"TU","start_time":"15:30","end_time":"16:55","subject":"Derecho Internacional Privado","academic_year":"Quinto año","classroom":"Aula A","activity_type":"presential"},{"id":"5-mar-proc-penal2","weekday":"TU","start_time":"17:00","end_time":"19:10","subject":"Derecho Procesal Penal II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mar-metodologia2","weekday":"TU","start_time":"19:15","end_time":"20:40","subject":"Metodología de la Investigación II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mie-proc-penal2","weekday":"WE","start_time":"14:45","end_time":"16:10","subject":"Derecho Procesal Penal II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mie-int-priv","weekday":"WE","start_time":"16:15","end_time":"18:25","subject":"Derecho Internacional Privado","academic_year":"Quinto año","classroom":"Aula F","activity_type":"presential"},{"id":"5-mie-rec-naturales","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho de los Recursos Naturales, Aguas; y Protección del Medio Ambiente","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"1tm-jue-ingles1","weekday":"TH","start_time":"08:45","end_time":"10:55","subject":"Inglés I · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-jue-civil","weekday":"TH","start_time":"11:00","end_time":"12:25","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-jue-ingles1","weekday":"TH","start_time":"16:15","end_time":"18:25","subject":"Inglés I · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-jue-historia","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"2tm-jue-ingles3","weekday":"TH","start_time":"09:30","end_time":"10:55","subject":"Inglés III · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-jue-consumidor","weekday":"TH","start_time":"11:00","end_time":"12:25","subject":"Derecho del Consumidor y Defensa de la Competencia · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"3-jue-penal-especial2","weekday":"TH","start_time":"15:30","end_time":"16:55","subject":"Derecho Penal Parte Especial II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-jue-comercial2","weekday":"TH","start_time":"17:00","end_time":"18:25","subject":"Derecho Comercial y Societario II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-jue-filosofia","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Filosofía del Derecho","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"4-jue-metodologia1","weekday":"TH","start_time":"14:45","end_time":"16:10","subject":"Metodología de la Investigación I","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-jue-reales2","weekday":"TH","start_time":"16:15","end_time":"17:40","subject":"Derechos Reales II","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-jue-pps6","weekday":"TH","start_time":"17:45","end_time":"19:55","subject":"Práctica Profesional Supervisada VI","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"5-jue-pps8","weekday":"TH","start_time":"14:45","end_time":"16:10","subject":"Práctica Profesional Supervisada VIII","academic_year":"Quinto año","classroom":"Aula L","activity_type":"presential"},{"id":"5-jue-adm2","weekday":"TH","start_time":"16:15","end_time":"18:25","subject":"Derecho Administrativo II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-jue-metodologia2","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Metodología de la Investigación II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"}];
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -193,6 +196,7 @@ const calendarDialog = el("calendarDialog");
 const bulkDatesDialog = el("bulkDatesDialog");
 const hibridacionesDialog = el("hibridacionesDialog");
 const gradeScheduleDialog = el("gradeScheduleDialog");
+const legalClinicsDialog = el("legalClinicsDialog");
 const reportDialog = el("reportDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
@@ -239,12 +243,15 @@ function normalizedModality(item) {
   const value = String(item?.activity_type || "").trim().toLocaleLowerCase(locale);
   if (["presential", "presencial"].includes(value)) return "presential";
   if (value === "virtual") return "virtual";
+  if (["telephone", "telefonica", "telefónica"].includes(value)) return "telephone";
   return "hybrid"; // Las transmisiones históricas se integran como híbridas.
 }
 function isVirtual(item) { return normalizedModality(item) === "virtual"; }
+function isTelephone(item) { return normalizedModality(item) === "telephone"; }
+function isRemote(item) { return isVirtual(item) || isTelephone(item); }
 function isPresential(item) { return normalizedModality(item) === "presential"; }
 function isHybrid(item) { return normalizedModality(item) === "hybrid"; }
-function activityTypeLabel(item) { return isVirtual(item) ? "Virtual" : isPresential(item) ? "Presencial" : "Híbrida"; }
+function activityTypeLabel(item) { return isTelephone(item) ? "Telefónica" : isVirtual(item) ? "Virtual" : isPresential(item) ? "Presencial" : "Híbrida"; }
 function activityTypeKey(item) { return normalizedModality(item); }
 function normalizeAcademicYear(value) { return value === "Optativas / otras" ? "Optativa" : (value || ""); }
 function activityCategoryOptionsForSecretary(secretary) {
@@ -256,6 +263,7 @@ function activityCategoryOptionsForSecretary(secretary) {
   ];
   if (organizer === generalSecretary) return [["board", "Consejo Directivo"], ["info_talk", "Charla informativa"], ["other", "Otro"]];
   if (organizer === academicSecretary) return [["class", "Clase de grado"], ["open_class", "Clase abierta"], ["exam", "Examen final"], ["global_knowledge_exam", "Examen Global de Conocimientos"], ...commonActivityCategoryOptions];
+  if (organizer === extensionSecretary) return [["legal_clinic", "Consultorio jurídico"], ...commonActivityCategoryOptions];
   if (commonProgramSecretaries.has(organizer)) return commonActivityCategoryOptions;
   return commonActivityCategoryOptions;
 }
@@ -265,6 +273,7 @@ function inferActivityCategory(item) {
   const legacy = String(item?.academic_activity_type || "").trim().toLocaleLowerCase(locale);
   if (["class", "open_class", "exam", "global_knowledge_exam", "other"].includes(legacy)) return legacy;
   if (organizer === academicSecretary && item?.subject) return "class";
+  if (text.includes("consultorio jur")) return "legal_clinic";
   if (organizer === generalSecretary || text.includes("consejo directivo")) return "board";
   if (text.includes("defensa") && text.includes("tesis")) return "thesis_defense";
   if (text.includes("doctorado")) return "doctorate";
@@ -522,7 +531,8 @@ function saveViewPreferences() {
       cursor: toISODate(state.cursor),
       filters: [...state.filters],
       audienceFilters: [...state.audienceFilters],
-      searchQuery: state.searchQuery || ""
+      searchQuery: state.searchQuery || "",
+      version: 2
     }));
   } catch (_) { /* Las preferencias son opcionales. */ }
 }
@@ -537,8 +547,11 @@ function restoreViewPreferences() {
       const restoredDate = fromISODate(saved.cursor);
       if (restoredDate >= calendarMinDate && restoredDate <= calendarMaxDate) state.cursor = restoredDate;
     }
-    const modalityValues = new Set(["presential", "hybrid", "virtual", "featured"]);
-    if (Array.isArray(saved?.filters)) state.filters = new Set(saved.filters.filter((value) => modalityValues.has(value)));
+    const modalityValues = new Set(["presential", "hybrid", "virtual", "telephone", "featured"]);
+    if (Array.isArray(saved?.filters)) {
+      state.filters = new Set(saved.filters.filter((value) => modalityValues.has(value)));
+      if (saved?.version !== 2) state.filters.add("telephone");
+    }
     const audienceValues = new Set(["pregrado", "grado", "posgrado", "general"]);
     if (Array.isArray(saved?.audienceFilters)) state.audienceFilters = new Set(saved.audienceFilters.filter((value) => audienceValues.has(value)));
     state.searchQuery = typeof saved?.searchQuery === "string" ? saved.searchQuery : "";
@@ -624,6 +637,7 @@ function bindEvents() {
   el("cleanupAgenda").addEventListener("click", cleanupAgendaKeepingAcademicDates);
   el("bulkHibridaciones").addEventListener("click", openBulkHibridaciones);
   el("bulkGradeSchedule").addEventListener("click", openBulkGradeSchedule);
+  el("bulkLegalClinics").addEventListener("click", openBulkLegalClinics);
   el("downloadReport").addEventListener("click", openReportForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
@@ -634,6 +648,7 @@ function bindEvents() {
   el("bulkDatesForm").addEventListener("submit", saveBulkAcademicDates);
   el("hibridacionesForm").addEventListener("submit", saveBulkHibridaciones);
   el("gradeScheduleForm").addEventListener("submit", saveBulkGradeSchedule);
+  el("legalClinicsForm").addEventListener("submit", saveBulkLegalClinics);
   el("reportForm").addEventListener("submit", generateReportPdf);
   el("reportPeriodType").addEventListener("change", updateReportFormFields);
   el("reportOutputType").addEventListener("change", updateReportFormFields);
@@ -654,7 +669,7 @@ function bindEvents() {
   el("periodType").addEventListener("change", () => { syncPeriodOrganizer(); toggleSuspensionScopeField(); });
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
-  [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog, hibridacionesDialog, gradeScheduleDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+  [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog, hibridacionesDialog, gradeScheduleDialog, legalClinicsDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
   activityDialog.addEventListener("cancel", (event) => event.preventDefault());
   setInterval(() => { if (!document.hidden) render(); }, 60000);
 }
@@ -704,6 +719,7 @@ function updateAcademicFields(preferredSubject = "", preferredYear = "", preferr
   const customActivityType = scheduled && el("academicType").value === "other";
   el("academicTypeField").hidden = !scheduled || !organizer;
   el("academicType").required = scheduled && Boolean(organizer);
+  el("responsible").required = scheduled && el("academicType").value !== "legal_clinic";
   el("otherActivityTypeField").hidden = !customActivityType;
   el("otherActivityType").required = customActivityType;
   el("careerField").hidden = !detailed; el("academicYearField").hidden = !detailed; el("subjectField").hidden = !detailed;
@@ -731,15 +747,15 @@ function updateSubjectOptions(preferredSubject = "") {
 
 
 function toggleOtherClassroom() {
-  const other = el("recordKind").value === "activity" && el("activityType").value !== "virtual" && el("classroom").value === "__other__";
+  const other = el("recordKind").value === "activity" && !["virtual", "telephone"].includes(el("activityType").value) && el("classroom").value === "__other__";
   el("otherClassroomField").hidden = !other; el("otherClassroom").required = other;
   if (!other) el("otherClassroom").value = "";
 }
 
 function toggleActivityTypeFields() {
-  const scheduled = el("recordKind").value === "activity"; const virtual = el("activityType").value === "virtual";
-  el("classroomField").hidden = !scheduled || virtual;
-  el("classroom").required = scheduled && !virtual;
+  const scheduled = el("recordKind").value === "activity"; const remote = ["virtual", "telephone"].includes(el("activityType").value);
+  el("classroomField").hidden = !scheduled || remote;
+  el("classroom").required = scheduled && !remote;
   toggleOtherClassroom();
 }
 
@@ -749,7 +765,7 @@ function toggleRecordKindFields() {
   document.querySelectorAll("[data-period-only]").forEach((node) => { node.hidden = scheduled; });
   el("periodType").required = !scheduled;
   el("nameLabel").textContent = scheduled ? "Título" : "Detalle";
-  el("startTime").required = scheduled; el("endTime").required = scheduled; el("activityType").required = scheduled; el("responsible").required = scheduled;
+  el("startTime").required = scheduled; el("endTime").required = scheduled; el("activityType").required = scheduled;
   el("secretary").required = scheduled;
   const organizerPlaceholder = el("secretary").querySelector('option[value=""]');
   if (organizerPlaceholder) organizerPlaceholder.textContent = scheduled ? "Seleccionar área organizadora" : "Sin organizador / no corresponde";
@@ -811,6 +827,7 @@ function updateAuthUI() {
   updateCleanupAgendaVisibility();
   updateBulkHibridacionesVisibility();
   updateBulkGradeScheduleVisibility();
+  updateBulkLegalClinicsVisibility();
 }
 
 function updateBulkAcademicDatesVisibility() {
@@ -835,6 +852,12 @@ function updateBulkGradeScheduleVisibility() {
   const button = el("bulkGradeSchedule");
   if (!button) return;
   button.hidden = !state.canEdit || !state.academicCalendarCleanupDone || !state.hibridacionesBulkLoaded || state.gradeScheduleBulkLoaded;
+}
+
+function updateBulkLegalClinicsVisibility() {
+  const button = el("bulkLegalClinics");
+  if (!button) return;
+  button.hidden = !state.canEdit || state.legalClinicsBulkLoaded;
 }
 
 async function handleLogout() {
@@ -933,6 +956,7 @@ async function loadPeriod() {
       state.academicCalendarCleanupDone = Boolean(configRecord?.[academicCalendarCleanupMarker]);
       state.hibridacionesBulkLoaded = Boolean(configRecord?.[hibridacionesBulkMarker]);
       state.gradeScheduleBulkLoaded = Boolean(configRecord?.[gradeScheduleBulkMarker]);
+      state.legalClinicsBulkLoaded = Boolean(configRecord?.[legalClinicsBulkMarker]);
       records = records.filter((item) => !isCalendarConfigRecord(item));
       state.allActivities = records.sort(sortActivities);
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
@@ -942,13 +966,14 @@ async function loadPeriod() {
       state.academicCalendarCleanupDone = false;
       state.hibridacionesBulkLoaded = false;
       state.gradeScheduleBulkLoaded = false;
+      state.legalClinicsBulkLoaded = false;
       const records = loadDemoData().filter((item) => !isCalendarConfigRecord(item)).sort(sortActivities); state.allActivities = records;
       state.activities = records.filter((item) => overlapsPeriod(item, start, end)).sort(sortActivities);
     }
   } catch (error) {
     status.textContent = `No se pudo cargar la agenda. ${friendlyError(error)}`; return;
   }
-  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); updateCleanupAgendaVisibility(); updateBulkHibridacionesVisibility(); updateBulkGradeScheduleVisibility(); render();
+  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); updateCleanupAgendaVisibility(); updateBulkHibridacionesVisibility(); updateBulkGradeScheduleVisibility(); updateBulkLegalClinicsVisibility(); render();
 }
 
 function updateNavigationState() {
@@ -1090,7 +1115,7 @@ function createActivityRow(item) {
     if (timing) { const timingBadge = document.createElement("span"); timingBadge.className = `daily-time-badge ${timing.kind}`; timingBadge.textContent = timing.label; labels.append(timingBadge); }
   }
   const placePlatform = document.createElement("span"); placePlatform.className = "summary-place-platform";
-  if (!isVirtual(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
+  if (!isRemote(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
   if (!isPresential(item)) { const platformIcon = createPlatformIcon(item.platform); if (platformIcon) placePlatform.append(platformIcon); }
   meta.append(labels, placePlatform);
   const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
@@ -1120,8 +1145,9 @@ function detailFieldsForItem(item) {
     if (suspension?.name) fields.push(["Motivo de suspensión", suspension.name]);
   } else if (isPostponed(item)) fields.push(["Estado", "Postergada"], ["Nueva fecha", postponedDateLabel(item)]);
   else if (isInProgress(item)) fields.push(["Estado", "▶ En curso"]);
-  if (state.canEdit) fields.push(["Responsable / contacto", item.responsible]);
-  if (!isVirtual(item)) fields.push(["Aula/Lugar", item.classroom]);
+  const visibleResponsible = state.canEdit ? (item.responsible || item.public_responsible) : (item.responsible_is_public === true ? item.public_responsible : "");
+  if (visibleResponsible) fields.push(["Responsable / contacto", visibleResponsible]);
+  if (!isRemote(item)) fields.push(["Aula/Lugar", item.classroom]);
   fields.push(["Modalidad", activityTypeLabel(item)]);
   if (!isPresential(item)) fields.push(["Plataforma", item.platform]);
   if (state.canEdit) fields.push(["Cuenta", item.account_used], ["Grabación", item.recording_required ? "Sí" : "No"], ["Requerimientos / observaciones", combinedNotes || "Sin indicaciones"]);
@@ -1232,6 +1258,7 @@ function activePublicFilterLines() {
     presential: "Presenciales",
     hybrid: "Híbridas",
     virtual: "Virtuales",
+    telephone: "Telefónicas",
     featured: "Fechas destacadas"
   };
   const audienceLabels = {
@@ -1240,7 +1267,7 @@ function activePublicFilterLines() {
     posgrado: "Posgrado",
     general: "Actividades generales"
   };
-  const allModalities = ["presential", "hybrid", "virtual", "featured"];
+  const allModalities = ["presential", "hybrid", "virtual", "telephone", "featured"];
   const allAudiences = ["pregrado", "grado", "posgrado", "general"];
   const selectedModalities = allModalities.filter((key) => state.filters.has(key));
   const selectedAudiences = allAudiences.filter((key) => state.audienceFilters.has(key));
@@ -1285,7 +1312,9 @@ function publicCopyLinesForItem(item) {
     lines.push("*Estado:* Postergada");
     lines.push(`*Nueva fecha:* ${postponedDateLabel(item)}`);
   }
-  if (!isVirtual(item) && item.classroom) lines.push(`*Aula/Lugar:* ${item.classroom}`);
+  if (!isRemote(item) && item.classroom) lines.push(`*Aula/Lugar:* ${item.classroom}`);
+  const publicResponsible = item.responsible_is_public === true ? item.public_responsible : "";
+  if (publicResponsible) lines.push(`*Responsable / contacto:* ${publicResponsible}`);
   lines.push(`*Modalidad:* ${activityTypeLabel(item)}`);
   if (!isPresential(item) && item.platform) lines.push(`*Plataforma:* ${item.platform}`);
   if (!isImportantPeriod(item) && !isPresential(item) && item.link_is_public === true && isSafeUrl(item.meeting_url)) {
@@ -1493,7 +1522,8 @@ function openActivityForm(item = null) {
   if (secretaryOptions.includes(storedOrganizer)) { el("secretary").value = storedOrganizer; el("otherSecretary").value = ""; }
   else if (storedOrganizer) { el("secretary").value = "__other__"; el("otherSecretary").value = storedOrganizer; }
   else { el("secretary").value = ""; el("otherSecretary").value = ""; }
-  toggleOtherSecretary(); el("responsible").value = item?.responsible || "";
+  toggleOtherSecretary(); el("responsible").value = item?.responsible || item?.public_responsible || "";
+  el("publicResponsible").checked = item?.responsible_is_public === true || Boolean(item?.public_responsible);
   el("activityType").value = item ? activityTypeKey(item) : "presential";
   el("otherActivityType").value = item?.activity_category_custom || "";
   const preferredCategory = item ? activityCategoryKey(item) : "";
@@ -1545,10 +1575,10 @@ function activityPayload() {
   if (recordKind === "period") {
     return { record_kind: "period", period_type: periodType, suspension_scope: periodType === "suspension" ? el("suspensionScope").value : "", suspension_applies_to: periodType === "suspension" ? "all" : "", date: el("date").value, end_date: el("endDate").value, start_time: "", end_time: "", name: el("name").value.trim(), secretary, activity_category: "", academic_activity_type: "", career: "", academic_year: "", subject: "", responsible: "", classroom: "", activity_type: "", activity_status: "scheduled", postponed_date: "", postponed_date_tbd: false, platform: "", account_used: "", meeting_url: "", link_is_public: false, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: false };
   }
-  const classroom = el("activityType").value === "virtual" ? "" : el("classroom").value === "__other__" ? el("otherClassroom").value.trim() : el("classroom").value;
+  const classroom = ["virtual", "telephone"].includes(el("activityType").value) ? "" : el("classroom").value === "__other__" ? el("otherClassroom").value.trim() : el("classroom").value;
   const activityStatus = el("activityStatus").value || "scheduled";
   const postponedDateTbd = activityStatus === "postponed" && el("postponedDateTbd").checked;
-  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, activity_category_custom: category === "other" ? el("otherActivityType").value.trim() : "", academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
+  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, activity_category_custom: category === "other" ? el("otherActivityType").value.trim() : "", academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), responsible_is_public: el("publicResponsible").checked, public_responsible: el("publicResponsible").checked ? el("responsible").value.trim() : "", classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
 }
 
 function validateActivity(payload) {
@@ -1564,7 +1594,7 @@ function validateActivity(payload) {
   }
   if (!payload.secretary) return "Seleccioná quién organiza o completá el campo Otro organizador.";
   if (fromISODate(payload.date).getDay() === 0) return "Los domingos no forman parte de esta agenda.";
-  if (payload.activity_type !== "virtual" && !payload.classroom) return "Seleccioná un aula o completá el campo Otro lugar.";
+  if (!["virtual", "telephone"].includes(payload.activity_type) && !payload.classroom) return "Seleccioná un aula o completá el campo Otro lugar.";
   if (!payload.activity_category) return "Seleccioná el tipo de actividad.";
   if (payload.activity_category === "other" && !payload.activity_category_custom) return "Escribí el tipo de actividad en el campo Otro.";
   if (["class", "open_class", "exam"].includes(payload.activity_category) && (!payload.career || !payload.academic_year || !payload.subject)) return "Seleccioná la carrera, el año y la materia.";
@@ -1624,7 +1654,8 @@ async function saveActivity(event) {
 
 function publicActivityData(payload) {
   const { account_used, recording_required, meeting_url, responsible, requirements, observations, ...publicData } = payload;
-  const result = { ...publicData, link_is_public: payload.link_is_public === true, meeting_url: payload.link_is_public === true ? meeting_url : "" };
+  const publicResponsible = payload.responsible_is_public === true ? (payload.public_responsible || payload.responsible || "") : "";
+  const result = { ...publicData, responsible_is_public: payload.responsible_is_public === true, public_responsible: publicResponsible, link_is_public: payload.link_is_public === true, meeting_url: payload.link_is_public === true ? meeting_url : "" };
   if (isImportantPeriod(payload)) result.period_description = requirements || "";
   return result;
 }
@@ -2126,6 +2157,138 @@ async function saveBulkGradeSchedule(event) {
   }
 }
 
+
+const legalClinicSeries2026 = [
+  { id: "civil", weekday: 5, start_time: "09:30", end_time: "12:00", name: "Consultorio Jurídico Gratuito · Derecho Civil", responsible: "Abog. Blanca Mangione", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Derecho Civil", monthlyMode: true },
+  { id: "familia", weekday: 3, start_time: "11:30", end_time: "14:00", name: "Consultorio Jurídico Gratuito · Familia", responsible: "Abog. Gabriela Aromataris", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Familia", monthlyMode: true },
+  { id: "laboral", weekday: 4, start_time: "15:00", end_time: "17:20", name: "Consultorio Jurídico Gratuito · Laboral, Previsional y Administrativo", responsible: "Abog. Pablo De Bernardi", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Laboral, Previsional y Administrativo", monthlyMode: true },
+  { id: "penal", weekday: 2, start_time: "14:00", end_time: "16:20", name: "Consultorio Jurídico Gratuito · Derecho Penal", responsible: "Abog. Renzo Valente", location: "Facultad de Derecho · Centro Universitario, Ciudad", specialty: "Derecho Penal", monthlyMode: true },
+  { id: "discapacidad", weekday: 1, start_time: "12:00", end_time: "14:30", name: "Consultorio Jurídico Gratuito · Discapacidad y Adulto Mayor", responsible: "", location: "Defensoría · Gutiérrez 51, Ciudad de Mendoza", specialty: "Discapacidad y Adulto Mayor", monthlyMode: false }
+];
+
+function legalClinicOccurrences() {
+  const start = fromISODate("2026-08-16");
+  const end = fromISODate("2026-12-19");
+  const records = [];
+  legalClinicSeries2026.forEach((series) => {
+    for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
+      if (cursor.getDay() !== series.weekday) continue;
+      if (!isWithinConfiguredCalendar(cursor) || isHoliday(cursor)) continue;
+      const iso = toISODate(cursor);
+      let modality = "presential";
+      if (series.monthlyMode) {
+        const weekOfMonth = Math.floor((cursor.getDate() - 1) / 7) + 1;
+        modality = weekOfMonth <= 2 ? "presential" : "telephone";
+      }
+      records.push({
+        record_kind: "activity",
+        date: iso,
+        end_date: iso,
+        start_time: series.start_time,
+        end_time: series.end_time,
+        name: series.name,
+        secretary: extensionSecretary,
+        activity_category: "legal_clinic",
+        activity_category_custom: "",
+        academic_activity_type: "",
+        career: "",
+        academic_year: "",
+        subject: "",
+        responsible: series.responsible,
+        responsible_is_public: Boolean(series.responsible),
+        public_responsible: series.responsible,
+        classroom: modality === "presential" ? series.location : "",
+        activity_type: modality,
+        activity_status: "scheduled",
+        postponed_date: "",
+        postponed_date_tbd: false,
+        platform: modality === "telephone" ? "Atención telefónica" : "",
+        account_used: "",
+        meeting_url: "",
+        link_is_public: false,
+        more_info_url: "https://turnos.derecho.uncu.edu.ar",
+        requirements: modality === "telephone"
+          ? "Atención telefónica. Reserve su turno previamente a través del sistema institucional."
+          : "Atención presencial. Reserve su turno previamente a través del sistema institucional.",
+        observations: "",
+        recording_required: false,
+        source_uid: `consultorio-juridico-2026-${series.id}-${iso}`,
+        calendar_source: "Consultorios Jurídicos Gratuitos UNCUYO"
+      });
+    }
+  });
+  return records.sort(sortActivities);
+}
+
+function openBulkLegalClinics() {
+  if (!state.canEdit || state.legalClinicsBulkLoaded) return;
+  const preview = el("legalClinicsPreview");
+  preview.replaceChildren();
+  legalClinicSeries2026.forEach((series) => {
+    const li = document.createElement("li");
+    const title = document.createElement("strong");
+    title.textContent = series.name;
+    const meta = document.createElement("span");
+    const dayName = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][series.weekday];
+    meta.textContent = `${dayName} · ${series.start_time}–${series.end_time}${series.responsible ? ` · ${series.responsible}` : ""}`;
+    li.append(title, meta);
+    preview.append(li);
+  });
+  const occurrences = legalClinicOccurrences();
+  el("legalClinicsCount").textContent = `${legalClinicSeries2026.length} consultorios · ${occurrences.length} atenciones previstas`;
+  el("legalClinicsMessage").hidden = true;
+  legalClinicsDialog.showModal();
+}
+
+async function saveBulkLegalClinics(event) {
+  event.preventDefault();
+  if (!state.canEdit || state.legalClinicsBulkLoaded) return;
+  const button = el("runBulkLegalClinics");
+  const message = el("legalClinicsMessage");
+  button.disabled = true;
+  button.textContent = "Cargando…";
+  message.hidden = true;
+  try {
+    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
+    const existing = await getDocs(collection(db, activitiesCollection));
+    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
+    if (configRecord?.data()?.[legalClinicsBulkMarker] === true) {
+      state.legalClinicsBulkLoaded = true;
+      updateBulkLegalClinicsVisibility();
+      legalClinicsDialog.close();
+      showToast("Los Consultorios Jurídicos ya fueron cargados");
+      return;
+    }
+    const knownSourceUids = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
+    const allOccurrences = legalClinicOccurrences();
+    const pending = allOccurrences.filter((item) => !knownSourceUids.has(item.source_uid));
+    if (pending.length) await writeNewActivities(pending);
+    const markerBatch = writeBatch(db);
+    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
+      record_kind: "calendar_config",
+      date: `${calendarFirstYear}-01-01`,
+      end_date: `${calendarLastYear}-12-31`,
+      name: "Configuración del calendario",
+      [legalClinicsBulkMarker]: true,
+      legal_clinics_2026_loaded_at: serverTimestamp(),
+      updated_at: serverTimestamp()
+    }, { merge: true });
+    await markerBatch.commit();
+    state.legalClinicsBulkLoaded = true;
+    updateBulkLegalClinicsVisibility();
+    legalClinicsDialog.close();
+    await loadPeriod();
+    const skipped = allOccurrences.length - pending.length;
+    showToast(skipped ? `${pending.length} atenciones nuevas cargadas · ${skipped} ya existían` : `${pending.length} atenciones de Consultorios Jurídicos cargadas`);
+  } catch (error) {
+    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
+    message.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Cargar consultorios";
+  }
+}
+
 function openImportForm() { if (!state.canEdit) return; el("importForm").reset(); el("icsFileName").textContent = "Ningún archivo seleccionado"; el("importMessage").hidden = true; importDialog.showModal(); }
 
 async function importCalendarFile(event) {
@@ -2342,7 +2505,8 @@ function reportDetailedItemLines(item) {
   if (item.career) lines.push(`Carrera: ${item.career}`);
   if (item.subject && !isIngreso(item)) lines.push(`Materia: ${subjectBaseName(item.subject)}`);
   if (itemAcademicYear(item)) lines.push(`Año: ${itemAcademicYear(item)}`);
-  if (item.responsible) lines.push(`Responsable: ${item.responsible}`);
+  const reportResponsible = state.canEdit ? (item.responsible || item.public_responsible) : (item.responsible_is_public === true ? item.public_responsible : "");
+  if (reportResponsible) lines.push(`Responsable: ${reportResponsible}`);
   if (item.classroom) lines.push(`Lugar: ${item.classroom}`);
   if (activityTypeKey(item) !== "presential" && item.platform) lines.push(`Plataforma: ${item.platform}`);
   if (activityTypeKey(item) !== "presential" && item.link_is_public === true && item.meeting_url) lines.push(`Enlace público: ${item.meeting_url}`);
