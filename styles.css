@@ -814,3 +814,55 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   color: #7d2c2c;
 }
 .activity-group-live .live-arrow { color: #b3262e; }
+
+
+/* v59 · semestre de Abogacía, buscador y filtros móviles en dos líneas */
+@media (max-width: 650px) {
+  .filter-stack { gap: 4px; }
+  .agenda-summary-bar .quick-check-filters,
+  .agenda-summary-bar .audience-check-filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: center;
+    width: 100%;
+    gap: 3px 4px;
+    overflow: visible;
+    padding: 5px 6px;
+  }
+  .agenda-summary-bar .quick-check-filters .type-filters-title,
+  .agenda-summary-bar .audience-check-filters .type-filters-title {
+    display: none;
+  }
+  .agenda-summary-bar .quick-check-filters label,
+  .agenda-summary-bar .audience-check-filters label {
+    min-width: 0;
+    white-space: normal;
+    font-size: .61rem;
+    line-height: 1.08;
+    gap: 3px;
+    justify-content: flex-start;
+  }
+  .agenda-summary-bar .quick-check-filters input,
+  .agenda-summary-bar .audience-check-filters input {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+  }
+  .agenda-search {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .agenda-search > span { display: none; }
+  .agenda-search input {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: .72rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .agenda-summary-bar .quick-check-filters label,
+  .agenda-summary-bar .audience-check-filters label { font-size: .58rem; }
+  .agenda-summary-bar .quick-check-filters,
+  .agenda-summary-bar .audience-check-filters { gap: 2px 3px; padding: 4px 5px; }
+}

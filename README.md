@@ -1,9 +1,7 @@
-# Agenda de Actividades — v58
+# Agenda de Actividades · v59
 
 Cambios principales:
-
-- La agenda siempre abre en **Día · Hoy**.
-- Se siguen recordando en el navegador los filtros y el buscador.
-- Las actividades suspendidas muestran solamente **Suspendida**.
-- **Colación** queda exceptuada de la suspensión automática general.
-- Se mantienen todas las funciones y cargas acumuladas de la v57.
+- Las clases de Abogacía del segundo semestre 2026 muestran también el semestre en el dato de año.
+- El buscador propone: Carrera, materia, año, actividad, secretaría.
+- En celular, los filtros de modalidad y nivel quedan compactados en dos líneas, sin desbordarse de la pantalla.
+- Mantiene todas las funciones y datos de la v58.

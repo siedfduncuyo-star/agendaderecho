@@ -403,7 +403,20 @@ function postponedDateLabel(item) {
   if (item?.postponed_date_tbd === true || !item?.postponed_date) return "Fecha a confirmar";
   return formatDate(fromISODate(item.postponed_date), { day: "numeric", month: "long", year: "numeric" });
 }
-function itemAcademicYear(item) { return normalizeAcademicYear(item?.academic_year || inferAcademicYear(item?.career, item?.subject)); }
+function itemAcademicYear(item) {
+  const year = normalizeAcademicYear(item?.academic_year || inferAcademicYear(item?.career, item?.subject));
+  if (!year) return "";
+  const career = String(item?.career || "").trim();
+  const category = activityCategoryKey(item);
+  const date = String(item?.date || "");
+  const alreadyIncludesSemester = normalizeSearchText(year).includes("semestre");
+  const isCurrentLawClass = career === lawCareer
+    && ["class", "open_class"].includes(category)
+    && !isIngreso(item)
+    && date >= "2026-08-03"
+    && date <= "2026-11-06";
+  return isCurrentLawClass && !alreadyIncludesSemester ? `${year} · 2° semestre` : year;
+}
 function minutesFromTime(value) { const [hours, minutes] = cleanTime(value).split(":").map(Number); return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : -1; }
 function isInProgress(item, now = new Date()) {
   if (isSuspended(item) || isPostponed(item)) return false;
