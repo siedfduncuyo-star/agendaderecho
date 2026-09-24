@@ -1,6 +1,15 @@
-# Agenda de Actividades · v48
+# Agenda de Actividades · v51
 
 Versión conectada a Firebase/Firestore para publicación en GitHub Pages.
+
+## v51 · Agrupación visual y actualización del Ingreso 2027
+
+- Las clases de Grado que coinciden en una misma fecha se muestran agrupadas en una sola tarjeta, con el rango horario total y las aulas involucradas. Al desplegarla se ve el detalle de todas las clases.
+- La Modalidad Extensiva del Ingreso 2027 se agrupa de la misma manera cuando hay varias comisiones/turnos el mismo día.
+- La visualización mensual también usa las tarjetas agrupadas para reducir la carga visual.
+- Se incorpora una actualización única del Ingreso 2027: seis comisiones definitivas de los viernes, Modalidad Intensiva · Módulo I y las evaluaciones/recuperatorios de febrero y marzo de 2027.
+- La Comisión 3 queda en Aula C; se eliminan los registros provisorios “Otras comisiones”.
+
 
 ## Conexión real con Firebase
 

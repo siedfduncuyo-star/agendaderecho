@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=37" />
+    <link rel="stylesheet" href="styles.css?v=51" />
   </head>
   <body>
     <header class="site-header">
@@ -69,6 +69,7 @@
             <button id="bulkLegalClinics" class="button button-secondary" type="button" hidden>Cargar consultorios jurídicos</button>
             <button id="bulkMediationCenter" class="button button-secondary" type="button" hidden>Cargar Centro de Mediación</button>
             <button id="bulkPrograms" class="button button-secondary" type="button" hidden>Cargar ingreso y posgrados</button>
+            <button id="updateIngreso2027" class="button button-secondary" type="button" hidden>Actualizar Ingreso 2027</button>
             <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
             <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
             <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
@@ -302,6 +303,25 @@
       </form>
     </dialog>
 
+
+    <dialog id="ingreso2027Dialog" class="dialog bulk-dates-dialog">
+      <form id="ingreso2027Form">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Actualización única</p><h2>Ingreso 2027 · Comisiones, intensivo y evaluaciones</h2></div>
+          <button class="close-button" type="button" data-close="ingreso2027Dialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Reemplaza los registros provisorios de los viernes por las seis comisiones definitivas, corrige el aula de la Comisión 3 y agrega la modalidad intensiva y las evaluaciones de febrero/marzo 2027.</p>
+        <div class="bulk-dates-summary"><strong id="ingreso2027Count">Registros preparados</strong><span>Curso de Ingreso 2027</span></div>
+        <ul id="ingreso2027Preview" class="bulk-dates-preview"></ul>
+        <p class="report-note">La actualización es de una sola vez. No modifica las clases virtuales de los miércoles ni los enlaces pendientes de las comisiones híbridas.</p>
+        <div id="ingreso2027Message" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="ingreso2027Dialog">Cancelar</button>
+          <button id="runIngreso2027Update" class="button button-primary" type="submit">Actualizar Ingreso 2027</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="calendarDialog" class="dialog calendar-dialog">
       <form id="calendarForm">
         <div class="dialog-header">
@@ -403,9 +423,9 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script src="config.js?v=13"></script>
+    <script src="config.js?v=51"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js?v=39"></script>
+    <script type="module" src="app.js?v=51"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

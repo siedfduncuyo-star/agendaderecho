@@ -669,3 +669,103 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
   color: #8f2f2f;
 }
 .month-period:has(.month-period-label) { transition: opacity .15s ease; }
+
+
+/* v51 · agrupación visual de clases de Grado e Ingreso */
+.activity-group-row {
+  background: #f8fbfd;
+  border-color: #d8e4ec;
+}
+.activity-group-row .summary-time {
+  font-weight: 700;
+  color: var(--blue-dark);
+}
+.activity-group-row .summary-room {
+  color: #516777;
+  font-weight: 600;
+}
+.activity-group-expanded {
+  padding-top: 8px;
+}
+.activity-group-content {
+  display: grid;
+  gap: 10px;
+}
+.activity-group-intro {
+  margin: 0;
+  color: #5b6d7a;
+  font-size: .82rem;
+  font-weight: 600;
+}
+.activity-group-list {
+  display: grid;
+  gap: 6px;
+}
+.activity-group-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(92px, 126px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 9px 10px;
+  border: 1px solid #dce6ec;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.activity-group-item:hover {
+  background: #f4f8fb;
+  border-color: #b9cfdd;
+}
+.activity-group-item-time {
+  color: var(--blue-dark);
+  font-size: .8rem;
+  white-space: nowrap;
+}
+.activity-group-item-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.activity-group-item-body > strong {
+  color: #17344d;
+  font-size: .84rem;
+}
+.activity-group-item-body > span {
+  color: #687987;
+  font-size: .74rem;
+  line-height: 1.35;
+}
+.month-activity-group {
+  background: #f6fafc;
+}
+.month-activity-group .month-group-label {
+  display: inline-block;
+  width: fit-content;
+  margin-bottom: 2px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #e4eef5;
+  color: var(--blue-dark);
+  font-size: .62rem;
+  font-weight: 700;
+}
+.month-activity-group small {
+  display: block;
+  margin-top: 2px;
+  color: #657585;
+  font-size: .62rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 650px) {
+  .activity-group-item {
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+  .activity-group-item-time { font-size: .74rem; }
+  .activity-group-item-body > strong { font-size: .8rem; }
+}
