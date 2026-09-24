@@ -2705,7 +2705,7 @@ function drawReportMetrics(doc, layout) {
 
 function drawShiftDistribution(doc, layout) {
   const rows = layout.context.shifts || [];
-  drawPieBreakdown(doc, layout, "Distribución por horario / turno", rows, reportRowsTotal(rows));
+  drawStatisticalBreakdown(doc, layout, "Distribución por horario / turno", rows, reportRowsTotal(rows));
   let y = layout.getY();
   layout.ensureSpace(18); y = layout.getY();
   const ranges = [
@@ -2726,76 +2726,23 @@ function drawShiftDistribution(doc, layout) {
 }
 
 function drawOperationalReportBreakdowns(doc, layout) {
-  drawPieBreakdown(doc, layout, "Uso de aulas / espacios", layout.context.rooms, reportRowsTotal(layout.context.rooms));
-  drawPieBreakdown(doc, layout, "Uso de plataformas", layout.context.platforms, reportRowsTotal(layout.context.platforms));
-}
-
-function pieChartDataUrl(title, rows, total) {
-  const valid = rows.filter(([, count]) => count > 0);
-  if (!valid.length || !total) return "";
-  const canvas = document.createElement("canvas");
-  canvas.width = 980;
-  canvas.height = Math.max(420, 145 + valid.length * 34);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return "";
-  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#023764"; ctx.font = "700 30px Arial, sans-serif"; ctx.fillText(title, 36, 46);
-  const colors = ["#023764", "#C5AD68", "#5E7E99", "#91A8BA", "#7A6B50", "#4E6B73", "#8AA29E", "#B9A5A5", "#6D8090", "#D5C79D", "#49657A", "#A5B7C3"];
-  const cx = 225, cy = Math.max(220, canvas.height / 2), radius = 150;
-  let angle = -Math.PI / 2;
-  valid.forEach(([label, count], index) => {
-    const portion = count / total;
-    const next = angle + portion * Math.PI * 2;
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, radius, angle, next); ctx.closePath();
-    ctx.fillStyle = colors[index % colors.length]; ctx.fill();
-    if (portion >= 0.06) {
-      const mid = (angle + next) / 2;
-      const tx = cx + Math.cos(mid) * radius * 0.63;
-      const ty = cy + Math.sin(mid) * radius * 0.63;
-      ctx.fillStyle = "#ffffff"; ctx.font = "700 22px Arial, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(`${(portion * 100).toLocaleString(locale, { maximumFractionDigits: 1 })}%`, tx, ty);
-    }
-    angle = next;
-  });
-  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  let ly = 96;
-  valid.forEach(([label, count], index) => {
-    const percentage = (count / total) * 100;
-    ctx.fillStyle = colors[index % colors.length]; ctx.fillRect(455, ly - 17, 20, 20);
-    ctx.fillStyle = "#30373c"; ctx.font = "400 21px Arial, sans-serif";
-    const text = `${label} — ${count} (${percentage.toLocaleString(locale, { maximumFractionDigits: 1 })}%)`;
-    const maxWidth = 470;
-    let shown = text;
-    while (ctx.measureText(shown).width > maxWidth && shown.length > 8) shown = `${shown.slice(0, -4)}…`;
-    ctx.fillText(shown, 488, ly);
-    ly += 34;
-  });
-  return canvas.toDataURL("image/png");
+  drawStatisticalBreakdown(doc, layout, "Uso de aulas / espacios", layout.context.rooms, reportRowsTotal(layout.context.rooms));
+  drawStatisticalBreakdown(doc, layout, "Uso de plataformas", layout.context.platforms, reportRowsTotal(layout.context.platforms));
 }
 
 function reportRowsTotal(rows) {
   return rows.reduce((sum, [, count]) => sum + Number(count || 0), 0);
 }
 
-function drawPieBreakdown(doc, layout, title, rows, total) {
-  const dataUrl = pieChartDataUrl(title, rows, total);
-  if (dataUrl) {
-    layout.ensureSpace(82);
-    const y = layout.getY();
-    doc.addImage(dataUrl, "PNG", layout.margin, y, layout.contentWidth, 76, undefined, "FAST");
-    layout.setY(y + 80);
-  }
-  drawStatisticalBreakdown(doc, layout, title, rows, total);
-}
 
 function renderDetailedPdf(doc, layout, items) {
   drawReportMetrics(doc, layout);
   const activities = reportActivityItems(items);
   const bySecretary = countReportItems(activities, (item) => displayOrganizer(item) || "Sin secretaría / área");
   const byLevel = countReportItems(activities, (item) => reportAudienceLabel(activityAudienceKey(item)));
-  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", bySecretary, reportRowsTotal(bySecretary));
-  drawPieBreakdown(doc, layout, "Distribución por nivel", byLevel, reportRowsTotal(byLevel));
-  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, reportRowsTotal(layout.context.days));
+  drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", bySecretary, reportRowsTotal(bySecretary));
+  drawStatisticalBreakdown(doc, layout, "Distribución por nivel", byLevel, reportRowsTotal(byLevel));
+  drawStatisticalBreakdown(doc, layout, "Distribución por día", layout.context.days, reportRowsTotal(layout.context.days));
   drawShiftDistribution(doc, layout);
   drawOperationalReportBreakdowns(doc, layout);
   let y = layout.getY();
@@ -2835,9 +2782,9 @@ function renderStatisticalPdf(doc, layout, items) {
   const activities = reportActivityItems(items);
   const bySecretary = countReportItems(activities, (item) => displayOrganizer(item) || "Sin secretaría / área");
   const byLevel = countReportItems(activities, (item) => reportAudienceLabel(activityAudienceKey(item)));
-  drawPieBreakdown(doc, layout, "Distribución por secretaría / área", bySecretary, reportRowsTotal(bySecretary));
-  drawPieBreakdown(doc, layout, "Distribución por nivel", byLevel, reportRowsTotal(byLevel));
-  drawPieBreakdown(doc, layout, "Distribución por día", layout.context.days, reportRowsTotal(layout.context.days));
+  drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", bySecretary, reportRowsTotal(bySecretary));
+  drawStatisticalBreakdown(doc, layout, "Distribución por nivel", byLevel, reportRowsTotal(byLevel));
+  drawStatisticalBreakdown(doc, layout, "Distribución por día", layout.context.days, reportRowsTotal(layout.context.days));
   drawShiftDistribution(doc, layout);
   drawOperationalReportBreakdowns(doc, layout);
 }
