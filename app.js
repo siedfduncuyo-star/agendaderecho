@@ -2,6 +2,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import { browserLocalPersistence, getAuth, GoogleAuthProvider, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
+const AGENDA_BUILD = "v53-20260924";
+console.info(`Agenda Derecho ${AGENDA_BUILD}`);
+
 const config = window.AGENDA_CONFIG || {};
 const configured = Boolean(config.firebaseConfig?.apiKey);
 const adminEmail = String(config.adminEmail || "").trim().toLowerCase();

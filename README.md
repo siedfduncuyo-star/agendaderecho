@@ -178,3 +178,9 @@ Después de reemplazar una versión anterior, hacer una recarga forzada (`Ctrl +
 - Las clases presenciales de la Maestría en Derecho de las Familias se ubican en **Aula Magna**.
 - Para Ingreso Extensivo se cargan miércoles virtuales y viernes presenciales, dejando provisoriamente separadas las comisiones híbridas conocidas: Comisión 1 TM (Aula B) y Comisión 3 TT (Aula B). El resto queda agrupado como `Otras comisiones` hasta completar aulas y enlaces.
 - Cuando una fuente informa fecha y duración pero no el horario concreto, la agenda muestra **Horario a confirmar** en lugar de inventar una hora.
+
+
+## v53 — corrección de caché
+- Fuerza `config.js?v=53-20260924` y `app.js?v=53-20260924` para evitar que GitHub Pages/navegador reutilicen la v51.
+- Mantiene la carga por período visible y el resto de optimizaciones de la v52.
+- No modifica ni borra datos de Firebase.
