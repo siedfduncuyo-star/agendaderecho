@@ -66,6 +66,7 @@
             <button id="cleanupAgenda" class="button button-danger" type="button" hidden>Eliminar datos anteriores</button>
             <button id="bulkHibridaciones" class="button button-secondary" type="button" hidden>Cargar hibridaciones 16/8+</button>
             <button id="bulkGradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de grado</button>
+            <button id="bulkPregradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de tecnicatura</button>
             <button id="bulkLegalClinics" class="button button-secondary" type="button" hidden>Cargar consultorios jurídicos</button>
             <button id="bulkMediationCenter" class="button button-secondary" type="button" hidden>Cargar Centro de Mediación</button>
             <button id="bulkPrograms" class="button button-secondary" type="button" hidden>Cargar ingreso y posgrados</button>
@@ -216,6 +217,25 @@
         <div class="dialog-actions">
           <button class="button button-secondary" type="button" data-close="gradeScheduleDialog">Cancelar</button>
           <button id="runBulkGradeSchedule" class="button button-primary" type="submit">Cargar horarios</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pregradeScheduleDialog" class="dialog bulk-dates-dialog">
+      <form id="pregradeScheduleForm">
+        <div class="dialog-header">
+          <div><p class="eyebrow">Carga masiva</p><h2>Horarios de Pregrado · Tecnicatura · Segundo semestre 2026</h2></div>
+          <button class="close-button" type="button" data-close="pregradeScheduleDialog" aria-label="Cerrar">×</button>
+        </div>
+        <p class="dialog-intro">Carga los horarios de Primer Año de la Tecnicatura desde el 16 de agosto hasta el fin del cursado del 6 de noviembre de 2026.</p>
+        <div class="bulk-dates-summary"><strong id="pregradeScheduleCount">12 horarios semanales</strong><span>Secretaría Académica · Pregrado</span></div>
+        <p class="bulk-dates-note">Lunes, martes, jueves y viernes se cargan en <strong>Aula I</strong>. Los miércoles se cargan como <strong>Virtual · Google Meet</strong>. La clase de Estructura Edilicia de los martes de 19:15 a 20:30 se conserva como <strong>virtual asincrónica</strong>, tal como figura en el horario.</p>
+        <ul id="pregradeSchedulePreview" class="bulk-dates-preview"></ul>
+        <p class="report-note">La carga se ejecuta una sola vez. Cada encuentro usa un identificador estable y el botón desaparece al completarse correctamente.</p>
+        <div id="pregradeScheduleMessage" class="form-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close="pregradeScheduleDialog">Cancelar</button>
+          <button id="runBulkPregradeSchedule" class="button button-primary" type="submit">Cargar horarios</button>
         </div>
       </form>
     </dialog>
@@ -423,9 +443,9 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script src="config.js?v=56-20260924"></script>
+    <script src="config.js?v=57-20260924"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js?v=56-20260924"></script>
+    <script type="module" src="app.js?v=57-20260924"></script>
     <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");
