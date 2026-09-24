@@ -18,3 +18,9 @@ Ajustes del informe PDF sobre la base estable v63:
 - Se mantienen uso de aulas/espacios, uso de plataformas y detalle de eventos.
 
 No modifica datos de Firebase ni reglas de seguridad.
+
+
+## v65 · tarjetas
+- Vuelve la flecha a la derecha para desplegar el resumen.
+- “Más información” queda dentro de la tarjeta desplegada.
+- Actividades suspendidas o ya finalizadas se muestran en tono apagado, también dentro de los grupos de clases.

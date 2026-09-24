@@ -1000,3 +1000,93 @@ legend { padding: 0 6px; color: var(--blue); font-size: .76rem; font-weight: 700
 /* Rendimiento: evita calcular el layout de jornadas fuera de pantalla hasta que se acercan al viewport. */
 .day-section { content-visibility: auto; contain-intrinsic-size: 280px; }
 @media (min-width: 901px) { .month-day { contain: layout paint; } }
+
+
+/* v65 · regreso al resumen desplegable con flecha y estados apagados */
+.activity-summary {
+  grid-template-columns: 118px minmax(0,1fr) minmax(110px,190px) 22px;
+}
+.summary-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  color: var(--blue);
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform .15s ease;
+}
+.activity-row[open] .summary-chevron { transform: rotate(180deg); }
+
+.expanded-more-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.expanded-more-button {
+  appearance: none;
+  border: 1px solid #a9c5d7;
+  border-radius: 7px;
+  background: #f6fafc;
+  color: var(--blue);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.expanded-more-button:hover { background: var(--blue-soft); }
+
+/* Suspendidas y finalizadas: conservar información, pero bajar el peso visual. */
+.activity-row.is-suspended,
+.activity-row.is-past-activity {
+  opacity: .56;
+  background: #f6f7f8;
+  border-top-color: #e0e4e7;
+  border-right-color: #e0e4e7;
+  border-bottom-color: #e0e4e7;
+}
+.activity-row.is-suspended[open],
+.activity-row.is-past-activity[open] { opacity: .76; }
+.activity-row.is-suspended .summary-activity-name {
+  color: #69757e;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.activity-group-item.is-suspended,
+.activity-group-item.is-past-activity {
+  opacity: .5;
+  background: #f5f6f7;
+  border-color: #e1e5e8;
+}
+.activity-group-item.is-suspended:hover,
+.activity-group-item.is-past-activity:hover { opacity: .66; }
+.activity-group-item.is-suspended .activity-group-item-time,
+.activity-group-item.is-suspended .activity-group-item-body > strong,
+.activity-group-item.is-past-activity .activity-group-item-time,
+.activity-group-item.is-past-activity .activity-group-item-body > strong {
+  color: #76818a;
+}
+
+@media (max-width: 650px) {
+  .activity-summary {
+    grid-template-columns: 68px minmax(0,1fr) 20px;
+    gap: 5px 8px;
+  }
+  .summary-time { grid-column: 1; grid-row: 1; }
+  .summary-title { grid-column: 2; grid-row: 1; }
+  .summary-meta { grid-column: 2; grid-row: 2; }
+  .summary-chevron { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+
+  .period-row .activity-summary {
+    grid-template-columns: minmax(0,1fr) 20px;
+    gap: 4px 7px;
+  }
+  .period-row .period-marker { grid-column: 1; grid-row: 1; }
+  .period-row .summary-title { grid-column: 1; grid-row: 2; }
+  .period-row .summary-meta { grid-column: 1; grid-row: 3; }
+  .period-row .summary-chevron { grid-column: 2; grid-row: 1 / 4; }
+
+  .expanded-more-actions { margin-top: 6px; }
+  .expanded-more-button { font-size: .68rem; padding: 5px 9px; }
+}

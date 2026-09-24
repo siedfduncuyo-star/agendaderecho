@@ -1223,18 +1223,38 @@ async function hydratedAdminItem(item) {
   catch (error) { console.warn("Private detail load", error); return item; }
 }
 
+function createExpandedMoreButton(onClick) {
+  const actions = document.createElement("div");
+  actions.className = "expanded-more-actions";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "expanded-more-button";
+  button.textContent = "Más información";
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+  actions.append(button);
+  return actions;
+}
+
 async function hydrateDetailsPanel(detailsNode, target, item) {
   if (target.dataset.loaded || target.dataset.loading) return;
   target.dataset.loading = "1";
   const fullItem = await hydratedAdminItem(item);
   if (!detailsNode.open) { delete target.dataset.loading; return; }
-  target.replaceChildren(createDetailsContent(fullItem, true));
+  const content = createDetailsContent(fullItem, true);
+  content.append(createExpandedMoreButton(() => openDetail(fullItem)));
+  target.replaceChildren(content);
   target.dataset.loaded = "1"; delete target.dataset.loading;
 }
 
 function createPeriodRow(item) {
   const details = document.createElement("details"); details.className = "activity-row period-row";
   if (periodTypeKey(item) === "suspension") details.classList.add("period-suspension");
+  const periodEnd = fromISODate(item.end_date || item.date);
+  if (periodEnd < startOfDay(new Date())) details.classList.add("is-past-activity");
   details.style.setProperty("--organizer-color", organizerColor(item.secretary));
   const summary = document.createElement("summary"); summary.className = "activity-summary";
   const marker = document.createElement("span"); marker.className = "summary-time period-marker"; marker.textContent = periodTypeLabel(item);
@@ -1248,8 +1268,8 @@ function createPeriodRow(item) {
   const statusBadge = document.createElement("span"); statusBadge.className = "period-status"; statusBadge.textContent = importantPeriodStatus(item);
   const dates = document.createElement("span"); dates.className = "summary-room period-range"; dates.textContent = dateRangeLabel(item);
   meta.append(statusBadge, dates);
-  const moreButton = document.createElement("span"); moreButton.className = "summary-more-button"; moreButton.textContent = "Más información";
-  summary.append(marker, title, meta, moreButton);
+  const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
+  summary.append(marker, title, meta, chevron);
   const expanded = document.createElement("div"); expanded.className = "activity-expanded";
   details.addEventListener("toggle", () => { if (details.open) hydrateDetailsPanel(details, expanded, item); });
   details.append(summary, expanded); return details;
@@ -1260,7 +1280,7 @@ function createActivityRow(item) {
   details.style.setProperty("--organizer-color", organizerColor(item.secretary));
   if (isSuspended(item)) details.classList.add("is-suspended");
   if (isPostponed(item)) details.classList.add("is-postponed");
-  if (state.view === "day" && isPastActivity(item)) details.classList.add("is-past-activity");
+  if (isPastActivity(item)) details.classList.add("is-past-activity");
   const summary = document.createElement("summary"); summary.className = "activity-summary";
   const time = document.createElement("span"); time.className = "summary-time"; time.textContent = timeRangeLabel(item);
   if (state.canEdit && item.recording_required) { const dot = document.createElement("i"); dot.className = "recording-dot"; dot.title = "Requiere grabación"; time.append(dot); }
@@ -1286,8 +1306,8 @@ function createActivityRow(item) {
   if (!isRemote(item)) { const room = document.createElement("span"); room.className = "summary-room"; room.textContent = item.classroom || "Lugar a confirmar"; placePlatform.append(room); }
   if (!isPresential(item)) { const platformIcon = createPlatformIcon(item.platform); if (platformIcon) placePlatform.append(platformIcon); }
   meta.append(labels, placePlatform);
-  const moreButton = document.createElement("span"); moreButton.className = "summary-more-button"; moreButton.textContent = "Más información";
-  summary.append(time, title, meta, moreButton);
+  const chevron = document.createElement("span"); chevron.className = "summary-chevron"; chevron.textContent = "⌄";
+  summary.append(time, title, meta, chevron);
   const expanded = document.createElement("div"); expanded.className = "activity-expanded";
   details.addEventListener("toggle", () => { if (details.open) hydrateDetailsPanel(details, expanded, item); });
   details.append(summary, expanded); return details;
@@ -1711,7 +1731,7 @@ function createActivityGroupContent(group) {
     if (isSuspended(item)) parts.push(suspensionStateLabel(item));
     meta.textContent = parts.filter(Boolean).join(" · ");
     if (isSuspended(item)) row.classList.add("is-suspended");
-    if (state.view === "day" && isPastActivity(item)) row.classList.add("is-past-activity");
+    if (isPastActivity(item)) row.classList.add("is-past-activity");
     body.append(title, meta);
     if (state.view === "day") {
       const timing = dailyTiming(item);
@@ -1765,7 +1785,7 @@ function createActivityGroupRow(group) {
   badge.textContent = isClassDisplayGroupKind(group.group_kind) ? `${group.items.length} clases` : `${group.items.length} comisiones/turnos`;
   labels.append(badge);
   const suspendedItems = group.items.filter(isSuspended);
-  if (state.view === "day" && group.items.length && group.items.every((item) => isPastActivity(item))) details.classList.add("is-past-activity");
+  if (group.items.length && group.items.every((item) => isPastActivity(item))) details.classList.add("is-past-activity");
   if (suspendedItems.length) {
     const suspendedBadge = document.createElement("span");
     suspendedBadge.className = "activity-status-badge suspended";
@@ -1778,15 +1798,19 @@ function createActivityGroupRow(group) {
   rooms.className = "summary-room";
   rooms.textContent = displayGroupRooms(group.items) || (group.items.every(isRemote) ? "Virtual" : "");
   meta.append(labels, rooms);
-  const moreButton = document.createElement("span");
-  moreButton.className = "summary-more-button";
-  moreButton.textContent = "Más información";
-  summary.append(time, title, meta, moreButton);
+  const chevron = document.createElement("span");
+  chevron.className = "summary-chevron";
+  chevron.textContent = "⌄";
+  summary.append(time, title, meta, chevron);
 
   const expanded = document.createElement("div");
   expanded.className = "activity-expanded activity-group-expanded";
   details.addEventListener("toggle", () => {
-    if (details.open && !expanded.dataset.loaded) { expanded.append(createActivityGroupContent(group)); expanded.dataset.loaded = "1"; }
+    if (details.open && !expanded.dataset.loaded) {
+      expanded.append(createActivityGroupContent(group));
+      expanded.append(createExpandedMoreButton(() => openActivityGroupDetail(group)));
+      expanded.dataset.loaded = "1";
+    }
   });
   details.append(summary, expanded);
   return details;
