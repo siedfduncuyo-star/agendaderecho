@@ -1,452 +1,291 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#014a7d" />
-    <meta name="description" content="Agenda general de actividades de la Facultad de Derecho." />
-    <title>Agenda de Actividades | Facultad de Derecho</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=60-20260924" />
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="header-inner">
-        <div class="brand">
-          <img src="assets/logo-fd.png" alt="UNCUYO · Facultad de Derecho" />
-          <span class="brand-divider" aria-hidden="true"></span>
-          <h1>Agenda de<br />Actividades</h1>
-        </div>
-        <div class="session-area">
-          <span id="headerEventTotal" class="header-event-total" aria-live="polite">0 eventos totales</span>
-          <span id="sessionLabel" class="session-label" hidden></span>
-          <button id="authButton" class="admin-icon-button" type="button" aria-label="Administración" title="Administración">
-            <img src="assets/administracion.png" alt="" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <section id="demoBanner" class="demo-banner" hidden>
-        <strong>Modo de prueba de carga.</strong> Podés probar altas, ediciones y calendario sin permisos. Los cambios se guardan sólo en este dispositivo.
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="#014a7d" name="theme-color"/>
+<meta content="Agenda general de actividades de la Facultad de Derecho." name="description"/>
+<title>Agenda de Actividades | Facultad de Derecho</title>
+<link as="image" href="assets/logo-fd.png" rel="preload"/>
+<link crossorigin="" href="https://www.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;family=Poppins:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="styles.css?v=61-performance-20260924" rel="stylesheet"/>
+</head>
+<body>
+<header class="site-header">
+<div class="header-inner">
+<div class="brand">
+<img alt="UNCUYO · Facultad de Derecho" decoding="async" fetchpriority="high" height="182" src="assets/logo-fd.png" width="1052"/>
+<span aria-hidden="true" class="brand-divider"></span>
+<h1>Agenda de<br/>Actividades</h1>
+</div>
+<div class="session-area">
+<span aria-live="polite" class="header-event-total" id="headerEventTotal">0 eventos totales</span>
+<span class="session-label" hidden="" id="sessionLabel"></span>
+<button aria-label="Administración" class="admin-icon-button" id="authButton" title="Administración" type="button">
+<img alt="" aria-hidden="true" decoding="async" height="128" src="assets/administracion.png" width="128"/>
+</button>
+</div>
+</div>
+</header>
+<main>
+<section class="demo-banner" hidden="" id="demoBanner">
+<strong>Modo de prueba de carga.</strong> Podés probar altas, ediciones y calendario sin permisos. Los cambios se guardan sólo en este dispositivo.
       </section>
-
-      <section class="agenda-toolbar" aria-label="Controles de agenda">
-        <div class="period-heading">
-          <p id="viewEyebrow" class="eyebrow">Vista diaria</p>
-          <h2 id="periodTitle">Día actual</h2>
-        </div>
-        <div class="toolbar-right">
-          <div class="view-switch-row">
-            <div class="view-switch" role="group" aria-label="Tipo de vista">
-              <button id="dayView" class="view-button active" type="button" aria-pressed="true">Día</button>
-              <button id="weekView" class="view-button" type="button" aria-pressed="false">Semana</button>
-              <button id="monthView" class="view-button" type="button" aria-pressed="false">Mes</button>
-            </div>
-            <div id="status" class="status" role="status" aria-live="polite">Cargando agenda…</div>
-            <button id="copyVisibleEvents" class="copy-view-button" type="button" aria-label="Copiar eventos visibles" title="Copiar eventos visibles">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="8" y="8" width="11" height="11" rx="1.5"></rect>
-                <path d="M16 6V5.5A1.5 1.5 0 0 0 14.5 4h-10A1.5 1.5 0 0 0 3 5.5v10A1.5 1.5 0 0 0 4.5 17H5"></path>
-              </svg>
-            </button>
-          </div>
-          <div class="period-actions">
-            <button id="previousPeriod" class="icon-button" type="button" aria-label="Período anterior">←</button>
-            <button id="currentPeriod" class="button button-secondary" type="button">Hoy</button>
-            <button id="nextPeriod" class="icon-button" type="button" aria-label="Período siguiente">→</button>
-          </div>
-          <div class="editor-actions editor-only" hidden>
-            <button id="newActivity" class="button button-primary" type="button">+ Cargar actividad</button>
-            <button id="updateCalendar" class="button button-secondary" type="button">Actualizar calendario</button>
-            <button id="bulkAcademicDates" class="button button-secondary" type="button">Cargar fechas académicas</button>
-            <button id="cleanupAgenda" class="button button-danger" type="button" hidden>Eliminar datos anteriores</button>
-            <button id="bulkHibridaciones" class="button button-secondary" type="button" hidden>Cargar hibridaciones 16/8+</button>
-            <button id="bulkGradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de grado</button>
-            <button id="bulkPregradeSchedule" class="button button-secondary" type="button" hidden>Cargar horarios de tecnicatura</button>
-            <button id="bulkLegalClinics" class="button button-secondary" type="button" hidden>Cargar consultorios jurídicos</button>
-            <button id="bulkMediationCenter" class="button button-secondary" type="button" hidden>Cargar Centro de Mediación</button>
-            <button id="bulkPrograms" class="button button-secondary" type="button" hidden>Cargar ingreso y posgrados</button>
-            <button id="updateIngreso2027" class="button button-secondary" type="button" hidden>Actualizar Ingreso 2027</button>
-            <button id="downloadReport" class="button button-secondary" type="button">Informe PDF</button>
-            <button id="logoutAdmin" class="button button-logout" type="button">Cerrar sesión</button>
-            <button id="importCalendar" class="button button-secondary" type="button" hidden>Importar calendario</button>
-          </div>
-        </div>
-      </section>
-
-      <div class="agenda-summary-bar">
-        <div class="filter-stack">
-          <div class="type-filters quick-check-filters" role="group" aria-label="Filtrar eventos por modalidad">
-            <span class="type-filters-title">Modalidad</span>
-            <label><input class="view-filter-check" type="checkbox" value="presential" checked /> Presenciales</label>
-            <label><input class="view-filter-check" type="checkbox" value="hybrid" checked /> Híbridas</label>
-            <label><input class="view-filter-check" type="checkbox" value="virtual" checked /> Virtuales</label>
-            <label><input class="view-filter-check" type="checkbox" value="featured" checked /> Fechas destacadas</label>
-          </div>
-          <div class="type-filters quick-check-filters audience-check-filters" role="group" aria-label="Filtrar eventos por nivel">
-            <span class="type-filters-title">Nivel</span>
-            <label><input class="audience-filter-check" type="checkbox" value="pregrado" checked /> Pregrado</label>
-            <label><input class="audience-filter-check" type="checkbox" value="grado" checked /> Grado</label>
-            <label><input class="audience-filter-check" type="checkbox" value="posgrado" checked /> Posgrado</label>
-            <label><input class="audience-filter-check" type="checkbox" value="general" checked /> Actividades generales</label>
-          </div>
-          <label class="agenda-search" for="agendaSearch">
-            <span>Buscar</span>
-            <input id="agendaSearch" type="search" placeholder="Carrera, materia, año, actividad, secretaría" autocomplete="off" />
-          </label>
-        </div>
-      </div>
-      <section id="agenda" class="agenda" aria-label="Actividades"></section>
-    </main>
-
-    <dialog id="activityDialog" class="dialog activity-dialog">
-      <form id="activityForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga manual</p><h2 id="formTitle">Nueva actividad</h2></div>
-          <button class="close-button" type="button" data-close="activityDialog" aria-label="Cerrar">×</button>
-        </div>
-        <input id="activityId" type="hidden" />
-        <input id="originalActivityName" type="hidden" />
-        <input id="originalActivityDate" type="hidden" />
-        <div class="form-grid">
-          <label class="wide">Tipo de carga<select id="recordKind" required><option value="activity">Actividad con fecha y horario</option><option value="period">Fecha destacada</option></select></label>
-          <label id="periodTypeField" class="wide" data-period-only hidden>Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Receso</option><option value="restart">Reinicio de actividades</option><option value="suspension">Suspensión de actividades</option><option value="classes">Cursado</option><option value="academic_closure">Cierre académico</option><option value="other">Otra fecha destacada</option></select></label>
-          <label id="suspensionScopeField" class="wide" data-period-only hidden>Alcance de la suspensión<select id="suspensionScope"><option value="morning">Turno mañana</option><option value="afternoon">Turno tarde</option><option value="full_day">Día completo</option></select><small>Las actividades del turno seleccionado quedarán marcadas como suspendidas en la agenda.</small></label>
-          <label class="wide"><span id="nameLabel">Título</span><input id="name" type="text" maxlength="160" required /></label>
-          <label>Fecha de inicio<input id="date" type="date" min="2026-01-01" max="2030-12-31" required /></label>
-          <label>Fecha de finalización<input id="endDate" type="date" min="2026-01-01" max="2030-12-31" required /></label>
-          <label data-scheduled-only>Hora de inicio<input id="startTime" type="time" required /></label>
-          <label data-scheduled-only>Hora de finalización<input id="endTime" type="time" required /></label>
-          <label id="recurrenceField" data-scheduled-only>Repetición
+<section aria-label="Controles de agenda" class="agenda-toolbar">
+<div class="period-heading">
+<p class="eyebrow" id="viewEyebrow">Vista diaria</p>
+<h2 id="periodTitle">Día actual</h2>
+</div>
+<div class="toolbar-right">
+<div class="view-switch-row">
+<div aria-label="Tipo de vista" class="view-switch" role="group">
+<button aria-pressed="true" class="view-button active" id="dayView" type="button">Día</button>
+<button aria-pressed="false" class="view-button" id="weekView" type="button">Semana</button>
+<button aria-pressed="false" class="view-button" id="monthView" type="button">Mes</button>
+</div>
+<div aria-live="polite" class="status" id="status" role="status">Cargando agenda…</div>
+<button aria-label="Copiar eventos visibles" class="copy-view-button" id="copyVisibleEvents" title="Copiar eventos visibles" type="button">
+<svg aria-hidden="true" viewbox="0 0 24 24">
+<rect height="11" rx="1.5" width="11" x="8" y="8"></rect>
+<path d="M16 6V5.5A1.5 1.5 0 0 0 14.5 4h-10A1.5 1.5 0 0 0 3 5.5v10A1.5 1.5 0 0 0 4.5 17H5"></path>
+</svg>
+</button>
+</div>
+<div class="period-actions">
+<button aria-label="Período anterior" class="icon-button" id="previousPeriod" type="button">←</button>
+<button class="button button-secondary" id="currentPeriod" type="button">Hoy</button>
+<button aria-label="Período siguiente" class="icon-button" id="nextPeriod" type="button">→</button>
+</div>
+<div class="editor-actions editor-only" hidden="">
+<button class="button button-primary" id="newActivity" type="button">+ Cargar actividad</button>
+<button class="button button-secondary" id="updateCalendar" type="button">Actualizar calendario</button>
+<button class="button button-secondary" id="downloadReport" type="button">Informe PDF</button>
+<button class="button button-logout" id="logoutAdmin" type="button">Cerrar sesión</button>
+<button class="button button-secondary" hidden="" id="importCalendar" type="button">Importar calendario</button>
+</div>
+</div>
+</section>
+<div class="agenda-summary-bar">
+<div class="filter-stack">
+<div aria-label="Filtrar eventos por modalidad" class="type-filters quick-check-filters" role="group">
+<span class="type-filters-title">Modalidad</span>
+<label><input checked="" class="view-filter-check" type="checkbox" value="presential"/> Presenciales</label>
+<label><input checked="" class="view-filter-check" type="checkbox" value="hybrid"/> Híbridas</label>
+<label><input checked="" class="view-filter-check" type="checkbox" value="virtual"/> Virtuales</label>
+<label><input checked="" class="view-filter-check" type="checkbox" value="featured"/> Fechas destacadas</label>
+</div>
+<div aria-label="Filtrar eventos por nivel" class="type-filters quick-check-filters audience-check-filters" role="group">
+<span class="type-filters-title">Nivel</span>
+<label><input checked="" class="audience-filter-check" type="checkbox" value="pregrado"/> Pregrado</label>
+<label><input checked="" class="audience-filter-check" type="checkbox" value="grado"/> Grado</label>
+<label><input checked="" class="audience-filter-check" type="checkbox" value="posgrado"/> Posgrado</label>
+<label><input checked="" class="audience-filter-check" type="checkbox" value="general"/> Actividades generales</label>
+</div>
+<label class="agenda-search" for="agendaSearch">
+<span>Buscar</span>
+<input autocomplete="off" id="agendaSearch" placeholder="Carrera, materia, año, actividad, secretaría" type="search"/>
+</label>
+</div>
+</div>
+<section aria-label="Actividades" class="agenda" id="agenda"></section>
+</main>
+<dialog class="dialog activity-dialog" id="activityDialog">
+<form id="activityForm">
+<div class="dialog-header">
+<div><p class="eyebrow">Carga manual</p><h2 id="formTitle">Nueva actividad</h2></div>
+<button aria-label="Cerrar" class="close-button" data-close="activityDialog" type="button">×</button>
+</div>
+<input id="activityId" type="hidden"/>
+<input id="originalActivityName" type="hidden"/>
+<input id="originalActivityDate" type="hidden"/>
+<div class="form-grid">
+<label class="wide">Tipo de carga<select id="recordKind" required=""><option value="activity">Actividad con fecha y horario</option><option value="period">Fecha destacada</option></select></label>
+<label class="wide" data-period-only="" hidden="" id="periodTypeField">Tipo<select id="periodType"><option value="inscriptions">Inscripciones</option><option value="exam_tables">Mesas de examen</option><option value="recess">Receso</option><option value="restart">Reinicio de actividades</option><option value="suspension">Suspensión de actividades</option><option value="classes">Cursado</option><option value="academic_closure">Cierre académico</option><option value="other">Otra fecha destacada</option></select></label>
+<label class="wide" data-period-only="" hidden="" id="suspensionScopeField">Alcance de la suspensión<select id="suspensionScope"><option value="morning">Turno mañana</option><option value="afternoon">Turno tarde</option><option value="full_day">Día completo</option></select><small>Las actividades del turno seleccionado quedarán marcadas como suspendidas en la agenda.</small></label>
+<label class="wide"><span id="nameLabel">Título</span><input id="name" maxlength="160" required="" type="text"/></label>
+<label>Fecha de inicio<input id="date" max="2030-12-31" min="2026-01-01" required="" type="date"/></label>
+<label>Fecha de finalización<input id="endDate" max="2030-12-31" min="2026-01-01" required="" type="date"/></label>
+<label data-scheduled-only="">Hora de inicio<input id="startTime" required="" type="time"/></label>
+<label data-scheduled-only="">Hora de finalización<input id="endTime" required="" type="time"/></label>
+<label data-scheduled-only="" id="recurrenceField">Repetición
             <select id="recurrence">
-              <option value="none">No se repite</option>
-              <option value="weekly">Todas las semanas</option>
-              <option value="biweekly">Cada 15 días</option>
-            </select>
-          </label>
-          <label id="repeatUntilField" data-scheduled-only hidden>Repetir hasta<input id="repeatUntil" type="date" min="2026-01-01" max="2030-12-31" /></label>
-          <label id="activityStatusField" data-scheduled-only>Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
-          <label id="postponedDateField" data-scheduled-only hidden>Nueva fecha<input id="postponedDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
-          <label id="postponedTbdField" class="recording-field wide" data-scheduled-only hidden><input id="postponedDateTbd" type="checkbox" /><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
-          <label data-scheduled-only>Modalidad<select id="activityType" required><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option><option value="telephone">Telefónica</option></select></label>
-          <label id="organizerField">Organiza<select id="secretary" required></select></label>
-          <label id="otherSecretaryField" hidden>Otro organizador<input id="otherSecretary" type="text" maxlength="120" /></label>
-          <label id="academicTypeField" data-scheduled-only hidden>Tipo de actividad<select id="academicType"><option value="">Seleccionar</option></select></label>
-          <label id="otherActivityTypeField" data-scheduled-only hidden>Especificar tipo de actividad<input id="otherActivityType" type="text" maxlength="120" placeholder="Escribí el tipo de actividad" /></label>
-          <label id="careerField" data-scheduled-only hidden>Carrera<select id="career"></select></label>
-          <label id="academicYearField" data-scheduled-only hidden>Año<select id="academicYear"></select></label>
-          <label id="subjectField" class="wide" data-scheduled-only hidden><span id="subjectLabel">Materia</span><select id="subject"></select></label>
-          <label data-scheduled-only>Responsable<input id="responsible" type="text" maxlength="100" required /></label>
-          <label class="recording-field wide" data-scheduled-only><input id="publicResponsible" type="checkbox" /><span><strong>Mostrar responsable en la vista pública</strong><small>Usalo solo cuando el nombre de la persona responsable forme parte de la información pública de la actividad.</small></span></label>
-          <label id="classroomField" data-scheduled-only>Aula/Lugar<select id="classroom" required></select></label>
-          <label id="otherClassroomField" data-scheduled-only hidden>Otro lugar<input id="otherClassroom" type="text" maxlength="100" /></label>
-          <label data-scheduled-only>Plataforma<input id="platform" type="text" list="platformOptions" maxlength="80" placeholder="Zoom, Google Meet…" /></label>
-          <datalist id="platformOptions"><option value="Zoom"></option><option value="Google Meet"></option><option value="Microsoft Teams"></option><option value="YouTube"></option></datalist>
-          <label class="wide" data-scheduled-only>Cuenta utilizada<input id="accountUsed" type="text" maxlength="160" /></label>
-          <label class="wide" data-scheduled-only>Enlace de la actividad<input id="meetingUrl" type="url" maxlength="500" placeholder="https://…" /></label>
-          <label class="recording-field wide" data-scheduled-only><input id="publicLink" type="checkbox" /><span><strong>El enlace es público</strong><small>Si no se marca, el enlace no aparecerá en la vista pública. Solo la cuenta editora podrá verlo, abrirlo y copiarlo.</small></span></label>
-          <label class="wide">Enlace para más información<input id="moreInfoUrl" type="url" maxlength="500" placeholder="Página, formulario de inscripción, cronograma…" /><small>Este enlace será público.</small></label>
-          <label class="wide"><span id="requirementsLabel">Requerimientos / observaciones</span><textarea id="requirements" rows="4" maxlength="1000" placeholder="Micrófonos, cámara, presentación, indicaciones especiales…"></textarea></label>
-          <label class="recording-field" data-scheduled-only><input id="recordingRequired" type="checkbox" /><span><strong>Requiere grabación</strong><small>Marcar si la actividad debe registrarse.</small></span></label>
-          <label id="bulkEditField" class="recording-field wide" data-scheduled-only hidden><input id="updateSameName" type="checkbox" /><span><strong>Aplicar estos cambios a las actividades con el mismo nombre y día</strong><small>Solo se actualizarán las que coincidan también en el día de la semana; se conservarán sus fechas.</small></span></label>
-        </div>
-        <div id="formError" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="activityDialog">Cancelar</button>
-          <button id="saveActivity" class="button button-primary" type="submit">Guardar actividad</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="bulkDatesDialog" class="dialog bulk-dates-dialog">
-      <form id="bulkDatesForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga masiva</p><h2>Calendario académico</h2></div>
-          <button class="close-button" type="button" data-close="bulkDatesDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Esta primera carga incorpora las fechas destacadas desde el 16 de agosto de 2026 en adelante. También incluye el cursado del segundo semestre, iniciado el 3 de agosto, porque se encontraba vigente en la fecha de corte.</p>
-        <div class="bulk-dates-summary"><strong id="bulkDatesCount">19 fechas destacadas</strong><span>Secretaría Académica · desde el 16/08/2026</span></div>
-        <p class="bulk-dates-note">El segundo semestre comenzó el 3 de agosto, por eso no se carga como período completo. Se incorpora únicamente su <strong>fin de cursado: 6 de noviembre de 2026</strong>.</p>
-        <ul id="bulkDatesPreview" class="bulk-dates-preview"></ul>
-        <p class="report-note">La carga es segura para repetir: las fechas ya incorporadas se detectan por un identificador fijo y no se duplican.</p>
-        <div id="bulkDatesMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="bulkDatesDialog">Cancelar</button>
-          <button id="runBulkDates" class="button button-primary" type="submit">Cargar fechas</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="hibridacionesDialog" class="dialog bulk-dates-dialog">
-      <form id="hibridacionesForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga masiva</p><h2>Hibridaciones desde el 16 de agosto</h2></div>
-          <button class="close-button" type="button" data-close="hibridacionesDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Carga las actividades del calendario <strong>Hibridaciones 2026</strong> desde el 16 de agosto de 2026 en adelante. Las recurrencias se expanden como encuentros individuales.</p>
-        <div class="bulk-dates-summary"><strong id="hibridacionesCount">58 actividades</strong><span>19/08/2026 – 27/11/2026</span></div>
-        <p class="bulk-dates-note">Los enlaces, cuentas y notas técnicas del calendario se guardan como <strong>información privada</strong>. No se publican los enlaces importados. Cuando el calendario no identifica con claridad un área organizadora, se deja sin organizador en lugar de inferirlo.</p>
-        <ul id="hibridacionesPreview" class="bulk-dates-preview"></ul>
-        <p class="report-note">La carga se puede ejecutar una sola vez. Si algún registro ya existe con el mismo identificador del calendario, se omite para evitar duplicados.</p>
-        <div id="hibridacionesMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="hibridacionesDialog">Cancelar</button>
-          <button id="runBulkHibridaciones" class="button button-primary" type="submit">Cargar actividades</button>
-        </div>
-      </form>
-    </dialog>
+<option value="none">No se repite</option>
+<option value="weekly">Todas las semanas</option>
+<option value="biweekly">Cada 15 días</option>
+</select>
+</label>
+<label data-scheduled-only="" hidden="" id="repeatUntilField">Repetir hasta<input id="repeatUntil" max="2030-12-31" min="2026-01-01" type="date"/></label>
+<label data-scheduled-only="" id="activityStatusField">Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
+<label data-scheduled-only="" hidden="" id="postponedDateField">Nueva fecha<input id="postponedDate" max="2030-12-31" min="2026-01-01" type="date"/></label>
+<label class="recording-field wide" data-scheduled-only="" hidden="" id="postponedTbdField"><input id="postponedDateTbd" type="checkbox"/><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
+<label data-scheduled-only="">Modalidad<select id="activityType" required=""><option value="presential">Presencial</option><option value="hybrid">Híbrida</option><option value="virtual">Virtual</option><option value="telephone">Telefónica</option></select></label>
+<label id="organizerField">Organiza<select id="secretary" required=""></select></label>
+<label hidden="" id="otherSecretaryField">Otro organizador<input id="otherSecretary" maxlength="120" type="text"/></label>
+<label data-scheduled-only="" hidden="" id="academicTypeField">Tipo de actividad<select id="academicType"><option value="">Seleccionar</option></select></label>
+<label data-scheduled-only="" hidden="" id="otherActivityTypeField">Especificar tipo de actividad<input id="otherActivityType" maxlength="120" placeholder="Escribí el tipo de actividad" type="text"/></label>
+<label data-scheduled-only="" hidden="" id="careerField">Carrera<select id="career"></select></label>
+<label data-scheduled-only="" hidden="" id="academicYearField">Año<select id="academicYear"></select></label>
+<label class="wide" data-scheduled-only="" hidden="" id="subjectField"><span id="subjectLabel">Materia</span><select id="subject"></select></label>
+<label data-scheduled-only="">Responsable<input id="responsible" maxlength="100" required="" type="text"/></label>
+<label class="recording-field wide" data-scheduled-only=""><input id="publicResponsible" type="checkbox"/><span><strong>Mostrar responsable en la vista pública</strong><small>Usalo solo cuando el nombre de la persona responsable forme parte de la información pública de la actividad.</small></span></label>
+<label data-scheduled-only="" id="classroomField">Aula/Lugar<select id="classroom" required=""></select></label>
+<label data-scheduled-only="" hidden="" id="otherClassroomField">Otro lugar<input id="otherClassroom" maxlength="100" type="text"/></label>
+<label data-scheduled-only="">Plataforma<input id="platform" list="platformOptions" maxlength="80" placeholder="Zoom, Google Meet…" type="text"/></label>
+<datalist id="platformOptions"><option value="Zoom"></option><option value="Google Meet"></option><option value="Microsoft Teams"></option><option value="YouTube"></option></datalist>
+<label class="wide" data-scheduled-only="">Cuenta utilizada<input id="accountUsed" maxlength="160" type="text"/></label>
+<label class="wide" data-scheduled-only="">Enlace de la actividad<input id="meetingUrl" maxlength="500" placeholder="https://…" type="url"/></label>
+<label class="recording-field wide" data-scheduled-only=""><input id="publicLink" type="checkbox"/><span><strong>El enlace es público</strong><small>Si no se marca, el enlace no aparecerá en la vista pública. Solo la cuenta editora podrá verlo, abrirlo y copiarlo.</small></span></label>
+<label class="wide">Enlace para más información<input id="moreInfoUrl" maxlength="500" placeholder="Página, formulario de inscripción, cronograma…" type="url"/><small>Este enlace será público.</small></label>
+<label class="wide"><span id="requirementsLabel">Requerimientos / observaciones</span><textarea id="requirements" maxlength="1000" placeholder="Micrófonos, cámara, presentación, indicaciones especiales…" rows="4"></textarea></label>
+<label class="recording-field" data-scheduled-only=""><input id="recordingRequired" type="checkbox"/><span><strong>Requiere grabación</strong><small>Marcar si la actividad debe registrarse.</small></span></label>
+<label class="recording-field wide" data-scheduled-only="" hidden="" id="bulkEditField"><input id="updateSameName" type="checkbox"/><span><strong>Aplicar estos cambios a las actividades con el mismo nombre y día</strong><small>Solo se actualizarán las que coincidan también en el día de la semana; se conservarán sus fechas.</small></span></label>
+</div>
+<div class="form-error" hidden="" id="formError" role="alert"></div>
+<div class="dialog-actions">
+<button class="button button-secondary" data-close="activityDialog" type="button">Cancelar</button>
+<button class="button button-primary" id="saveActivity" type="submit">Guardar actividad</button>
+</div>
+</form>
+</dialog>
 
 
-    <dialog id="gradeScheduleDialog" class="dialog bulk-dates-dialog">
-      <form id="gradeScheduleForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga masiva</p><h2>Horarios de Grado · Segundo semestre 2026</h2></div>
-          <button class="close-button" type="button" data-close="gradeScheduleDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Carga los horarios semanales de Abogacía desde el 16 de agosto hasta el fin del cursado del 6 de noviembre de 2026.</p>
-        <div class="bulk-dates-summary"><strong id="gradeScheduleCount">70 horarios semanales</strong><span>Secretaría Académica · Grado</span></div>
-        <p class="bulk-dates-note"><strong>Importante:</strong> el PDF corregido contiene columnas de lunes a jueves. Esta carga reproduce exactamente esos días; no inventa horarios de viernes. Las semanas con suspensión de clases y los feriados configurados se excluyen automáticamente.</p>
-        <p class="bulk-dates-note">Las filas genéricas “Optativa” no se cargan como eventos: se utilizan las optativas específicas que figuran en el mismo documento. Si una clase ya existe por la carga de Hibridaciones, se omite para evitar duplicados.</p>
-        <ul id="gradeSchedulePreview" class="bulk-dates-preview"></ul>
-        <p class="report-note">La carga se ejecuta una sola vez. Cada encuentro usa un identificador estable y el botón desaparece al completarse correctamente.</p>
-        <div id="gradeScheduleMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="gradeScheduleDialog">Cancelar</button>
-          <button id="runBulkGradeSchedule" class="button button-primary" type="submit">Cargar horarios</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="pregradeScheduleDialog" class="dialog bulk-dates-dialog">
-      <form id="pregradeScheduleForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga masiva</p><h2>Horarios de Pregrado · Tecnicatura · Segundo semestre 2026</h2></div>
-          <button class="close-button" type="button" data-close="pregradeScheduleDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Carga los horarios de Primer Año de la Tecnicatura desde el 16 de agosto hasta el fin del cursado del 6 de noviembre de 2026.</p>
-        <div class="bulk-dates-summary"><strong id="pregradeScheduleCount">12 horarios semanales</strong><span>Secretaría Académica · Pregrado</span></div>
-        <p class="bulk-dates-note">Lunes, martes, jueves y viernes se cargan en <strong>Aula I</strong>. Los miércoles se cargan como <strong>Virtual · Google Meet</strong>. La clase de Estructura Edilicia de los martes de 19:15 a 20:30 se conserva como <strong>virtual asincrónica</strong>, tal como figura en el horario.</p>
-        <ul id="pregradeSchedulePreview" class="bulk-dates-preview"></ul>
-        <p class="report-note">La carga se ejecuta una sola vez. Cada encuentro usa un identificador estable y el botón desaparece al completarse correctamente.</p>
-        <div id="pregradeScheduleMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="pregradeScheduleDialog">Cancelar</button>
-          <button id="runBulkPregradeSchedule" class="button button-primary" type="submit">Cargar horarios</button>
-        </div>
-      </form>
-    </dialog>
 
 
-    <dialog id="legalClinicsDialog" class="dialog bulk-dates-dialog">
-      <form id="legalClinicsForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga masiva</p><h2>Consultorios Jurídicos Gratuitos</h2></div>
-          <button class="close-button" type="button" data-close="legalClinicsDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Carga las atenciones semanales de los Consultorios Jurídicos Gratuitos desde el 16 de agosto hasta el 19 de diciembre de 2026.</p>
-        <div class="bulk-dates-summary"><strong id="legalClinicsCount">5 consultorios</strong><span>Secretaría de Extensión, Vinculación y Territorio</span></div>
-        <p class="bulk-dates-note">En las cuatro áreas principales, las dos primeras atenciones de cada mes se registran como <strong>presenciales</strong> en la Facultad y las restantes como <strong>telefónicas</strong>. La atención de Discapacidad y Adulto Mayor se registra como presencial en la Defensoría.</p>
-        <p class="bulk-dates-note">Para estos registros, el <strong>responsable se muestra públicamente</strong>. El resto de las actividades de la agenda mantiene el responsable como información privada, salvo que se marque expresamente lo contrario.</p>
-        <ul id="legalClinicsPreview" class="bulk-dates-preview"></ul>
-        <p class="report-note">La carga se ejecuta una sola vez y utiliza identificadores estables para evitar duplicados.</p>
-        <div id="legalClinicsMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="legalClinicsDialog">Cancelar</button>
-          <button id="runBulkLegalClinics" class="button button-primary" type="submit">Cargar consultorios</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="mediationCenterDialog" class="dialog bulk-dates-dialog">
-      <form id="mediationCenterForm">
-        <header class="dialog-header">
-          <div><span class="eyebrow">Carga única</span><h2>Centro de Mediación</h2></div>
-          <button class="close-button" type="button" data-close="mediationCenterDialog" aria-label="Cerrar">×</button>
-        </header>
-        <div class="bulk-dates-summary"><strong id="mediationCenterCount">Atenciones previstas</strong><span>Secretaría de Extensión, Vinculación y Territorio</span></div>
-        <p class="bulk-dates-note">Se cargarán las atenciones del <strong>Centro de Mediación</strong> desde el 16 de agosto hasta la última semana de noviembre de 2026. El responsable se mostrará públicamente como <strong>Mgter. Sara Curi</strong>.</p>
-        <ul id="mediationCenterPreview" class="bulk-dates-preview"></ul>
-        <div id="mediationCenterMessage" class="form-error" role="alert" hidden></div>
-        <footer class="dialog-footer">
-          <button class="button button-secondary" type="button" data-close="mediationCenterDialog">Cancelar</button>
-          <button id="runBulkMediationCenter" class="button button-primary" type="submit">Cargar Centro de Mediación</button>
-        </footer>
-      </form>
-    </dialog>
-
-    <dialog id="importDialog" class="dialog import-dialog">
-      <form id="importForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga desde Google Calendar</p><h2>Importar calendario</h2></div>
-          <button class="close-button" type="button" data-close="importDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Exportá o descargá el calendario desde Google Calendar y seleccioná aquí el archivo <strong>.ics</strong>.</p>
-        <label class="file-field">Archivo del calendario<input id="icsFile" type="file" accept=".ics,text/calendar" required /><span>Seleccionar archivo .ics</span><small id="icsFileName">Ningún archivo seleccionado</small></label>
-        <fieldset>
-          <legend>Datos comunes para los eventos importados</legend>
-          <div class="form-grid">
-            <label>Organiza<input id="importSecretary" type="text" maxlength="120" required /></label>
-            <label>Responsable<input id="importResponsible" type="text" maxlength="100" required /></label>
-            <label>Plataforma<input id="importPlatform" type="text" list="platformOptions" maxlength="80" /></label>
-            <label>Cuenta utilizada<input id="importAccount" type="text" maxlength="160" /></label>
-            <label class="wide">Requerimientos / observaciones adicionales<textarea id="importRequirements" rows="3" maxlength="600"></textarea></label>
-            <label class="recording-field"><input id="importRecording" type="checkbox" /><span><strong>Requieren grabación</strong><small>Se aplicará a todos los eventos del archivo.</small></span></label>
-          </div>
-        </fieldset>
-        <div id="importMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="importDialog">Cancelar</button>
-          <button id="runImport" class="button button-primary" type="submit">Importar actividades</button>
-        </div>
-      </form>
-    </dialog>
 
 
-    <dialog id="programsDialog" class="dialog bulk-dates-dialog">
-      <form id="programsForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Carga masiva</p><h2>Ingreso y actividades de Posgrado</h2></div>
-          <button class="close-button" type="button" data-close="programsDialog" aria-label="Cerrar">×</button>
-        </div>
-        <div class="bulk-dates-summary"><strong id="programsCount">Eventos preparados</strong><span>Desde el 16 de agosto de 2026</span></div>
-        <p class="dialog-intro">Incluye Modalidad Extensiva del Ingreso 2027, Maestría en Derecho de las Familias, Diplomatura en Derechos de las Personas con Discapacidad y Diplomatura en Mediación y Gestión Participativa de Conflictos. Los horarios no informados en las fuentes quedan como “Horario a confirmar”.</p>
-        <ul id="programsPreview" class="bulk-dates-preview"></ul>
-        <div id="programsMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="programsDialog">Cancelar</button>
-          <button id="runBulkPrograms" class="button button-primary" type="submit">Cargar actividades</button>
-        </div>
-      </form>
-    </dialog>
+<dialog class="dialog import-dialog" id="importDialog">
+<form id="importForm">
+<div class="dialog-header">
+<div><p class="eyebrow">Carga desde Google Calendar</p><h2>Importar calendario</h2></div>
+<button aria-label="Cerrar" class="close-button" data-close="importDialog" type="button">×</button>
+</div>
+<p class="dialog-intro">Exportá o descargá el calendario desde Google Calendar y seleccioná aquí el archivo <strong>.ics</strong>.</p>
+<label class="file-field">Archivo del calendario<input accept=".ics,text/calendar" id="icsFile" required="" type="file"/><span>Seleccionar archivo .ics</span><small id="icsFileName">Ningún archivo seleccionado</small></label>
+<fieldset>
+<legend>Datos comunes para los eventos importados</legend>
+<div class="form-grid">
+<label>Organiza<input id="importSecretary" maxlength="120" required="" type="text"/></label>
+<label>Responsable<input id="importResponsible" maxlength="100" required="" type="text"/></label>
+<label>Plataforma<input id="importPlatform" list="platformOptions" maxlength="80" type="text"/></label>
+<label>Cuenta utilizada<input id="importAccount" maxlength="160" type="text"/></label>
+<label class="wide">Requerimientos / observaciones adicionales<textarea id="importRequirements" maxlength="600" rows="3"></textarea></label>
+<label class="recording-field"><input id="importRecording" type="checkbox"/><span><strong>Requieren grabación</strong><small>Se aplicará a todos los eventos del archivo.</small></span></label>
+</div>
+</fieldset>
+<div class="form-error" hidden="" id="importMessage" role="alert"></div>
+<div class="dialog-actions">
+<button class="button button-secondary" data-close="importDialog" type="button">Cancelar</button>
+<button class="button button-primary" id="runImport" type="submit">Importar actividades</button>
+</div>
+</form>
+</dialog>
 
 
-    <dialog id="ingreso2027Dialog" class="dialog bulk-dates-dialog">
-      <form id="ingreso2027Form">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Actualización única</p><h2>Ingreso 2027 · Comisiones, intensivo y evaluaciones</h2></div>
-          <button class="close-button" type="button" data-close="ingreso2027Dialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Reemplaza los registros provisorios de los viernes por las seis comisiones definitivas, corrige el aula de la Comisión 3 y agrega la modalidad intensiva y las evaluaciones de febrero/marzo 2027.</p>
-        <div class="bulk-dates-summary"><strong id="ingreso2027Count">Registros preparados</strong><span>Curso de Ingreso 2027</span></div>
-        <ul id="ingreso2027Preview" class="bulk-dates-preview"></ul>
-        <p class="report-note">La actualización es de una sola vez. No modifica las clases virtuales de los miércoles ni los enlaces pendientes de las comisiones híbridas.</p>
-        <div id="ingreso2027Message" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="ingreso2027Dialog">Cancelar</button>
-          <button id="runIngreso2027Update" class="button button-primary" type="submit">Actualizar Ingreso 2027</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="calendarDialog" class="dialog calendar-dialog">
-      <form id="calendarForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Administración</p><h2>Actualizar calendario</h2></div>
-          <button class="close-button" type="button" data-close="calendarDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Configurá cada año de la agenda. Podés cambiar el período visible y mantener los feriados o días sin actividad sin modificar el código.</p>
-        <div class="form-grid">
-          <label>Año<select id="calendarYear" required></select></label>
-          <div></div>
-          <label>Inicio del calendario<input id="calendarYearStart" type="date" min="2026-01-01" max="2030-12-31" required /></label>
-          <label>Fin del calendario<input id="calendarYearEnd" type="date" min="2026-01-01" max="2030-12-31" required /></label>
-          <label class="wide">Feriados / días sin actividad<textarea id="calendarHolidays" rows="9" placeholder="12/10 | Feriado&#10;08/12 | Inmaculada Concepción"></textarea><small>Una línea por fecha: <strong>DD/MM | Nombre</strong>. Esos días quedarán apagados y no mostrarán actividades.</small></label>
-        </div>
-        <div id="calendarMessage" class="form-error" role="alert" hidden></div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="calendarDialog">Cancelar</button>
-          <button id="saveCalendar" class="button button-primary" type="submit">Guardar calendario</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="reportDialog" class="dialog report-dialog">
-      <form id="reportForm">
-        <div class="dialog-header">
-          <div><p class="eyebrow">Informes</p><h2>Generar informe PDF</h2></div>
-          <button class="close-button" type="button" data-close="reportDialog" aria-label="Cerrar">×</button>
-        </div>
-        <p class="dialog-intro">Elegí el período, el nivel de detalle y los criterios del informe. Los filtros del informe son independientes de la vista de la agenda.</p>
-        <div class="form-grid report-grid">
-          <label>Período
+<dialog class="dialog calendar-dialog" id="calendarDialog">
+<form id="calendarForm">
+<div class="dialog-header">
+<div><p class="eyebrow">Administración</p><h2>Actualizar calendario</h2></div>
+<button aria-label="Cerrar" class="close-button" data-close="calendarDialog" type="button">×</button>
+</div>
+<p class="dialog-intro">Configurá cada año de la agenda. Podés cambiar el período visible y mantener los feriados o días sin actividad sin modificar el código.</p>
+<div class="form-grid">
+<label>Año<select id="calendarYear" required=""></select></label>
+<div></div>
+<label>Inicio del calendario<input id="calendarYearStart" max="2030-12-31" min="2026-01-01" required="" type="date"/></label>
+<label>Fin del calendario<input id="calendarYearEnd" max="2030-12-31" min="2026-01-01" required="" type="date"/></label>
+<label class="wide">Feriados / días sin actividad<textarea id="calendarHolidays" placeholder="12/10 | Feriado
+08/12 | Inmaculada Concepción" rows="9"></textarea><small>Una línea por fecha: <strong>DD/MM | Nombre</strong>. Esos días quedarán apagados y no mostrarán actividades.</small></label>
+</div>
+<div class="form-error" hidden="" id="calendarMessage" role="alert"></div>
+<div class="dialog-actions">
+<button class="button button-secondary" data-close="calendarDialog" type="button">Cancelar</button>
+<button class="button button-primary" id="saveCalendar" type="submit">Guardar calendario</button>
+</div>
+</form>
+</dialog>
+<dialog class="dialog report-dialog" id="reportDialog">
+<form id="reportForm">
+<div class="dialog-header">
+<div><p class="eyebrow">Informes</p><h2>Generar informe PDF</h2></div>
+<button aria-label="Cerrar" class="close-button" data-close="reportDialog" type="button">×</button>
+</div>
+<p class="dialog-intro">Elegí el período, el nivel de detalle y los criterios del informe. Los filtros del informe son independientes de la vista de la agenda.</p>
+<div class="form-grid report-grid">
+<label>Período
             <select id="reportPeriodType">
-              <option value="day">Diario</option>
-              <option value="week">Semanal</option>
-              <option value="month">Mensual</option>
-              <option value="year">Anual</option>
-              <option value="range">Rango de fechas</option>
-            </select>
-          </label>
-          <label>Nivel del informe
+<option value="day">Diario</option>
+<option value="week">Semanal</option>
+<option value="month">Mensual</option>
+<option value="year">Anual</option>
+<option value="range">Rango de fechas</option>
+</select>
+</label>
+<label>Nivel del informe
             <select id="reportOutputType">
-              <option value="detailed">Detallado</option>
-              <option value="statistical">Estadístico</option>
-            </select>
-          </label>
-          <label id="reportReferenceDateField">Fecha de referencia<input id="reportReferenceDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
-          <label id="reportYearField" hidden>Año<select id="reportYear"></select></label>
-          <label id="reportStartField" hidden>Desde<input id="reportStartDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
-          <label id="reportEndField" hidden>Hasta<input id="reportEndDate" type="date" min="2026-01-01" max="2030-12-31" /></label>
-          <label id="reportGroupField">Organizar detalle por
+<option value="detailed">Detallado</option>
+<option value="statistical">Estadístico</option>
+</select>
+</label>
+<label id="reportReferenceDateField">Fecha de referencia<input id="reportReferenceDate" max="2030-12-31" min="2026-01-01" type="date"/></label>
+<label hidden="" id="reportYearField">Año<select id="reportYear"></select></label>
+<label hidden="" id="reportStartField">Desde<input id="reportStartDate" max="2030-12-31" min="2026-01-01" type="date"/></label>
+<label hidden="" id="reportEndField">Hasta<input id="reportEndDate" max="2030-12-31" min="2026-01-01" type="date"/></label>
+<label id="reportGroupField">Organizar detalle por
             <select id="reportGroupBy">
-              <option value="date">Fecha</option>
-              <option value="modality">Modalidad</option>
-              <option value="secretary">Secretaría / área</option>
-              <option value="level">Nivel</option>
-            </select>
-          </label>
-          <label>Modalidad
+<option value="date">Fecha</option>
+<option value="modality">Modalidad</option>
+<option value="secretary">Secretaría / área</option>
+<option value="level">Nivel</option>
+</select>
+</label>
+<label>Modalidad
             <select id="reportModality">
-              <option value="all">Todas</option>
-              <option value="presential">Presenciales</option>
-              <option value="hybrid">Híbridas</option>
-              <option value="virtual">Virtuales</option>
-              <option value="featured">Fechas destacadas</option>
-            </select>
-          </label>
-          <label>Secretaría / área<select id="reportSecretary"></select></label>
-          <label>Nivel
+<option value="all">Todas</option>
+<option value="presential">Presenciales</option>
+<option value="hybrid">Híbridas</option>
+<option value="virtual">Virtuales</option>
+<option value="featured">Fechas destacadas</option>
+</select>
+</label>
+<label>Secretaría / área<select id="reportSecretary"></select></label>
+<label>Nivel
             <select id="reportLevelFilter">
-              <option value="all">Todos</option>
-              <option value="pregrado">Pregrado</option>
-              <option value="grado">Grado</option>
-              <option value="posgrado">Posgrado</option>
-              <option value="general">Actividades generales</option>
-            </select>
-          </label>
-        </div>
-        <div id="reportMessage" class="form-error" role="alert" hidden></div>
-        <div class="report-note">
-          <strong>Detallado:</strong> incluye el listado completo de eventos y puede ordenarse por fecha, modalidad, secretaría o nivel.
+<option value="all">Todos</option>
+<option value="pregrado">Pregrado</option>
+<option value="grado">Grado</option>
+<option value="posgrado">Posgrado</option>
+<option value="general">Actividades generales</option>
+</select>
+</label>
+</div>
+<div class="form-error" hidden="" id="reportMessage" role="alert"></div>
+<div class="report-note">
+<strong>Detallado:</strong> incluye el listado completo de eventos y puede ordenarse por fecha, modalidad, secretaría o nivel.
           <strong>Estadístico:</strong> resume totales, porcentajes y distribución por modalidad, secretaría y nivel.
         </div>
-        <div class="dialog-actions">
-          <button class="button button-secondary" type="button" data-close="reportDialog">Cancelar</button>
-          <button class="button button-primary" type="submit">Descargar PDF</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="detailDialog" class="dialog detail-dialog">
-      <div class="detail-dialog-content">
-        <div class="dialog-header">
-          <div><p id="detailDate" class="eyebrow"></p><h2 id="detailTitle"></h2></div>
-          <button class="close-button" type="button" data-close="detailDialog" aria-label="Cerrar">×</button>
-        </div>
-        <div id="detailBody"></div>
-      </div>
-    </dialog>
-
-    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-
-    <script src="config.js?v=60-20260924"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="app.js?v=60-20260924"></script>
-    <script>
+<div class="dialog-actions">
+<button class="button button-secondary" data-close="reportDialog" type="button">Cancelar</button>
+<button class="button button-primary" type="submit">Descargar PDF</button>
+</div>
+</form>
+</dialog>
+<dialog class="dialog detail-dialog" id="detailDialog">
+<div class="detail-dialog-content">
+<div class="dialog-header">
+<div><p class="eyebrow" id="detailDate"></p><h2 id="detailTitle"></h2></div>
+<button aria-label="Cerrar" class="close-button" data-close="detailDialog" type="button">×</button>
+</div>
+<div id="detailBody"></div>
+</div>
+</dialog>
+<div aria-live="polite" class="toast" hidden="" id="toast" role="status"></div>
+<script src="config.js?v=61-performance-20260924"></script>
+<script src="app.js?v=61-performance-20260924" type="module"></script>
+<script>
       window.setTimeout(function () {
         var message = document.getElementById("status");
         if (message && message.textContent.indexOf("Cargando agenda") !== -1) {
@@ -454,5 +293,5 @@
         }
       }, 12000);
     </script>
-  </body>
+</body>
 </html>

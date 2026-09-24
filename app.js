@@ -1,8 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { browserLocalPersistence, getAuth, GoogleAuthProvider, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v58-20260924";
+const AGENDA_BUILD = "v61-performance-20260924";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
@@ -10,7 +9,9 @@ const configured = Boolean(config.firebaseConfig?.apiKey);
 const adminEmail = String(config.adminEmail || "").trim().toLowerCase();
 const firebaseApp = configured ? initializeApp(config.firebaseConfig) : null;
 const db = configured ? getFirestore(firebaseApp) : null;
-const auth = configured ? getAuth(firebaseApp) : null;
+let auth = null;
+let authApi = null;
+let authInitPromise = null;
 const activitiesCollection = "actividades";
 const privateActivitiesCollection = "actividades_privadas";
 const locale = "es-AR";
@@ -165,52 +166,9 @@ function inferAcademicYear(career, subject) {
   return Object.entries(academicPlans[career] || {}).find(([, subjects]) => subjects.includes(base))?.[0] || "";
 }
 
-const academicCalendarImportantDates = [
-  { id: "calacad-2026-fin-cursado-segundo-semestre", period_type: "classes", date: "2026-11-06", end_date: "2026-11-06", name: "Fin del cursado · Segundo semestre 2026", description: "Último día de cursado del segundo semestre. Todas las cátedras deberán finalizar sus actividades evaluativas, incluidos los exámenes recuperatorios, dentro de esta fecha." },
-  { id: "calacad-2026-inscripcion-mesas-agosto", period_type: "inscriptions", date: "2026-08-18", end_date: "2026-08-19", name: "Inscripción · Mesas de agosto 2026", description: "Inscripción a exámenes finales ordinarios del turno agosto 2026." },
-  { id: "calacad-2026-mesas-agosto", period_type: "exam_tables", date: "2026-08-24", end_date: "2026-08-28", name: "Mesas de agosto 2026", description: "Turno ordinario de exámenes finales." },
-  { id: "calacad-2026-suspension-clases-agosto", period_type: "suspension", date: "2026-08-24", end_date: "2026-08-28", name: "Suspensión del dictado de clases · Turno de agosto", description: "El dictado de clases se suspende durante este turno de exámenes finales por no contar con aulas disponibles para desarrollar ambas actividades simultáneamente." },
-  { id: "calacad-2026-inscripcion-mesas-especiales-septiembre", period_type: "inscriptions", date: "2026-09-09", end_date: "2026-09-10", name: "Inscripción · Mesas especiales de septiembre 2026", description: "Inscripción al turno especial de exámenes finales de septiembre 2026." },
-  { id: "calacad-2026-mesas-especiales-septiembre", period_type: "exam_tables", date: "2026-09-14", end_date: "2026-09-16", name: "Mesas especiales de septiembre 2026", description: "Turno especial de exámenes finales. Sin suspensión de clases." },
-  { id: "calacad-2026-inscripcion-mesas-octubre", period_type: "inscriptions", date: "2026-10-07", end_date: "2026-10-08", name: "Inscripción · Mesas de octubre 2026", description: "Inscripción a exámenes finales ordinarios del turno octubre 2026." },
-  { id: "calacad-2026-mesas-octubre", period_type: "exam_tables", date: "2026-10-13", end_date: "2026-10-19", name: "Mesas de octubre 2026", description: "Turno ordinario de exámenes finales." },
-  { id: "calacad-2026-suspension-clases-octubre", period_type: "suspension", date: "2026-10-13", end_date: "2026-10-19", name: "Suspensión del dictado de clases · Turno de octubre", description: "El dictado de clases se suspende durante este turno de exámenes finales por no contar con aulas disponibles para desarrollar ambas actividades simultáneamente." },
-  { id: "calacad-2026-cierre-regularidades-segundo-semestre", period_type: "academic_closure", date: "2026-11-02", end_date: "2026-11-06", name: "Cierre de regularidades y carga en SIU-Guaraní · Segundo semestre", description: "Durante este período no se pueden tomar evaluaciones." },
-  { id: "calacad-2026-inscripcion-mesas-noviembre", period_type: "inscriptions", date: "2026-11-10", end_date: "2026-11-11", name: "Inscripción · Mesas de noviembre 2026", description: "Inscripción a exámenes finales ordinarios del turno noviembre 2026." },
-  { id: "calacad-2026-mesas-noviembre", period_type: "exam_tables", date: "2026-11-13", end_date: "2026-11-19", name: "Mesas de noviembre 2026", description: "Turno ordinario de exámenes finales." },
-  { id: "calacad-2026-inscripcion-mesas-diciembre", period_type: "inscriptions", date: "2026-12-09", end_date: "2026-12-10", name: "Inscripción · Mesas de diciembre 2026", description: "Inscripción a exámenes finales ordinarios del turno diciembre 2026." },
-  { id: "calacad-2026-mesas-diciembre", period_type: "exam_tables", date: "2026-12-14", end_date: "2026-12-18", name: "Mesas de diciembre 2026", description: "Turno ordinario de exámenes finales." },
-  { id: "calacad-2026-receso-estival", period_type: "recess", date: "2026-12-28", end_date: "2027-01-31", name: "Receso estival 2026–2027", description: "Dada la fecha programada para los exámenes finales del turno febrero 2027, los docentes deberán retomar las consultas a partir del 1 de febrero de 2027." },
-  { id: "calacad-2027-inscripcion-mesas-febrero", period_type: "inscriptions", date: "2027-02-03", end_date: "2027-02-04", name: "Inscripción · Mesas de febrero 2027", description: "Inscripción a exámenes finales ordinarios del turno febrero 2027." },
-  { id: "calacad-2027-mesas-febrero", period_type: "exam_tables", date: "2027-02-08", end_date: "2027-02-12", name: "Mesas de febrero 2027", description: "Turno ordinario de exámenes finales." },
-  { id: "calacad-2027-inscripcion-mesas-marzo", period_type: "inscriptions", date: "2027-03-10", end_date: "2027-03-11", name: "Inscripción · Mesas de marzo 2027", description: "Inscripción a exámenes finales ordinarios del turno marzo 2027." },
-  { id: "calacad-2027-mesas-marzo", period_type: "exam_tables", date: "2027-03-15", end_date: "2027-03-19", name: "Mesas de marzo 2027", description: "Turno ordinario de exámenes finales." }
-];
+// Historical one-time bulk import payloads were removed from the production bundle after migration to Firestore.
 
-const hibridaciones2026FromAugust16 = [{"record_kind":"activity","date":"2026-08-19","end_date":"2026-08-19","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-08-19"},{"record_kind":"activity","date":"2026-08-19","end_date":"2026-08-19","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-08-19"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"08:30","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"3aeufdfcc27amdd9auk0ctln0u@google.com-2026-08-21"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"15:00","end_time":"20:00","name":"Diplomatura en Mediación","secretary":"Secretaría de Posgrado","activity_category":"diploma","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"mediacion@derecho.uncu.edu.arcontraseña","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Con la cuenta mediacion@derecho.uncu.edu.arcontraseña: +mediacion2023+","observations":"","recording_required":false,"source_uid":"6lsvv153dnacfdcm789c2hejp4@google.com-2026-08-21"},{"record_kind":"activity","date":"2026-08-22","end_date":"2026-08-22","start_time":"08:30","end_time":"13:30","name":"Diplomatura en Mediación","secretary":"Secretaría de Posgrado","activity_category":"diploma","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"mediacion@derecho.uncu.edu.arcontraseña","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Con la cuenta mediacion@derecho.uncu.edu.arcontraseña: +mediacion2023+","observations":"","recording_required":false,"source_uid":"36hnpjk1jmqtk9jju30atanmim@google.com-2026-08-22"},{"record_kind":"activity","date":"2026-08-26","end_date":"2026-08-26","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-08-26"},{"record_kind":"activity","date":"2026-08-26","end_date":"2026-08-26","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-08-26"},{"record_kind":"activity","date":"2026-08-28","end_date":"2026-08-28","start_time":"15:00","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"6bk9vkbckqss37etach3l9md3l@google.com-2026-08-28"},{"record_kind":"activity","date":"2026-08-29","end_date":"2026-08-29","start_time":"08:30","end_time":"12:30","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"4fpnrfb73j3c00l3dtufkdove4@google.com-2026-08-29"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"09:00","end_time":"20:00","name":"Congreso de Derechos Humanos e Internacional","secretary":"","activity_category":"congress","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula H","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/hnj-zptj-pef","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nhttps://meet.google.com/hnj-zptj-pef\nMiércoles 2 de septiembre 9 a 20 - Aula H\nJueves 3 de septiembre 14.30 a 20 - Aula Magna","observations":"","recording_required":false,"source_uid":"1ebs2juj6tp6erfgd1dcqtspod@google.com-2026-09-02-a"},{"record_kind":"activity","date":"2026-09-03","end_date":"2026-09-03","start_time":"14:30","end_time":"20:00","name":"Congreso de Derechos Humanos e Internacional","secretary":"","activity_category":"congress","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula Magna","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/hnj-zptj-pef","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nhttps://meet.google.com/hnj-zptj-pef\nMiércoles 2 de septiembre 9 a 20 - Aula H\nJueves 3 de septiembre 14.30 a 20 - Aula Magna","observations":"","recording_required":false,"source_uid":"1ebs2juj6tp6erfgd1dcqtspod@google.com-2026-09-03-b"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-09-02"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-09-02"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"16:00","end_time":"19:00","name":"Jornada Ley 9715: el nuevo desalojo monitorio de viviendas sociales del IPV","secretary":"","activity_category":"days","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/udw-otwn-rpt","link_is_public":false,"more_info_url":"","requirements":"Cuanta: facultad@derecho.uncu.edu.ar\nJornada Ley 9715: el nuevo desalojo monitorio de viviendas sociales del IPV\nhttps://meet.google.com/udw-otwn-rpt","observations":"","recording_required":false,"source_uid":"49ij6fj6svgcgt9lu3nea8kj5q@google.com-2026-09-02"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"15:00","end_time":"20:00","name":"Diplomatura en Mediación","secretary":"Secretaría de Posgrado","activity_category":"diploma","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"mediacion@derecho.uncu.edu.arcontraseña","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Con la cuenta mediacion@derecho.uncu.edu.arcontraseña: +mediacion2023+","observations":"","recording_required":false,"source_uid":"532ekgf20es94d9t25jajgaic6@google.com-2026-09-04"},{"record_kind":"activity","date":"2026-09-05","end_date":"2026-09-05","start_time":"08:30","end_time":"13:30","name":"Diplomatura en Mediación","secretary":"Secretaría de Posgrado","activity_category":"diploma","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"mediacion@derecho.uncu.edu.arcontraseña","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Con la cuenta mediacion@derecho.uncu.edu.arcontraseña: +mediacion2023+","observations":"","recording_required":false,"source_uid":"7cbbcts3pboo4ntl7q1djes0f5@google.com-2026-09-05"},{"record_kind":"activity","date":"2026-09-08","end_date":"2026-09-08","start_time":"14:00","end_time":"15:00","name":"Grabación asamblea aula H Irene","secretary":"","activity_category":"service","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"","observations":"","recording_required":false,"source_uid":"2v4h5pn3msomillkkmc1kp4seq@google.com-2026-09-08"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-09-09"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"14:30","end_time":"16:10","name":"Clase Abierta Derecho Procesal Penal - Clase abierta: aportes de la genética forense en la investigación penal","secretary":"Secretaría Académica","activity_category":"open_class","academic_activity_type":"open_class","career":"Abogacía","academic_year":"","subject":"","responsible":"","classroom":"Aula C","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/nfm-vhbc-jue","link_is_public":false,"more_info_url":"","requirements":"Cuenta: facultad@derecho.uncu.edu.ar\nClase Abierta Derecho Procesal Penal\nMiércoles, 9 septiembre · 2:30 – 4:10pm\nVínculo a la videollamada: https://meet.google.com/nfm-vhbc-jue","observations":"","recording_required":false,"source_uid":"4k9ispsqg327of170nck189qsm@google.com-2026-09-09"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-09-09"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"17:00","end_time":"19:00","name":"Conjuntos inmobiliarios sin fines residenciales: Análisis, desafío y propuestas","secretary":"","activity_category":"other","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula H","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/jhh-mwzj-yuu","link_is_public":false,"more_info_url":"","requirements":"Cuanta facultad@derecho.uncu.edu.ar\nhttps://meet.google.com/jhh-mwzj-yuu","observations":"","recording_required":false,"source_uid":"5s5msgs63kooodnjfhf1aiciha@google.com-2026-09-09"},{"record_kind":"activity","date":"2026-09-11","end_date":"2026-09-11","start_time":"08:30","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"5ett2qmlaernvhp8su2bmecr43@google.com-2026-09-11"},{"record_kind":"activity","date":"2026-09-12","end_date":"2026-09-12","start_time":"08:30","end_time":"12:30","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"01i12as0hb5o0242pnijdbncl3@google.com-2026-09-12"},{"record_kind":"activity","date":"2026-09-16","end_date":"2026-09-16","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-09-16"},{"record_kind":"activity","date":"2026-09-16","end_date":"2026-09-16","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-09-16"},{"record_kind":"activity","date":"2026-09-23","end_date":"2026-09-23","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-09-23"},{"record_kind":"activity","date":"2026-09-23","end_date":"2026-09-23","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-09-23"},{"record_kind":"activity","date":"2026-09-23","end_date":"2026-09-23","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-09-23"},{"record_kind":"activity","date":"2026-09-25","end_date":"2026-09-25","start_time":"15:00","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"60504lo570gkr6o7tcn0i5mpa5@google.com-2026-09-25"},{"record_kind":"activity","date":"2026-09-26","end_date":"2026-09-26","start_time":"08:30","end_time":"12:30","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"3sldgvf1c8o3mp0m740hptb85k@google.com-2026-09-26"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-09-30"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-09-30"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-09-30"},{"record_kind":"activity","date":"2026-10-07","end_date":"2026-10-07","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-10-07"},{"record_kind":"activity","date":"2026-10-07","end_date":"2026-10-07","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-10-07"},{"record_kind":"activity","date":"2026-10-07","end_date":"2026-10-07","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-10-07"},{"record_kind":"activity","date":"2026-10-14","end_date":"2026-10-14","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-10-14"},{"record_kind":"activity","date":"2026-10-14","end_date":"2026-10-14","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-10-14"},{"record_kind":"activity","date":"2026-10-14","end_date":"2026-10-14","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-10-14"},{"record_kind":"activity","date":"2026-10-16","end_date":"2026-10-16","start_time":"08:30","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"7epdec0qsjurb45nsbi3pb6h0t@google.com-2026-10-16"},{"record_kind":"activity","date":"2026-10-17","end_date":"2026-10-17","start_time":"08:30","end_time":"12:30","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"7tr8ldnig9hfklfjulsv5edo34@google.com-2026-10-17"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-10-21"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-10-21"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-10-21"},{"record_kind":"activity","date":"2026-10-28","end_date":"2026-10-28","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-10-28"},{"record_kind":"activity","date":"2026-10-28","end_date":"2026-10-28","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-10-28"},{"record_kind":"activity","date":"2026-10-28","end_date":"2026-10-28","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-10-28"},{"record_kind":"activity","date":"2026-10-30","end_date":"2026-10-30","start_time":"08:30","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"02dumj6a3mhpa5dffihmfkgeg0@google.com-2026-10-30"},{"record_kind":"activity","date":"2026-10-31","end_date":"2026-10-31","start_time":"08:30","end_time":"12:30","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"1jdfhufduscernpe54sdovetvc@google.com-2026-10-31"},{"record_kind":"activity","date":"2026-11-04","end_date":"2026-11-04","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-11-04"},{"record_kind":"activity","date":"2026-11-04","end_date":"2026-11-04","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-11-04"},{"record_kind":"activity","date":"2026-11-04","end_date":"2026-11-04","start_time":"16:00","end_time":"18:00","name":"Derecho Público y Provincial","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho Público Provincial y Municipal","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/tau-ykap-uuj","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho.uncu.edu.ar\nDerecho Público y Provincial\nMiércoles · 4:00 – 6:10pm\nInformación para unirse a la reunión de Google Meet\nVínculo a la videollamada: https://meet.google.com/tau-ykap-uuj","observations":"","recording_required":false,"source_uid":"7ku60us1o8tujgf0fksug707tu@google.com-2026-11-04"},{"record_kind":"activity","date":"2026-11-11","end_date":"2026-11-11","start_time":"14:00","end_time":"16:00","name":"Derecho del Transporte","secretary":"Secretaría Académica","activity_category":"class","academic_activity_type":"class","career":"Abogacía","academic_year":"Optativa","subject":"Derecho del Transporte","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"facultad@derecho","meeting_url":"https://meet.google.com/bne-fqho-fix","link_is_public":false,"more_info_url":"","requirements":"Cuenta facultad@derecho \nhttps://meet.google.com/bne-fqho-fix","observations":"","recording_required":false,"source_uid":"2bc5qb1mvgu77dtnp1plveup3l@google.com-2026-11-11"},{"record_kind":"activity","date":"2026-11-11","end_date":"2026-11-11","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-11-11"},{"record_kind":"activity","date":"2026-11-13","end_date":"2026-11-13","start_time":"08:30","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"3ov8v0l5o8or4eus9oi3or8qdc@google.com-2026-11-13"},{"record_kind":"activity","date":"2026-11-14","end_date":"2026-11-14","start_time":"08:30","end_time":"12:30","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"7jbgtm3v0dolfeo8o7bpjbq4gn@google.com-2026-11-14"},{"record_kind":"activity","date":"2026-11-18","end_date":"2026-11-18","start_time":"15:30","end_time":"19:00","name":"Seminario de Posgrado en Contrataciones Públicas","secretary":"Secretaría de Posgrado","activity_category":"seminar","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"posgradoderechouncuyo@derecho.uncu.edu.ar","meeting_url":"https://meet.google.com/iqb-qnfs-xfd","link_is_public":false,"more_info_url":"","requirements":"Cuenta posgradoderechouncuyo@derecho.uncu.edu.ar contraseña: administrativo2024+++ \nhttps://meet.google.com/iqb-qnfs-xfd","observations":"","recording_required":false,"source_uid":"1iisaa8lso89plrgih0gasfp6r@google.com-2026-11-18"},{"record_kind":"activity","date":"2026-11-27","end_date":"2026-11-27","start_time":"15:00","end_time":"19:00","name":"Maestría en Derecho del Trabajo","secretary":"Secretaría de Posgrado","activity_category":"masters","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","classroom":"Aula L","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Zoom","account_used":"zoomposgradoderecho@gmail.com","meeting_url":"https://us06web.zoom.us/j/86969228525","link_is_public":false,"more_info_url":"","requirements":"por la cuenta de zoom:zoomposgradoderecho@gmail.com \nFacultad de Derecho UNCuyo le está invitando a una reunión de Zoom programada.\nTema: Especialización y Maestría en Derecho de las Familias\nHora: Este es una reunión recurrente Reunirse en cualquier momento\nÚnase a la reunión de Zoom\nhttps://us06web.zoom.us/j/86969228525","observations":"","recording_required":false,"source_uid":"6v968tvdpdqlh6oj6oq620e35h@google.com-2026-11-27"}];
-
-
-const gradeSchedule2026Weekly = [{"id":"1tm-lun-historia","weekday":"MO","start_time":"08:45","end_time":"10:10","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-lun-politico","weekday":"MO","start_time":"10:15","end_time":"12:25","subject":"Derecho Político · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mar-politico","weekday":"TU","start_time":"08:45","end_time":"10:10","subject":"Derecho Político · TM","academic_year":"Primer año","classroom":"","activity_type":"virtual"},{"id":"1tm-mar-civil","weekday":"TU","start_time":"12:30","end_time":"13:55","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mie-historia","weekday":"WE","start_time":"08:45","end_time":"10:55","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-mie-civil","weekday":"WE","start_time":"11:00","end_time":"12:25","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-lun-politico","weekday":"MO","start_time":"16:15","end_time":"18:25","subject":"Derecho Político · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-lun-civil","weekday":"MO","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mar-politico","weekday":"TU","start_time":"17:00","end_time":"18:25","subject":"Derecho Político · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mar-civil","weekday":"TU","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mie-historia","weekday":"WE","start_time":"16:15","end_time":"18:25","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-mie-civil","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho Civil · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"2tm-lun-obligaciones","weekday":"MO","start_time":"09:30","end_time":"10:55","subject":"Derecho de las Obligaciones II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-lun-consumidor","weekday":"MO","start_time":"11:00","end_time":"13:10","subject":"Derecho del Consumidor y Defensa de la Competencia · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-lun-penal","weekday":"MO","start_time":"13:15","end_time":"15:25","subject":"Derecho Penal Parte General II · TM","academic_year":"Segundo año","classroom":"Aula F","activity_type":"presential"},{"id":"2tm-mar-finanzas","weekday":"TU","start_time":"08:00","end_time":"09:25","subject":"Finanzas Públicas y Derecho Tributario · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-ingles3","weekday":"TU","start_time":"09:30","end_time":"10:55","subject":"Inglés III · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-obligaciones","weekday":"TU","start_time":"11:00","end_time":"12:25","subject":"Derecho de las Obligaciones II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mar-penal","weekday":"TU","start_time":"12:30","end_time":"13:55","subject":"Derecho Penal Parte General II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mie-finanzas","weekday":"WE","start_time":"08:00","end_time":"10:10","subject":"Finanzas Públicas y Derecho Tributario · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-mie-pps2","weekday":"WE","start_time":"10:15","end_time":"12:25","subject":"Práctica Profesional Supervisada II · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"3-lun-comercial2","weekday":"MO","start_time":"14:45","end_time":"16:10","subject":"Derecho Comercial y Societario II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-lun-contratos2","weekday":"MO","start_time":"16:15","end_time":"17:40","subject":"Contratos Civiles y Comerciales II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-lun-pps4","weekday":"MO","start_time":"17:45","end_time":"19:55","subject":"Práctica Profesional Supervisada IV","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mar-contratos2","weekday":"TU","start_time":"16:15","end_time":"17:40","subject":"Contratos Civiles y Comerciales II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mar-mediacion1","weekday":"TU","start_time":"17:45","end_time":"19:55","subject":"Mediación I","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mie-penal-especial2","weekday":"WE","start_time":"16:15","end_time":"17:40","subject":"Derecho Penal Parte Especial II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-mie-filosofia","weekday":"WE","start_time":"17:45","end_time":"19:55","subject":"Filosofía del Derecho","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"opt-mar-salud","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho de la Salud y Responsabilidad Médica","academic_year":"Optativa","classroom":"Aula C","activity_type":"presential"},{"id":"opt-mie-criminologia","weekday":"WE","start_time":"14:00","end_time":"16:10","subject":"Criminología","academic_year":"Optativa","classroom":"Aula E","activity_type":"presential"},{"id":"opt-mie-transporte","weekday":"WE","start_time":"14:00","end_time":"16:10","subject":"Derecho del Transporte","academic_year":"Optativa","classroom":"Aula K","activity_type":"hybrid"},{"id":"opt-mie-publico-prov","weekday":"WE","start_time":"16:00","end_time":"18:10","subject":"Derecho Público Provincial y Municipal","academic_year":"Optativa","classroom":"Aula K","activity_type":"hybrid"},{"id":"4-lun-familias","weekday":"MO","start_time":"14:45","end_time":"16:55","subject":"Derecho de las Familias","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-lun-procesal-esp","weekday":"MO","start_time":"17:00","end_time":"19:10","subject":"Derecho Procesal Civil y Comercial. Parte Especial","academic_year":"Cuarto año","classroom":"Aula F","activity_type":"presential"},{"id":"4-lun-concursal","weekday":"MO","start_time":"19:15","end_time":"20:40","subject":"Derecho Concursal","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-metodologia1","weekday":"TU","start_time":"16:15","end_time":"17:40","subject":"Metodología de la Investigación I","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-familias","weekday":"TU","start_time":"17:45","end_time":"19:10","subject":"Derecho de las Familias","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mar-concursal","weekday":"TU","start_time":"19:15","end_time":"20:40","subject":"Derecho Concursal","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-ddhh","weekday":"WE","start_time":"14:45","end_time":"16:55","subject":"Derechos Humanos","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-reales2","weekday":"WE","start_time":"17:00","end_time":"18:25","subject":"Derechos Reales II","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-mie-procesal-esp","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho Procesal Civil y Comercial. Parte Especial","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"opt-mar-aduanero","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Aduanero","academic_year":"Optativa","classroom":"Aula K","activity_type":"presential"},{"id":"opt-mar-prop-horiz","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Propiedad Horizontal y Conjuntos Inmobiliarios","academic_year":"Optativa","classroom":"Aula J","activity_type":"presential"},{"id":"opt-mar-proc-const","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Procesal Constitucional","academic_year":"Optativa","classroom":"Aula D","activity_type":"presential"},{"id":"opt-mar-informatico","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Informático","academic_year":"Optativa","classroom":"Aula M","activity_type":"presential"},{"id":"opt-mar-bancario","weekday":"TU","start_time":"14:00","end_time":"16:10","subject":"Derecho Bancario Bursátil y Seguros","academic_year":"Optativa","classroom":"Aula E","activity_type":"presential"},{"id":"5-lun-rec-naturales","weekday":"MO","start_time":"14:45","end_time":"16:55","subject":"Derecho de los Recursos Naturales, Aguas; y Protección del Medio Ambiente","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-lun-adm2","weekday":"MO","start_time":"17:00","end_time":"18:25","subject":"Derecho Administrativo II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mar-pps8","weekday":"TU","start_time":"14:00","end_time":"15:25","subject":"Práctica Profesional Supervisada VIII","academic_year":"Quinto año","classroom":"Aula L","activity_type":"presential"},{"id":"5-mar-int-priv","weekday":"TU","start_time":"15:30","end_time":"16:55","subject":"Derecho Internacional Privado","academic_year":"Quinto año","classroom":"Aula A","activity_type":"presential"},{"id":"5-mar-proc-penal2","weekday":"TU","start_time":"17:00","end_time":"19:10","subject":"Derecho Procesal Penal II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mar-metodologia2","weekday":"TU","start_time":"19:15","end_time":"20:40","subject":"Metodología de la Investigación II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mie-proc-penal2","weekday":"WE","start_time":"14:45","end_time":"16:10","subject":"Derecho Procesal Penal II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-mie-int-priv","weekday":"WE","start_time":"16:15","end_time":"18:25","subject":"Derecho Internacional Privado","academic_year":"Quinto año","classroom":"Aula F","activity_type":"presential"},{"id":"5-mie-rec-naturales","weekday":"WE","start_time":"18:30","end_time":"19:55","subject":"Derecho de los Recursos Naturales, Aguas; y Protección del Medio Ambiente","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"1tm-jue-ingles1","weekday":"TH","start_time":"08:45","end_time":"10:55","subject":"Inglés I · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tm-jue-civil","weekday":"TH","start_time":"11:00","end_time":"12:25","subject":"Derecho Civil · TM","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-jue-ingles1","weekday":"TH","start_time":"16:15","end_time":"18:25","subject":"Inglés I · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"1tt-jue-historia","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Historia de las Instituciones Argentinas y Latinoamericanas · TT","academic_year":"Primer año","classroom":"Aula A","activity_type":"presential"},{"id":"2tm-jue-ingles3","weekday":"TH","start_time":"09:30","end_time":"10:55","subject":"Inglés III · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"2tm-jue-consumidor","weekday":"TH","start_time":"11:00","end_time":"12:25","subject":"Derecho del Consumidor y Defensa de la Competencia · TM","academic_year":"Segundo año","classroom":"Aula B","activity_type":"presential"},{"id":"3-jue-penal-especial2","weekday":"TH","start_time":"15:30","end_time":"16:55","subject":"Derecho Penal Parte Especial II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-jue-comercial2","weekday":"TH","start_time":"17:00","end_time":"18:25","subject":"Derecho Comercial y Societario II","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"3-jue-filosofia","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Filosofía del Derecho","academic_year":"Tercer año","classroom":"Aula E","activity_type":"presential"},{"id":"4-jue-metodologia1","weekday":"TH","start_time":"14:45","end_time":"16:10","subject":"Metodología de la Investigación I","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-jue-reales2","weekday":"TH","start_time":"16:15","end_time":"17:40","subject":"Derechos Reales II","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"4-jue-pps6","weekday":"TH","start_time":"17:45","end_time":"19:55","subject":"Práctica Profesional Supervisada VI","academic_year":"Cuarto año","classroom":"Aula B","activity_type":"presential"},{"id":"5-jue-pps8","weekday":"TH","start_time":"14:45","end_time":"16:10","subject":"Práctica Profesional Supervisada VIII","academic_year":"Quinto año","classroom":"Aula L","activity_type":"presential"},{"id":"5-jue-adm2","weekday":"TH","start_time":"16:15","end_time":"18:25","subject":"Derecho Administrativo II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"},{"id":"5-jue-metodologia2","weekday":"TH","start_time":"18:30","end_time":"19:55","subject":"Metodología de la Investigación II","academic_year":"Quinto año","classroom":"Aula C","activity_type":"presential"}];
-
-const programs2026FromAugust16 = [{"record_kind":"activity","date":"2026-08-19","end_date":"2026-08-19","start_time":"","end_time":"","name":"Seminario · Derecho de Daños en las relaciones familiares · Daños y violencia de género familiar","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Dra. Marisa Herrera","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-08-19","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-08-19","end_date":"2026-08-19","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-19-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-19","end_date":"2026-08-19","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-19-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-21-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-21-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"15:00","end_time":"20:00","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Entrenamiento","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Gabriela Rodriguez Querejazu","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Presencial - Híbrido · UVyVID/U2E","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-08-21-entrenamiento","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"16:00","end_time":"20:30","name":"Maestría en Derecho de las Familias · Uniones convivenciales","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mariel Molina de Juan; Victoria Pellegrini; Victoria Schiro","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-08-21-uniones-convivenciales","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-21-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-21","end_date":"2026-08-21","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-21-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-22","end_date":"2026-08-22","start_time":"","end_time":"","name":"Maestría en Derecho de las Familias · Actividad integrativa de evaluación de saberes","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-08-22-actividad-integrativa-de-evaluaci-n-de-saberes","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-08-22","end_date":"2026-08-22","start_time":"08:30","end_time":"13:30","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Entrenamiento","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Gabriela Rodriguez Querejazu","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Presencial - Híbrido · UVyVID/U2E","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-08-22-entrenamiento","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-08-22","end_date":"2026-08-22","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Uniones convivenciales","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mariel Molina de Juan; Fabian Faraoni; Olga Orlandi","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-08-22-uniones-convivenciales","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-08-26","end_date":"2026-08-26","start_time":"","end_time":"","name":"Diplomatura de Posgrado en Derechos de las Personas con Discapacidad · Derecho a la educación","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Lic. Diana Ruiz","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clase virtual y sincrónica · Duración indicada en cronograma: 2 horas. Horario no informado en la fuente.","observations":"","recording_required":false,"source_uid":"diplo-discapacidad-2026-2026-08-26-derecho-a-la-educaci-n","calendar_source":"Cronograma Diplomatura Discapacidad 2026"},{"record_kind":"activity","date":"2026-08-26","end_date":"2026-08-26","start_time":"","end_time":"","name":"Seminario · Derecho de Daños en las relaciones familiares · Cuantificación del daño en las relaciones familiares","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Dr. Fernando Márquez","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-08-26","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-08-26","end_date":"2026-08-26","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-26-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-26","end_date":"2026-08-26","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-26-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-28","end_date":"2026-08-28","start_time":"08:30","end_time":"13:30","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Entrenamiento","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Lorena Sorrentino","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Sincrónico · UXID/U4E","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-08-28-entrenamiento","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-08-28","end_date":"2026-08-28","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-28-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-28","end_date":"2026-08-28","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-28-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-28","end_date":"2026-08-28","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-28-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-08-28","end_date":"2026-08-28","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-08-28-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"","end_time":"","name":"Seminario · Derecho de Daños en las relaciones familiares · Daños en la filiación","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mgter. Natalia De la Torre","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-09-02","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-02-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-02","end_date":"2026-09-02","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-02-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-04-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-04-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"15:00","end_time":"20:00","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Entrenamiento","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Patricia Aréchaga","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Presencial - Híbrida · UVIIID/U5E","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-09-04-entrenamiento","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"16:00","end_time":"20:30","name":"Maestría en Derecho de las Familias · Divorcio","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mariel Molina de Juan; Carlos Neirotti; Ana María Chechile","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-09-04-divorcio","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-04-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-04","end_date":"2026-09-04","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-04-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-05","end_date":"2026-09-05","start_time":"08:30","end_time":"13:30","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Entrenamiento","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Patricia Aréchaga","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Presencial - Híbrida · UVIIID/U5E","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-09-05-entrenamiento","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-09-05","end_date":"2026-09-05","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Protección de la vivienda familiar","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mariel Molina de Juan; Ana Peracca; Gustavo Nadalini","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-09-05-protecci-n-de-la-vivienda-familiar","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"","end_time":"","name":"Seminario · Derecho de Daños en las relaciones familiares · Daños y acciones en el proceso de familia","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Dra. Adriana Krasnow","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-09-09","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-09-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-09","end_date":"2026-09-09","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-09-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-11","end_date":"2026-09-11","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-11-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-11","end_date":"2026-09-11","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-11-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-11","end_date":"2026-09-11","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-11-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-11","end_date":"2026-09-11","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-11-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-15","end_date":"2026-09-15","start_time":"","end_time":"","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Presentación de bitácora de aprendizaje","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Modalidad y horario no informados en el cronograma.","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-09-15-presentaci-n-de-bit-cora-de-aprendizaje","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-09-16","end_date":"2026-09-16","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-16-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-16","end_date":"2026-09-16","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-16-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-18","end_date":"2026-09-18","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-18-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-18","end_date":"2026-09-18","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-18-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-18","end_date":"2026-09-18","start_time":"16:00","end_time":"20:30","name":"Maestría en Derecho de las Familias · Derecho sucesorio en las relaciones de familia","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Fernando Perez Lasala","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-09-18-derecho-sucesorio-en-las-relaciones-de-familia","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-18","end_date":"2026-09-18","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-18-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-18","end_date":"2026-09-18","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-18-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-19","end_date":"2026-09-19","start_time":"","end_time":"","name":"Maestría en Derecho de las Familias · Actividad integrativa de evaluación de saberes","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-09-19-actividad-integrativa-de-evaluaci-n-de-saberes","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-19","end_date":"2026-09-19","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Derecho sucesorio en las relaciones de familia","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mariana Iglesias","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-09-19-derecho-sucesorio-en-las-relaciones-de-familia","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-23","end_date":"2026-09-23","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-23-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-23","end_date":"2026-09-23","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-23-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-25","end_date":"2026-09-25","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-25-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-25","end_date":"2026-09-25","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-25-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-25","end_date":"2026-09-25","start_time":"15:00","end_time":"20:00","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Pasantía · Taller presencial","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Natalia Illuminati; Sara Curi; Lorena Sorrentino; Cecilia Nuñez","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Taller presencial.","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-09-25-pasant-a-taller-presencial","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-09-25","end_date":"2026-09-25","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-25-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-25","end_date":"2026-09-25","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-25-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"","end_time":"","name":"Diplomatura de Posgrado en Derechos de las Personas con Discapacidad · Derecho a la educación","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Lic. Diana Ruiz","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clase virtual y sincrónica · Duración indicada en cronograma: 2 horas. Horario no informado en la fuente.","observations":"","recording_required":false,"source_uid":"diplo-discapacidad-2026-2026-09-30-derecho-a-la-educaci-n","calendar_source":"Cronograma Diplomatura Discapacidad 2026"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"","end_time":"","name":"Seminario · Transdisciplina en el Derecho Familiar · Violencia sexual en las infancias","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mgter. Gabriela Varas","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-09-30","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-30-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-09-30","end_date":"2026-09-30","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-09-30-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-02","end_date":"2026-10-02","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-02-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-02","end_date":"2026-10-02","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-02-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-02","end_date":"2026-10-02","start_time":"16:00","end_time":"20:30","name":"Maestría en Derecho de las Familias · Abogado del NNA","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mariana Rey Galindo; Sonia Seba","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-10-02-abogado-del-nna","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-02","end_date":"2026-10-02","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-02-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-02","end_date":"2026-10-02","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-02-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-03","end_date":"2026-10-03","start_time":"","end_time":"","name":"Maestría en Derecho de las Familias · Actividad integrativa de evaluación de saberes","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-10-03-actividad-integrativa-de-evaluaci-n-de-saberes","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-03","end_date":"2026-10-03","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Ministerio Público de la Defensa en los procesos de familia","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Nadia Tordi; Natalia Juan","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-10-03-ministerio-p-blico-de-la-defensa-en-los-procesos-de-familia","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-07","end_date":"2026-10-07","start_time":"","end_time":"","name":"Seminario · Transdisciplina en el Derecho Familiar · Niños y adolescentes con TEA como sujetos de protección","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Fabiana Molina; Viviana Rios","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-10-07","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-07","end_date":"2026-10-07","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-07-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-07","end_date":"2026-10-07","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-07-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-09","end_date":"2026-10-09","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-09-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-09","end_date":"2026-10-09","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-09-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-09","end_date":"2026-10-09","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-09-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-09","end_date":"2026-10-09","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-09-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-14","end_date":"2026-10-14","start_time":"","end_time":"","name":"Seminario · Transdisciplina en el Derecho Familiar · Pericias y organismos auxiliares de la justicia","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Lic. Claudia Canafoglia; Lic. Gonzalo Cuello","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-10-14","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-14","end_date":"2026-10-14","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-14-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-14","end_date":"2026-10-14","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-14-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-16","end_date":"2026-10-16","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-16-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-16","end_date":"2026-10-16","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-16-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-16","end_date":"2026-10-16","start_time":"16:00","end_time":"20:30","name":"Maestría en Derecho de las Familias · Medidas cautelares","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Nadia Tordi; Silvia Guahnon","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-10-16-medidas-cautelares","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-16","end_date":"2026-10-16","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-16-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-16","end_date":"2026-10-16","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-16-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-17","end_date":"2026-10-17","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Prueba electrónica en los procesos de familia","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Nadia Tordi; Juan Manuel Lezcano; Mariela Cano","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-10-17-prueba-electr-nica-en-los-procesos-de-familia","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"","end_time":"","name":"Diplomatura de Posgrado en Derechos de las Personas con Discapacidad · Derechos familiares, hereditarios y a la salud","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Dra. Mariel Molina","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clase virtual y sincrónica · Duración indicada en cronograma: 2 horas. Horario no informado en la fuente.","observations":"","recording_required":false,"source_uid":"diplo-discapacidad-2026-2026-10-21-derechos-familiares-hereditarios-y-a-la-salud","calendar_source":"Cronograma Diplomatura Discapacidad 2026"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"","end_time":"","name":"Seminario · Transdisciplina en el Derecho Familiar · Violencia de género: abordaje, estereotipos y proyecciones judiciales","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Lic. Chiambrano Mariana; Lic. Patricia Moles","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-10-21","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-21-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-21","end_date":"2026-10-21","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-21-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-23","end_date":"2026-10-23","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-23-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-23","end_date":"2026-10-23","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-23-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-23","end_date":"2026-10-23","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-23-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-23","end_date":"2026-10-23","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-23-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-28","end_date":"2026-10-28","start_time":"","end_time":"","name":"Seminario · Transdisciplina en el Derecho Familiar · Situación de las infancias en Argentina","secretary":"Secretaría de Posgrado","activity_category":"seminar","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Dr. Javier Quesada","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Seminarios 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-seminario-2026-2026-10-28","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-10-28","end_date":"2026-10-28","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-28-miercoles-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-28","end_date":"2026-10-28","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Las 6 comisiones cursan virtualmente los miércoles.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-28-miercoles-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-30","end_date":"2026-10-30","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-30-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-30","end_date":"2026-10-30","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-30-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-30","end_date":"2026-10-30","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-30-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-30","end_date":"2026-10-30","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-10-30-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-10-31","end_date":"2026-10-31","start_time":"09:00","end_time":"12:00","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Residencia · Taller sincrónico","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Natalia Illuminati; Sara Curi; Lorena Sorrentino; Cecilia Nuñez","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Taller sincrónico.","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-10-31-residencia-taller-sincr-nico","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-11-05","end_date":"2026-11-05","start_time":"15:30","end_time":"20:30","name":"Maestría en Derecho de las Familias · Principios del proceso de familia","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Nadia Tordi; Ana Clara Pauletti","responsible_is_public":false,"public_responsible":"","classroom":"Aula Magna","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-05-principios-del-proceso-de-familia","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-06","end_date":"2026-11-06","start_time":"08:30","end_time":"20:30","name":"Maestría en Derecho de las Familias · Principios del proceso de familia · Recursos en el proceso de familia","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Ana Clara Pauletti; Delicia Ruggeri; Germán Ferrer","responsible_is_public":false,"public_responsible":"","classroom":"Aula Magna","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias · Jornada presencial con bloques 08:30–13:00 y 15:30–20:30.","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-06-principios-del-proceso-de-familia-recursos-en-el-proceso-de-familia","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-06","end_date":"2026-11-06","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-06-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-06","end_date":"2026-11-06","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-06-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-06","end_date":"2026-11-06","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-06-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-06","end_date":"2026-11-06","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-06-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-07","end_date":"2026-11-07","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Procesos especiales","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Carlos Neirotti","responsible_is_public":false,"public_responsible":"","classroom":"Aula Magna","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-07-procesos-especiales","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-11","end_date":"2026-11-11","start_time":"","end_time":"","name":"Maestría en Derecho de las Familias · Taller de Metodología y argumentación jurídica","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Roberta Simone Bergamaschi","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-11-taller-de-metodolog-a-y-argumentaci-n-jur-dica","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-13","end_date":"2026-11-13","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-13-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-13","end_date":"2026-11-13","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-13-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-13","end_date":"2026-11-13","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-13-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-13","end_date":"2026-11-13","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-13-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-18","end_date":"2026-11-18","start_time":"","end_time":"","name":"Maestría en Derecho de las Familias · Taller de Metodología y argumentación jurídica","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Roberta Simone Bergamaschi","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-18-taller-de-metodolog-a-y-argumentaci-n-jur-dica","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-20","end_date":"2026-11-20","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 1 · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 1 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-20-viernes-c1-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-20","end_date":"2026-11-20","start_time":"10:00","end_time":"12:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno mañana","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-20-viernes-otras-manana","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-20","end_date":"2026-11-20","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Comisión 3 · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula B","activity_type":"hybrid","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Comisión 3 híbrida. Enlace y cuenta pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-20-viernes-c3-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-20","end_date":"2026-11-20","start_time":"18:00","end_time":"20:00","name":"Ingreso 2027 · Modalidad extensiva · Otras comisiones · Turno tarde","secretary":"Secretaría Académica","activity_category":"class","activity_category_custom":"","academic_activity_type":"class","career":"Abogacía","academic_year":"Primer año","subject":"Ingreso","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"Aula a confirmar","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clases presenciales. Aulas y distribución de comisiones pendientes de carga.","observations":"","recording_required":false,"source_uid":"ingreso-extensivo-2027-2026-11-20-viernes-otras-tarde","calendar_source":"Modalidad Extensiva – Curso de Ingreso 2027"},{"record_kind":"activity","date":"2026-11-24","end_date":"2026-11-24","start_time":"","end_time":"","name":"Diplomatura de Posgrado en Derechos de las Personas con Discapacidad · Capacidad civil, acceso a la justicia y sistema penal","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Mgter. Elizabeth Ornat","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"Google Meet","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Clase virtual y sincrónica · Duración indicada en cronograma: 2 horas. Horario no informado en la fuente.","observations":"","recording_required":false,"source_uid":"diplo-discapacidad-2026-2026-11-24-capacidad-civil-acceso-a-la-justicia-y-sistema-penal","calendar_source":"Cronograma Diplomatura Discapacidad 2026"},{"record_kind":"activity","date":"2026-11-27","end_date":"2026-11-27","start_time":"16:00","end_time":"20:00","name":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos · Residencia · Taller presencial y ágape","secretary":"Secretaría de Posgrado","activity_category":"diploma","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Natalia Illuminati; Sara Curi; Lorena Sorrentino; Cecilia Nuñez","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"presential","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Taller presencial + ágape.","observations":"","recording_required":false,"source_uid":"diplo-mediacion-2026-2026-11-27-residencia-taller-presencial-y-gape","calendar_source":"Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026"},{"record_kind":"activity","date":"2026-11-27","end_date":"2026-11-27","start_time":"16:00","end_time":"20:30","name":"Maestría en Derecho de las Familias · Resolución no contenciosa de los conflictos familiares","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Nadia Tordi; Roberta Simone Bergamaschi; Agustina O´Donnell","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-27-resoluci-n-no-contenciosa-de-los-conflictos-familiares","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-28","end_date":"2026-11-28","start_time":"","end_time":"","name":"Maestría en Derecho de las Familias · Actividad integrativa de evaluación de saberes","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-28-actividad-integrativa-de-evaluaci-n-de-saberes","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"},{"record_kind":"activity","date":"2026-11-28","end_date":"2026-11-28","start_time":"08:30","end_time":"13:00","name":"Maestría en Derecho de las Familias · Rol del abogado/a","secretary":"Secretaría de Posgrado","activity_category":"masters","activity_category_custom":"","academic_activity_type":"","career":"","academic_year":"","subject":"","responsible":"Nadia Tordi; Esteban de la Torre; Carolina Duprat","responsible_is_public":false,"public_responsible":"","classroom":"","activity_type":"virtual","activity_status":"scheduled","postponed_date":"","postponed_date_tbd":false,"platform":"","account_used":"","meeting_url":"","link_is_public":false,"more_info_url":"","requirements":"Cronograma 2026 · Especialización y Maestría en Derecho de las Familias","observations":"","recording_required":false,"source_uid":"familias-2026-2026-11-28-rol-del-abogado-a","calendar_source":"CRONOGRAMA ESP y MAESTRÍA FLIAS 2026"}];
-
-
-const pregradeBuildingSchedule2026Weekly = [
-  { id: "lun-ingles1", weekday: "MO", start_time: "14:45", end_time: "16:55", subject: "Inglés I", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "lun-problematica", weekday: "MO", start_time: "17:00", end_time: "18:25", subject: "Problemática de la Comunicación", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "lun-fundamentos2", weekday: "MO", start_time: "18:30", end_time: "20:30", subject: "Fundamentos del Derecho II", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "mar-psicologia", weekday: "TU", start_time: "14:45", end_time: "16:55", subject: "Psicología Social", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "mar-contables2", weekday: "TU", start_time: "17:00", end_time: "19:10", subject: "Introducciones Contables II", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "mar-estructura-asincronica", weekday: "TU", start_time: "19:15", end_time: "20:30", subject: "Estructura Edilicia", classroom: "", activity_type: "virtual", platform: "Aula Virtual", notes: "Clase virtual asincrónica" },
-  { id: "mie-psicologia", weekday: "WE", start_time: "15:30", end_time: "16:55", subject: "Psicología Social", classroom: "", activity_type: "virtual", platform: "Google Meet" },
-  { id: "mie-problematica", weekday: "WE", start_time: "17:00", end_time: "19:10", subject: "Problemática de la Comunicación", classroom: "", activity_type: "virtual", platform: "Google Meet" },
-  { id: "jue-contables2", weekday: "TH", start_time: "14:45", end_time: "16:10", subject: "Introducciones Contables II", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "jue-estructura", weekday: "TH", start_time: "16:15", end_time: "18:25", subject: "Estructura Edilicia", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "jue-fundamentos2", weekday: "TH", start_time: "18:30", end_time: "19:55", subject: "Fundamentos del Derecho II", classroom: "Aula I", activity_type: "presential", platform: "" },
-  { id: "vie-practica2", weekday: "FR", start_time: "15:30", end_time: "16:55", subject: "Práctica Profesional II", classroom: "Aula I", activity_type: "presential", platform: "" }
-];
-
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], totalEventCount: 0, user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", calendarConfig: null, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false, mediationCenterBulkLoaded: false, programsBulkLoaded: false, ingreso2027UpdateLoaded: false, pregradeScheduleBulkLoaded: false };
+const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], totalEventCount: 0, user: null, canEdit: false, filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", searchTerms: [], calendarConfig: null, calendarMetaLoaded: false, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false, mediationCenterBulkLoaded: false, programsBulkLoaded: false, ingreso2027UpdateLoaded: false, pregradeScheduleBulkLoaded: false, dayIndex: new Map(), visibleFilteredItems: [], suspensionIndex: new Map(), rangeCache: new Map(), privateCache: new Map(), periodCache: { at: 0, records: [] } };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -218,14 +176,6 @@ const activityDialog = el("activityDialog");
 const importDialog = el("importDialog");
 const detailDialog = el("detailDialog");
 const calendarDialog = el("calendarDialog");
-const bulkDatesDialog = el("bulkDatesDialog");
-const hibridacionesDialog = el("hibridacionesDialog");
-const gradeScheduleDialog = el("gradeScheduleDialog");
-const pregradeScheduleDialog = el("pregradeScheduleDialog");
-const legalClinicsDialog = el("legalClinicsDialog");
-const mediationCenterDialog = el("mediationCenterDialog");
-const programsDialog = el("programsDialog");
-const ingreso2027Dialog = el("ingreso2027Dialog");
 const reportDialog = el("reportDialog");
 
 function localDate(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
@@ -236,8 +186,10 @@ function addMonths(date, amount) { return new Date(date.getFullYear(), date.getM
 function toISODate(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 function fromISODate(value) { const [year, month, day] = value.split("-").map(Number); return new Date(year, month - 1, day); }
 function titleCase(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : ""; }
-function weekday(date, format = "long") { return titleCase(new Intl.DateTimeFormat(locale, { weekday: format }).format(date)); }
-function formatDate(date, options) { return new Intl.DateTimeFormat(locale, options).format(date); }
+const dateFormatterCache = new Map();
+function cachedDateFormatter(options) { const key = JSON.stringify(options || {}); if (!dateFormatterCache.has(key)) dateFormatterCache.set(key, new Intl.DateTimeFormat(locale, options)); return dateFormatterCache.get(key); }
+function weekday(date, format = "long") { return titleCase(cachedDateFormatter({ weekday: format }).format(date)); }
+function formatDate(date, options) { return cachedDateFormatter(options).format(date); }
 function cleanTime(value) { return (value || "").slice(0, 5); }
 function hasScheduledTime(item) { return Boolean(cleanTime(item?.start_time) && cleanTime(item?.end_time)); }
 function timeRangeLabel(item) { return hasScheduledTime(item) ? `${cleanTime(item.start_time)}–${cleanTime(item.end_time)}` : "Horario a confirmar"; }
@@ -376,14 +328,11 @@ function isSuspensionImmuneActivity(item) {
 }
 function suspensionPeriodForActivity(item) {
   if (!item || isImportantPeriod(item) || isSuspensionImmuneActivity(item)) return null;
-  // Las actividades virtuales y telefónicas continúan aunque exista una suspensión
-  // institucional de turno o de día completo.
   if (isVirtual(item) || isTelephone(item)) return null;
   const key = String(item.date || "");
   if (!key) return null;
-  return (state.allActivities || []).find((period) => {
-    if (!isImportantPeriod(period) || periodTypeKey(period) !== "suspension") return false;
-    if (!(period.date <= key && activityEndDate(period) >= key)) return false;
+  const candidates = state.suspensionIndex.get(key) || [];
+  return candidates.find((period) => {
     if (!suspensionTargetsAllActivities(period) && !["class", "open_class"].includes(activityCategoryKey(item))) return false;
     return activityMatchesSuspensionScope(item, period);
   }) || null;
@@ -522,9 +471,11 @@ function normalizeSearchText(value) {
     .replace(/\s+/g, " ")
     .trim();
 }
+const searchableTextCache = new WeakMap();
 function searchableTextForItem(item) {
+  if (item && typeof item === "object" && searchableTextCache.has(item)) return searchableTextCache.get(item);
   const rawValues = Object.values(item || {}).filter((value) => typeof value === "string" || typeof value === "number");
-  return normalizeSearchText([
+  const text = normalizeSearchText([
     ...rawValues,
     displayOrganizer(item),
     activityDescriptor(item),
@@ -533,11 +484,15 @@ function searchableTextForItem(item) {
     isImportantPeriod(item) ? periodTypeLabel(item) : "",
     isImportantPeriod(item) ? importantPeriodStatus(item) : ""
   ].filter(Boolean).join(" "));
+  if (item && typeof item === "object") searchableTextCache.set(item, text);
+  return text;
 }
+function updateSearchTerms() { state.searchTerms = normalizeSearchText(state.searchQuery).split(" ").filter(Boolean); }
 function matchesSearch(item) {
-  const query = normalizeSearchText(state.searchQuery);
-  if (!query) return true;
-  return query.split(" ").filter(Boolean).every((term) => searchableTextForItem(item).includes(term));
+  const terms = state.searchTerms || [];
+  if (!terms.length) return true;
+  const haystack = searchableTextForItem(item);
+  return terms.every((term) => haystack.includes(term));
 }
 function activityAudienceKey(item) {
   if (isImportantPeriod(item)) return "general";
@@ -612,6 +567,7 @@ function restoreViewPreferences() {
     const audienceValues = new Set(["pregrado", "grado", "posgrado", "general"]);
     if (Array.isArray(saved?.audienceFilters)) state.audienceFilters = new Set(saved.audienceFilters.filter((value) => audienceValues.has(value)));
     state.searchQuery = typeof saved?.searchQuery === "string" ? saved.searchQuery : "";
+    updateSearchTerms();
   } catch (_) { /* Si hay preferencias antiguas o dañadas, se usan los valores por defecto. */ }
 }
 
@@ -661,17 +617,43 @@ async function init() {
   bindEvents();
   applyViewStateUI();
   if (configured) {
-    await setPersistence(auth, browserLocalPersistence).catch(() => {});
-    onAuthStateChanged(auth, async (user) => {
-      state.user = user;
-      state.canEdit = Boolean(user && String(user.email || "").trim().toLowerCase() === adminEmail);
-      updateAuthUI();
-      await loadPeriod();
-    });
+    updateAuthUI();
+    await loadPeriod();
+    // Authentication is intentionally loaded after the public agenda is painted.
+    // This keeps the critical path small for the vast majority of visitors.
+    initAuth().catch((error) => console.warn("Auth init", error));
   } else {
     updateAuthUI();
     status.textContent = "La agenda no tiene configurada la conexión con Firebase.";
   }
+}
+
+async function ensureAuth() {
+  if (!configured) return null;
+  if (auth && authApi) return { auth, api: authApi };
+  if (!authInitPromise) {
+    authInitPromise = import("https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js").then(async (api) => {
+      authApi = api;
+      auth = api.getAuth(firebaseApp);
+      await api.setPersistence(auth, api.browserLocalPersistence).catch(() => {});
+      return { auth, api };
+    });
+  }
+  return authInitPromise;
+}
+
+async function initAuth() {
+  const loaded = await ensureAuth();
+  if (!loaded) return;
+  loaded.api.onAuthStateChanged(loaded.auth, (user) => {
+    const wasEditor = state.canEdit;
+    state.user = user;
+    state.canEdit = Boolean(user && String(user.email || "").trim().toLowerCase() === adminEmail);
+    if (!state.canEdit && wasEditor) state.privateCache.clear();
+    updateAuthUI();
+      // No Firebase reload is needed: private fields are fetched lazily only when opened.
+    render();
+  });
 }
 
 function bindEvents() {
@@ -685,8 +667,10 @@ function bindEvents() {
   document.querySelectorAll(".view-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncViewFilters));
   document.querySelectorAll(".audience-filter-check").forEach((checkbox) => checkbox.addEventListener("change", syncAudienceFilters));
   const searchInput = el("agendaSearch");
-  const applySearch = () => { state.searchQuery = searchInput.value; saveViewPreferences(); render(); };
-  searchInput.addEventListener("input", applySearch);
+  let searchTimer = 0;
+  const applySearch = () => { state.searchQuery = searchInput.value; updateSearchTerms(); saveViewPreferences(); render(); };
+  const scheduleSearch = () => { clearTimeout(searchTimer); searchTimer = window.setTimeout(applySearch, 140); };
+  searchInput.addEventListener("input", scheduleSearch);
   searchInput.addEventListener("search", applySearch);
   searchInput.addEventListener("change", applySearch);
   searchInput.addEventListener("keydown", (event) => {
@@ -694,15 +678,6 @@ function bindEvents() {
   });
   el("newActivity").addEventListener("click", () => openActivityForm());
   el("updateCalendar").addEventListener("click", openCalendarForm);
-  el("bulkAcademicDates").addEventListener("click", openBulkAcademicDates);
-  el("cleanupAgenda").addEventListener("click", cleanupAgendaKeepingAcademicDates);
-  el("bulkHibridaciones").addEventListener("click", openBulkHibridaciones);
-  el("bulkGradeSchedule").addEventListener("click", openBulkGradeSchedule);
-  el("bulkPregradeSchedule").addEventListener("click", openBulkPregradeSchedule);
-  el("bulkLegalClinics").addEventListener("click", openBulkLegalClinics);
-  el("bulkMediationCenter").addEventListener("click", openBulkMediationCenter);
-  el("bulkPrograms").addEventListener("click", openBulkPrograms);
-  el("updateIngreso2027").addEventListener("click", openIngreso2027Update);
   el("downloadReport").addEventListener("click", openReportForm);
   el("importCalendar").addEventListener("click", openImportForm);
   el("authButton").addEventListener("click", handleAuthButton);
@@ -710,14 +685,6 @@ function bindEvents() {
   el("activityForm").addEventListener("submit", saveActivity);
   el("importForm").addEventListener("submit", importCalendarFile);
   el("calendarForm").addEventListener("submit", saveCalendarConfig);
-  el("bulkDatesForm").addEventListener("submit", saveBulkAcademicDates);
-  el("hibridacionesForm").addEventListener("submit", saveBulkHibridaciones);
-  el("gradeScheduleForm").addEventListener("submit", saveBulkGradeSchedule);
-  el("pregradeScheduleForm").addEventListener("submit", saveBulkPregradeSchedule);
-  el("legalClinicsForm").addEventListener("submit", saveBulkLegalClinics);
-  el("mediationCenterForm").addEventListener("submit", saveBulkMediationCenter);
-  el("programsForm").addEventListener("submit", saveBulkPrograms);
-  el("ingreso2027Form").addEventListener("submit", saveIngreso2027Update);
   el("reportForm").addEventListener("submit", generateReportPdf);
   el("reportPeriodType").addEventListener("change", updateReportFormFields);
   el("reportOutputType").addEventListener("change", updateReportFormFields);
@@ -738,9 +705,11 @@ function bindEvents() {
   el("periodType").addEventListener("change", () => { syncPeriodOrganizer(); toggleSuspensionScopeField(); });
   el("icsFile").addEventListener("change", () => { el("icsFileName").textContent = el("icsFile").files[0]?.name || "Ningún archivo seleccionado"; });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => el(button.dataset.close).close()));
-  [importDialog, detailDialog, calendarDialog, reportDialog, bulkDatesDialog, hibridacionesDialog, gradeScheduleDialog, pregradeScheduleDialog, legalClinicsDialog, mediationCenterDialog, programsDialog, ingreso2027Dialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
+  [importDialog, detailDialog, calendarDialog, reportDialog].forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
   activityDialog.addEventListener("cancel", (event) => event.preventDefault());
-  setInterval(() => { if (!document.hidden) render(); }, 60000);
+  setInterval(() => { if (!document.hidden && state.view === "day") render(); }, 60000);
+  const monthMedia = window.matchMedia("(min-width: 901px)");
+  monthMedia.addEventListener?.("change", () => { if (state.view === "month") render(); });
 }
 
 function syncViewFilters() {
@@ -893,75 +862,13 @@ function updateAuthUI() {
     button.title = "Administración";
   }
   document.querySelectorAll(".editor-only").forEach((node) => { node.hidden = !state.canEdit; });
-  updateBulkAcademicDatesVisibility();
-  updateCleanupAgendaVisibility();
-  updateBulkHibridacionesVisibility();
-  updateBulkGradeScheduleVisibility();
-  updateBulkPregradeScheduleVisibility();
-  updateBulkLegalClinicsVisibility();
-  updateBulkMediationCenterVisibility();
-  updateBulkProgramsVisibility();
-  updateIngreso2027Visibility();
-}
-
-function updateBulkAcademicDatesVisibility() {
-  const button = el("bulkAcademicDates");
-  if (!button) return;
-  button.hidden = !state.canEdit || state.academicCalendarBulkLoaded;
-}
-
-function updateCleanupAgendaVisibility() {
-  const button = el("cleanupAgenda");
-  if (!button) return;
-  button.hidden = !state.canEdit || !state.academicCalendarBulkLoaded || state.academicCalendarCleanupDone || state.hibridacionesBulkLoaded;
-}
-
-function updateBulkHibridacionesVisibility() {
-  const button = el("bulkHibridaciones");
-  if (!button) return;
-  button.hidden = !state.canEdit || !state.academicCalendarCleanupDone || state.hibridacionesBulkLoaded;
-}
-
-function updateBulkGradeScheduleVisibility() {
-  const button = el("bulkGradeSchedule");
-  if (!button) return;
-  button.hidden = !state.canEdit || !state.academicCalendarCleanupDone || !state.hibridacionesBulkLoaded || state.gradeScheduleBulkLoaded;
-}
-
-function updateBulkPregradeScheduleVisibility() {
-  const button = el("bulkPregradeSchedule");
-  if (!button) return;
-  button.hidden = !state.canEdit || state.pregradeScheduleBulkLoaded;
-}
-
-function updateBulkLegalClinicsVisibility() {
-  const button = el("bulkLegalClinics");
-  if (!button) return;
-  button.hidden = !state.canEdit || state.legalClinicsBulkLoaded;
-}
-
-function updateBulkMediationCenterVisibility() {
-  const button = el("bulkMediationCenter");
-  if (!button) return;
-  button.hidden = !state.canEdit || state.mediationCenterBulkLoaded;
-}
-
-function updateBulkProgramsVisibility() {
-  const button = el("bulkPrograms");
-  if (!button) return;
-  button.hidden = !state.canEdit || state.programsBulkLoaded;
-}
-
-function updateIngreso2027Visibility() {
-  const button = el("updateIngreso2027");
-  if (!button) return;
-  button.hidden = !state.canEdit || !state.programsBulkLoaded || state.ingreso2027UpdateLoaded;
 }
 
 async function handleLogout() {
   if (!configured || !state.user) return;
   try {
-    await signOut(auth);
+    const loaded = await ensureAuth();
+    await loaded.api.signOut(loaded.auth);
     showToast("Sesión de administración cerrada");
   } catch (error) {
     alert(`No se pudo cerrar sesión. ${friendlyError(error)}`);
@@ -971,17 +878,18 @@ async function handleLogout() {
 async function handleAuthButton() {
   if (!configured) return;
   try {
+    const loaded = await ensureAuth();
     if (state.user) {
-      await signOut(auth);
+      await loaded.api.signOut(loaded.auth);
       showToast("Sesión de administración cerrada");
       return;
     }
-    const provider = new GoogleAuthProvider();
+    const provider = new loaded.api.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    const result = await signInWithPopup(auth, provider);
+    const result = await loaded.api.signInWithPopup(loaded.auth, provider);
     const email = String(result.user?.email || "").trim().toLowerCase();
     if (email !== adminEmail) {
-      await signOut(auth);
+      await loaded.api.signOut(loaded.auth);
       alert("Esta cuenta no tiene permisos para administrar la agenda.");
     }
   } catch (error) {
@@ -1035,23 +943,54 @@ function periodRange() {
   return { start: gridStart, end: gridEnd, visibleStart: monthStart, visibleEnd };
 }
 
+async function fetchPrivateRecord(id) {
+  if (!state.canEdit || !id) return null;
+  if (state.privateCache.has(id)) return state.privateCache.get(id);
+  const snapshot = await getDoc(doc(db, privateActivitiesCollection, id));
+  const data = snapshot.exists() ? snapshot.data() : {};
+  state.privateCache.set(id, data);
+  return data;
+}
+
 async function fetchPrivateRecordsForPublicRecords(records) {
   if (!state.canEdit || !records.length) return records;
   const ids = records.map((record) => record.id).filter(Boolean);
   const privateById = new Map();
-  // Firestore admite hasta 30 valores por consulta `in`.
-  for (let index = 0; index < ids.length; index += 30) {
-    const chunk = ids.slice(index, index + 30);
-    if (!chunk.length) continue;
-    const snapshot = await getDocs(query(collection(db, privateActivitiesCollection), where(documentId(), "in", chunk)));
-    snapshot.docs.forEach((record) => privateById.set(record.id, record.data()));
+  const missing = [];
+  ids.forEach((id) => { if (state.privateCache.has(id)) privateById.set(id, state.privateCache.get(id)); else missing.push(id); });
+  const jobs = [];
+  for (let index = 0; index < missing.length; index += 30) {
+    const chunk = missing.slice(index, index + 30);
+    jobs.push(getDocs(query(collection(db, privateActivitiesCollection), where(documentId(), "in", chunk))));
   }
+  const snapshots = await Promise.all(jobs);
+  snapshots.forEach((snapshot) => snapshot.docs.forEach((record) => { privateById.set(record.id, record.data()); state.privateCache.set(record.id, record.data()); }));
   return records.map((record) => ({ ...record, ...(privateById.get(record.id) || {}) }));
 }
 
-async function fetchActivitiesForRange(start, end, { includePrivate = state.canEdit } = {}) {
+async function getPeriodRecords() {
+  if (state.periodCache.records.length && Date.now() - state.periodCache.at < 300000) return state.periodCache.records;
+  const snapshot = await getDocs(query(collection(db, activitiesCollection), where("record_kind", "==", "period")));
+  const records = snapshot.docs.map((record) => ({ id: record.id, ...record.data() }));
+  state.periodCache = { at: Date.now(), records };
+  return records;
+}
+
+async function fetchActivitiesForRange(start, end, { includePrivate = false } = {}) {
   const startISO = toISODate(start);
   const endISO = toISODate(end);
+  const cacheKey = `${startISO}|${endISO}`;
+  const now = Date.now();
+  let cached = state.rangeCache.get(cacheKey);
+  if (!cached) {
+    for (const candidate of state.rangeCache.values()) {
+      if (now - candidate.at < 120000 && candidate.start <= startISO && candidate.end >= endISO) { cached = candidate; break; }
+    }
+  }
+  if (cached && now - cached.at < 120000) {
+    const copy = cached.records.filter((item) => overlapsPeriod(item, start, end));
+    return includePrivate ? fetchPrivateRecordsForPublicRecords(copy) : copy;
+  }
   // Actividades normales: solo las que comienzan dentro del período visible.
   const regularSnapshot = await getDocs(query(
     collection(db, activitiesCollection),
@@ -1066,18 +1005,21 @@ async function fetchActivitiesForRange(start, end, { includePrivate = state.canE
 
   // Las fechas destacadas son pocas y algunas pueden comenzar antes del período
   // (por ejemplo un receso) pero seguir vigentes dentro de él.
-  const periodsSnapshot = await getDocs(query(collection(db, activitiesCollection), where("record_kind", "==", "period")));
-  periodsSnapshot.docs.forEach((record) => {
-    const item = { id: record.id, ...record.data() };
-    if (overlapsPeriod(item, start, end)) byId.set(record.id, item);
+  const periods = await getPeriodRecords();
+  periods.forEach((item) => {
+    if (overlapsPeriod(item, start, end)) byId.set(item.id, item);
   });
 
   let records = [...byId.values()].sort(sortActivities);
+  state.rangeCache.set(cacheKey, { at: Date.now(), start: startISO, end: endISO, records });
+  // Keep the in-memory cache bounded on long browsing sessions.
+  if (state.rangeCache.size > 12) state.rangeCache.delete(state.rangeCache.keys().next().value);
   if (includePrivate) records = await fetchPrivateRecordsForPublicRecords(records);
   return records;
 }
 
-async function loadCalendarConfigAndMarkers() {
+async function loadCalendarConfigAndMarkers({ force = false } = {}) {
+  if (state.calendarMetaLoaded && !force) return;
   const snapshot = await getDoc(doc(db, activitiesCollection, calendarConfigDocumentId));
   const data = snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
   state.calendarConfig = normalizeCalendarConfig(data?.calendar_config);
@@ -1090,6 +1032,7 @@ async function loadCalendarConfigAndMarkers() {
   state.programsBulkLoaded = Boolean(data?.[programsBulkMarker]);
   state.ingreso2027UpdateLoaded = Boolean(data?.[ingreso2027UpdateMarker]);
   state.pregradeScheduleBulkLoaded = Boolean(data?.[pregradeScheduleBulkMarker]);
+  state.calendarMetaLoaded = true;
 }
 
 async function refreshTotalEventCount() {
@@ -1104,6 +1047,12 @@ async function refreshTotalEventCount() {
   }
 }
 
+function invalidateDataCaches() {
+  state.rangeCache.clear();
+  state.privateCache.clear();
+  state.periodCache = { at: 0, records: [] };
+}
+
 async function loadPeriod() {
   saveViewPreferences();
   status.className = "status"; status.textContent = "Cargando agenda…"; agenda.replaceChildren();
@@ -1112,7 +1061,7 @@ async function loadPeriod() {
     if (configured) {
       // La configuración es un solo documento y ya no obliga a descargar toda la colección.
       await loadCalendarConfigAndMarkers();
-      const records = await fetchActivitiesForRange(start, end);
+      const records = await fetchActivitiesForRange(start, end, { includePrivate: false });
       state.allActivities = records;
       state.activities = records;
       // El total se obtiene en segundo plano: no retrasa el dibujo de la agenda.
@@ -1137,7 +1086,7 @@ async function loadPeriod() {
     console.error("Agenda load error", error);
     status.textContent = `No se pudo cargar la agenda. ${friendlyError(error)}`; return;
   }
-  updatePeriodTitle(); updateNavigationState(); updateBulkAcademicDatesVisibility(); updateCleanupAgendaVisibility(); updateBulkHibridacionesVisibility(); updateBulkGradeScheduleVisibility(); updateBulkLegalClinicsVisibility(); updateBulkMediationCenterVisibility(); updateBulkProgramsVisibility(); updateIngreso2027Visibility(); render();
+  updatePeriodTitle(); updateNavigationState(); render();
 }
 
 function updateNavigationState() {
@@ -1156,7 +1105,46 @@ function updatePeriodTitle() {
   el("periodTitle").textContent = `${left} – ${right}`;
 }
 
+function buildRenderCache() {
+  const { start, end, visibleStart, visibleEnd } = periodRange();
+  const dayIndex = new Map();
+  const expanded = expandedDisplayItems(state.allActivities);
+  const filtered = [];
+  const suspensions = new Map();
+  const startKey = toISODate(start);
+  const endKey = toISODate(end);
+
+  // Build the suspension lookup once per render instead of scanning every event repeatedly.
+  state.allActivities.forEach((item) => {
+    if (!isImportantPeriod(item) || periodTypeKey(item) !== "suspension") return;
+    let d = fromISODate(item.date); const last = fromISODate(activityEndDate(item));
+    while (d <= last) { const key = toISODate(d); if (!suspensions.has(key)) suspensions.set(key, []); suspensions.get(key).push(item); d = addDays(d, 1); }
+  });
+  state.suspensionIndex = suspensions;
+
+  expanded.forEach((item) => {
+    if (!matchesQuickFilter(item) || !overlapsPeriod(item, start, end)) return;
+    filtered.push(item);
+    let first = fromISODate(item.date); let last = fromISODate(activityEndDate(item));
+    if (first < start) first = new Date(start);
+    if (last > end) last = new Date(end);
+    for (let d = first; d <= last; d = addDays(d, 1)) {
+      if (d.getDay() === 0 || !isWithinConfiguredCalendar(d) || isHoliday(d)) continue;
+      const key = toISODate(d);
+      let bucket = dayIndex.get(key);
+      if (!bucket) { bucket = { activities: [], periods: [], markers: [] }; dayIndex.set(key, bucket); }
+      if (isCalendarMarkerPeriod(item)) { if (item.date === key) bucket.markers.push(item); }
+      else if (isImportantPeriod(item)) bucket.periods.push(item);
+      else bucket.activities.push(item);
+    }
+  });
+  dayIndex.forEach((bucket) => { bucket.activities.sort(sortActivities); bucket.periods.sort(sortActivities); bucket.markers.sort(sortActivities); });
+  state.dayIndex = dayIndex;
+  state.visibleFilteredItems = filtered.filter((item) => overlapsPeriod(item, visibleStart, visibleEnd) && itemHasDisplayableDay(item, visibleStart, visibleEnd)).sort(sortActivities);
+}
+
 function render() {
+  buildRenderCache();
   agenda.replaceChildren(); if (state.view === "day") renderDay(); else if (state.view === "week") renderWeek(); else renderMonth();
   const candidates = currentVisibleFilteredItems();
   const count = candidates.length;
@@ -1229,6 +1217,21 @@ function createDayHeading(date) {
   return heading;
 }
 
+async function hydratedAdminItem(item) {
+  if (!state.canEdit || !configured || !item?.id || item._derived_marker) return item;
+  try { const privateData = await fetchPrivateRecord(item.id); return privateData ? { ...item, ...privateData } : item; }
+  catch (error) { console.warn("Private detail load", error); return item; }
+}
+
+async function hydrateDetailsPanel(detailsNode, target, item) {
+  if (target.dataset.loaded || target.dataset.loading) return;
+  target.dataset.loading = "1";
+  const fullItem = await hydratedAdminItem(item);
+  if (!detailsNode.open) { delete target.dataset.loading; return; }
+  target.replaceChildren(createDetailsContent(fullItem, true));
+  target.dataset.loaded = "1"; delete target.dataset.loading;
+}
+
 function createPeriodRow(item) {
   const details = document.createElement("details"); details.className = "activity-row period-row";
   if (periodTypeKey(item) === "suspension") details.classList.add("period-suspension");
@@ -1247,7 +1250,8 @@ function createPeriodRow(item) {
   meta.append(statusBadge, dates);
   const moreButton = document.createElement("span"); moreButton.className = "summary-more-button"; moreButton.textContent = "Más información";
   summary.append(marker, title, meta, moreButton);
-  const expanded = document.createElement("div"); expanded.className = "activity-expanded"; expanded.append(createDetailsContent(item, true));
+  const expanded = document.createElement("div"); expanded.className = "activity-expanded";
+  details.addEventListener("toggle", () => { if (details.open) hydrateDetailsPanel(details, expanded, item); });
   details.append(summary, expanded); return details;
 }
 
@@ -1284,7 +1288,8 @@ function createActivityRow(item) {
   meta.append(labels, placePlatform);
   const moreButton = document.createElement("span"); moreButton.className = "summary-more-button"; moreButton.textContent = "Más información";
   summary.append(time, title, meta, moreButton);
-  const expanded = document.createElement("div"); expanded.className = "activity-expanded"; expanded.append(createDetailsContent(item, true));
+  const expanded = document.createElement("div"); expanded.className = "activity-expanded";
+  details.addEventListener("toggle", () => { if (details.open) hydrateDetailsPanel(details, expanded, item); });
   details.append(summary, expanded); return details;
 }
 
@@ -1396,12 +1401,7 @@ async function copyText(text, successMessage = "Copiado") {
 async function copyWhatsAppInfo(item) { await copyText(whatsappTextForItem(item), "Información copiada"); }
 
 function currentVisibleFilteredItems() {
-  const { visibleStart, visibleEnd } = periodRange();
-  return expandedDisplayItems(state.allActivities)
-    .filter((item) => matchesQuickFilter(item)
-      && overlapsPeriod(item, visibleStart, visibleEnd)
-      && itemHasDisplayableDay(item, visibleStart, visibleEnd))
-    .sort(sortActivities);
+  return state.visibleFilteredItems || [];
 }
 
 function publicCopyDateRangeLabel(start, end) {
@@ -1517,26 +1517,11 @@ async function copyCurrentPublicView() {
 }
 function actionButton(label, handler, className = "") { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.className = className; button.addEventListener("click", handler); return button; }
 
-function activitiesForDate(date) {
-  if (!isWithinConfiguredCalendar(date) || isHoliday(date)) return [];
-  const key = toISODate(date);
-  return state.allActivities.filter((item) => !isImportantPeriod(item) && matchesQuickFilter(item) && item.date <= key && activityEndDate(item) >= key).sort(sortActivities);
-}
-function periodsForDate(date) {
-  if (!isWithinConfiguredCalendar(date) || isHoliday(date)) return [];
-  const key = toISODate(date);
-  return expandedDisplayItems(state.allActivities)
-    .filter((item) => isImportantPeriod(item) && !isCalendarMarkerPeriod(item) && matchesQuickFilter(item) && item.date <= key && activityEndDate(item) >= key)
-    .sort(sortActivities);
-}
-function calendarMarkersForDate(date) {
-  if (!isWithinConfiguredCalendar(date) || isHoliday(date)) return [];
-  const key = toISODate(date);
-  return expandedDisplayItems(state.allActivities)
-    .filter((item) => isCalendarMarkerPeriod(item) && matchesQuickFilter(item) && item.date === key)
-    .sort(sortActivities);
-}
-function calendarItemsForDate(date) { return [...periodsForDate(date), ...activitiesForDate(date)]; }
+function dayBucket(date) { return state.dayIndex.get(toISODate(date)) || { activities: [], periods: [], markers: [] }; }
+function activitiesForDate(date) { return dayBucket(date).activities; }
+function periodsForDate(date) { return dayBucket(date).periods; }
+function calendarMarkersForDate(date) { return dayBucket(date).markers; }
+function calendarItemsForDate(date) { const bucket = dayBucket(date); return [...bucket.periods, ...bucket.activities]; }
 
 function isGroupedGradeClass(item) {
   return !isImportantPeriod(item)
@@ -1800,7 +1785,9 @@ function createActivityGroupRow(group) {
 
   const expanded = document.createElement("div");
   expanded.className = "activity-expanded activity-group-expanded";
-  expanded.append(createActivityGroupContent(group));
+  details.addEventListener("toggle", () => {
+    if (details.open && !expanded.dataset.loaded) { expanded.append(createActivityGroupContent(group)); expanded.dataset.loaded = "1"; }
+  });
   details.append(summary, expanded);
   return details;
 }
@@ -1816,74 +1803,55 @@ function calendarDayHasContent(date) { return calendarItemsForDate(date).length 
 
 function renderMonth() {
   const { start, end, visibleStart, visibleEnd } = periodRange();
-  const calendar = document.createElement("div"); calendar.className = "month-calendar";
-  const weekdays = document.createElement("div"); weekdays.className = "month-weekdays";
-  ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].forEach((name) => { const node = document.createElement("div"); node.textContent = name; weekdays.append(node); });
-  const grid = document.createElement("div"); grid.className = "month-grid"; const todayKey = toISODate(new Date());
-  for (let date = new Date(start); date <= end; date = addDays(date, 1)) {
-    if (date.getDay() === 0 || isAfterCalendarEnd(date)) continue;
-    const cell = document.createElement("div"); cell.className = "month-day";
-    if (date < visibleStart || date > visibleEnd) cell.classList.add("other-month");
-    if (toISODate(date) === todayKey) cell.classList.add("today"); else if (isPastDay(date)) cell.classList.add("past-day");
-    if (!isWithinConfiguredCalendar(date)) cell.classList.add("outside-calendar");
-    if (isHoliday(date)) cell.classList.add("holiday");
-    const dayItems = displayEntriesForDate(date); const markerItems = calendarMarkersForDate(date); if (!dayItems.length && !markerItems.length && !isHoliday(date)) cell.classList.add("no-activity");
-    const number = document.createElement("span"); number.className = "month-number"; number.textContent = date.getDate(); cell.append(number);
-    if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "month-holiday"; badge.textContent = holidayLabel(date); cell.append(badge); }
-    markerItems.forEach((item) => { const badge = document.createElement("span"); badge.className = "month-holiday month-calendar-marker"; badge.textContent = periodTypeLabel(item); cell.append(badge); });
-    dayItems.forEach((item) => {
-      if (item.__activityGroup) {
-        const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-activity-group";
-        button.style.borderLeftColor = organizerColor(item.secretary);
-        const badge = document.createElement("span"); badge.className = "month-group-label"; badge.textContent = isClassDisplayGroupKind(item.group_kind) ? `${item.items.length} clases` : `${item.items.length} comisiones/turnos`;
-        const suspendedItems = item.items.filter(isSuspended);
-        const time = document.createElement("strong"); time.textContent = displayGroupTime(item.items);
-        const title = document.createElement("span"); title.textContent = item.name;
-        const roomsText = displayGroupRooms(item.items);
-        button.append(badge);
-        if (suspendedItems.length) {
-          const stateBadge = document.createElement("span");
-          stateBadge.className = "month-status suspended";
-          stateBadge.textContent = suspendedItems.length === item.items.length ? "Suspendidas" : `${suspendedItems.length} suspendidas`;
-          button.append(stateBadge);
+  const desktop = window.matchMedia("(min-width: 901px)").matches;
+  if (desktop) {
+    const calendar = document.createElement("div"); calendar.className = "month-calendar";
+    const weekdays = document.createElement("div"); weekdays.className = "month-weekdays";
+    ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].forEach((name) => { const node = document.createElement("div"); node.textContent = name; weekdays.append(node); });
+    const grid = document.createElement("div"); grid.className = "month-grid"; const todayKey = toISODate(new Date());
+    for (let date = new Date(start); date <= end; date = addDays(date, 1)) {
+      if (date.getDay() === 0 || isAfterCalendarEnd(date)) continue;
+      const cell = document.createElement("div"); cell.className = "month-day";
+      if (date < visibleStart || date > visibleEnd) cell.classList.add("other-month");
+      if (toISODate(date) === todayKey) cell.classList.add("today"); else if (isPastDay(date)) cell.classList.add("past-day");
+      if (!isWithinConfiguredCalendar(date)) cell.classList.add("outside-calendar");
+      if (isHoliday(date)) cell.classList.add("holiday");
+      const dayItems = displayEntriesForDate(date); const markerItems = calendarMarkersForDate(date); if (!dayItems.length && !markerItems.length && !isHoliday(date)) cell.classList.add("no-activity");
+      const number = document.createElement("span"); number.className = "month-number"; number.textContent = date.getDate(); cell.append(number);
+      if (isHoliday(date)) { const badge = document.createElement("span"); badge.className = "month-holiday"; badge.textContent = holidayLabel(date); cell.append(badge); }
+      markerItems.forEach((item) => { const badge = document.createElement("span"); badge.className = "month-holiday month-calendar-marker"; badge.textContent = periodTypeLabel(item); cell.append(badge); });
+      dayItems.forEach((item) => {
+        if (item.__activityGroup) {
+          const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-activity-group"; button.style.borderLeftColor = organizerColor(item.secretary);
+          const badge = document.createElement("span"); badge.className = "month-group-label"; badge.textContent = isClassDisplayGroupKind(item.group_kind) ? `${item.items.length} clases` : `${item.items.length} comisiones/turnos`;
+          const suspendedItems = item.items.filter(isSuspended); const time = document.createElement("strong"); time.textContent = displayGroupTime(item.items); const title = document.createElement("span"); title.textContent = item.name; const roomsText = displayGroupRooms(item.items);
+          button.append(badge); if (suspendedItems.length) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = suspendedItems.length === item.items.length ? "Suspendidas" : `${suspendedItems.length} suspendidas`; button.append(stateBadge); }
+          button.append(time, title); if (roomsText) { const rooms = document.createElement("small"); rooms.textContent = roomsText; button.append(rooms); }
+          button.addEventListener("click", () => openActivityGroupDetail(item)); cell.append(button); return;
         }
-        button.append(time, title);
-        if (roomsText) { const rooms = document.createElement("small"); rooms.textContent = roomsText; button.append(rooms); }
-        button.addEventListener("click", () => openActivityGroupDetail(item)); cell.append(button);
-        return;
-      }
-      if (isImportantPeriod(item)) {
-        const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-period";
-        button.style.borderLeftColor = organizerColor(item.secretary);
-        const badge = document.createElement("span"); badge.className = "month-period-label"; badge.textContent = periodTypeLabel(item);
-        const statusBadge = document.createElement("span"); statusBadge.className = "month-period-status"; statusBadge.textContent = importantPeriodStatus(item);
-        const title = document.createElement("strong"); title.textContent = item.name;
-        button.append(badge, statusBadge, title);
+        if (isImportantPeriod(item)) {
+          const button = document.createElement("button"); button.type = "button"; button.className = "month-event month-period"; button.style.borderLeftColor = organizerColor(item.secretary);
+          const badge = document.createElement("span"); badge.className = "month-period-label"; badge.textContent = periodTypeLabel(item); const statusBadge = document.createElement("span"); statusBadge.className = "month-period-status"; statusBadge.textContent = importantPeriodStatus(item); const title = document.createElement("strong"); title.textContent = item.name;
+          button.append(badge, statusBadge, title); button.addEventListener("click", () => openDetail(item)); cell.append(button); return;
+        }
+        const button = document.createElement("button"); button.type = "button"; button.className = "month-event"; button.style.borderLeftColor = organizerColor(item.secretary);
+        const activityType = activityTypeKey(item); const badge = document.createElement("span"); badge.className = `month-${activityType}`; badge.textContent = activityTypeLabel(item); button.append(badge);
+        if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = suspensionStateLabel(item); button.append(stateBadge); }
+        if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; button.append(stateBadge); }
+        const time = document.createElement("strong"); time.textContent = hasScheduledTime(item) ? cleanTime(item.start_time) : "—"; button.append(time, document.createTextNode(item.name));
         button.addEventListener("click", () => openDetail(item)); cell.append(button);
-        return;
-      }
-      const button = document.createElement("button"); button.type = "button"; button.className = "month-event";
-      button.style.borderLeftColor = organizerColor(item.secretary);
-      const activityType = activityTypeKey(item);
-      const badge = document.createElement("span"); badge.className = `month-${activityType}`; badge.textContent = activityTypeLabel(item); button.append(badge);
-      if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status suspended"; stateBadge.textContent = suspensionStateLabel(item); button.append(stateBadge); }
-      if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "month-status postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; button.append(stateBadge); }
-      if (isInProgress(item)) { const live = document.createElement("span"); live.className = "month-in-progress"; live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso'; button.append(live); }
-      const time = document.createElement("strong"); time.textContent = hasScheduledTime(item) ? cleanTime(item.start_time) : "—"; button.append(time, document.createTextNode(item.name));
-      button.addEventListener("click", () => openDetail(item)); cell.append(button);
-    });
-    grid.append(cell);
+      });
+      grid.append(cell);
+    }
+    calendar.append(weekdays, grid); agenda.append(calendar); return;
   }
-  calendar.append(weekdays, grid);
+
   const mobileList = document.createElement("div"); mobileList.className = "mobile-month-list";
-  const holidayDates = [];
-  const datesWithActivities = [];
+  const dates = []; const currentDate = toISODate(new Date());
   for (let date = new Date(visibleStart); date <= visibleEnd; date = addDays(date, 1)) {
-    if (date.getDay() !== 0 && isHoliday(date)) holidayDates.push(toISODate(date));
-    if (date.getDay() !== 0 && calendarDayHasContent(date)) datesWithActivities.push(toISODate(date));
+    if (date.getDay() === 0) continue;
+    if (calendarDayHasContent(date) || toISODate(date) === currentDate) dates.push(toISODate(date));
   }
-  const currentDate = toISODate(new Date()); const includeToday = currentDate >= toISODate(visibleStart) && currentDate <= toISODate(visibleEnd) && fromISODate(currentDate).getDay() !== 0;
-  const dates = [...new Set([...datesWithActivities, ...holidayDates, ...(includeToday ? [currentDate] : [])])].sort();
   if (!dates.length) { const empty = document.createElement("p"); empty.className = "empty-day"; empty.textContent = "Sin actividades este mes"; mobileList.append(empty); }
   else dates.forEach((dateValue) => {
     const date = fromISODate(dateValue); const section = document.createElement("section"); section.className = "day-section"; if (isToday(date)) section.classList.add("today-day"); else if (isPastDay(date)) section.classList.add("past-day"); if (!isWithinConfiguredCalendar(date)) section.classList.add("outside-calendar-day");
@@ -1891,10 +1859,11 @@ function renderMonth() {
     if (!items.length) { section.classList.add("empty-day-section"); if (isHoliday(date)) section.classList.add("holiday-day"); const markers = calendarMarkersForDate(date); if (!markers.length) { const empty = document.createElement("p"); empty.className = isHoliday(date) ? "holiday-empty" : "empty-day"; empty.textContent = isHoliday(date) ? `${holidayLabel(date)} · sin actividades` : !isWithinConfiguredCalendar(date) ? "Fuera del calendario" : "Sin actividades"; list.append(empty); } }
     section.append(createDayHeading(date), list); mobileList.append(section);
   });
-  agenda.append(calendar, mobileList);
+  agenda.append(mobileList);
 }
 
-function openDetail(item) {
+async function openDetail(item) {
+  item = await hydratedAdminItem(item);
   if (isImportantPeriod(item)) {
     el("detailDate").textContent = `${periodTypeLabel(item)} · ${dateRangeLabel(item)} · ${importantPeriodStatus(item)}`;
   } else {
@@ -1955,7 +1924,7 @@ async function saveCalendarConfig(event) {
       if (configured) {
         const batch = writeBatch(db); batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), { record_kind: "calendar_config", date: `${calendarFirstYear}-01-01`, end_date: `${calendarLastYear}-12-31`, name: "Configuración del calendario", calendar_config: next, updated_at: serverTimestamp() }, { merge: true }); await batch.commit();
       } else writeDemoCalendarConfig(next);
-      state.calendarConfig = next; calendarDialog.close(); await loadPeriod(); showToast(`Calendario ${year} actualizado`);
+      state.calendarConfig = next; state.calendarMetaLoaded = true; invalidateDataCaches(); calendarDialog.close(); await loadPeriod(); showToast(`Calendario ${year} actualizado`);
     } finally { button.disabled = false; button.textContent = "Guardar calendario"; }
   } catch (error) { message.textContent = error?.message || "No se pudo actualizar el calendario."; message.hidden = false; }
 }
@@ -2107,7 +2076,7 @@ async function saveActivity(event) {
       else recurrenceRecords(payload).forEach((record) => records.push({ ...record, id: crypto.randomUUID() }));
       writeDemoData(records);
     }
-    activityDialog.close(); state.cursor = fromISODate(payload.date); await loadPeriod(); showToast(successMessage);
+    invalidateDataCaches(); activityDialog.close(); state.cursor = fromISODate(payload.date); await loadPeriod(); showToast(successMessage);
   } catch (error) { errorBox.textContent = `No se pudo guardar. ${friendlyError(error)}`; errorBox.hidden = false; }
   finally { button.disabled = false; button.textContent = el("recordKind").value === "period" ? "Guardar fecha destacada" : "Guardar actividad"; }
 }
@@ -2176,1129 +2145,8 @@ async function deleteActivity(item) {
       batch.delete(doc(db, privateActivitiesCollection, item.id));
       await batch.commit();
     } else writeDemoData(loadDemoData().filter((record) => record.id !== item.id));
-    if (detailDialog.open) detailDialog.close(); await loadPeriod(); showToast("Actividad eliminada");
+    invalidateDataCaches(); if (detailDialog.open) detailDialog.close(); await loadPeriod(); showToast("Actividad eliminada");
   } catch (error) { alert(`No se pudo eliminar. ${friendlyError(error)}`); }
-}
-
-function bulkAcademicDatePayload(item) {
-  return {
-    record_kind: "period",
-    period_type: item.period_type,
-    suspension_scope: item.period_type === "suspension" ? "full_day" : "",
-    suspension_applies_to: item.period_type === "suspension" ? "classes" : "",
-    date: item.date,
-    end_date: item.end_date,
-    start_time: "",
-    end_time: "",
-    name: item.name,
-    secretary: ["recess", "restart", "suspension"].includes(item.period_type) ? "" : academicSecretary,
-    activity_category: "",
-    academic_activity_type: "",
-    career: "",
-    academic_year: "",
-    subject: "",
-    classroom: "",
-    activity_type: "",
-    activity_status: "scheduled",
-    postponed_date: "",
-    postponed_date_tbd: false,
-    platform: "",
-    meeting_url: "",
-    link_is_public: false,
-    more_info_url: "",
-    requirements: item.description || "",
-    observations: "",
-    recording_required: false,
-    source_uid: item.id,
-    calendar_source: "Calendario Académico 2026–2027"
-  };
-}
-
-function openBulkAcademicDates() {
-  if (!state.canEdit) return;
-  const list = el("bulkDatesPreview");
-  list.replaceChildren();
-  academicCalendarImportantDates.forEach((item) => {
-    const li = document.createElement("li");
-    const type = periodTypeLabel({ record_kind: "period", period_type: item.period_type, name: item.name });
-    const title = document.createElement("strong");
-    title.textContent = `${type} · ${item.name}`;
-    const dates = document.createElement("span");
-    dates.textContent = dateRangeLabel(item);
-    li.append(title, dates);
-    list.append(li);
-  });
-  el("bulkDatesCount").textContent = `${academicCalendarImportantDates.length} fechas destacadas`;
-  el("bulkDatesMessage").hidden = true;
-  bulkDatesDialog.showModal();
-}
-
-async function saveBulkAcademicDates(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.academicCalendarBulkLoaded) return;
-  const button = el("runBulkDates");
-  const message = el("bulkDatesMessage");
-  message.hidden = true;
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
-    if (configRecord?.data()?.[academicCalendarBulkMarker] === true) {
-      state.academicCalendarBulkLoaded = true;
-      updateBulkAcademicDatesVisibility();
-      bulkDatesDialog.close();
-      showToast("Las fechas académicas ya fueron cargadas");
-      return;
-    }
-
-    const knownSourceIds = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
-    const pending = academicCalendarImportantDates.filter((item) => !knownSourceIds.has(item.id));
-    const batch = writeBatch(db);
-
-    // Corrige la primera versión: elimina el período completo de cursado si llegó a cargarse antes del error.
-    batch.delete(doc(db, activitiesCollection, "calacad-2026-cursado-segundo-semestre"));
-    batch.delete(doc(db, privateActivitiesCollection, "calacad-2026-cursado-segundo-semestre"));
-
-    pending.forEach((item) => {
-      const payload = bulkAcademicDatePayload(item);
-      batch.set(doc(db, activitiesCollection, item.id), { ...publicActivityData(payload), created_at: serverTimestamp(), updated_at: serverTimestamp() });
-    });
-
-    // El receso estival llega hasta 2027; extendemos 2026 al 31/12 y dejamos una marca persistente
-    // para que esta carga inicial no vuelva a ofrecerse.
-    const nextCalendar = normalizeCalendarConfig(state.calendarConfig);
-    if (nextCalendar.years["2026"].end < "2026-12-31") nextCalendar.years["2026"].end = "2026-12-31";
-    batch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      calendar_config: nextCalendar,
-      [academicCalendarBulkMarker]: true,
-      academic_calendar_loaded_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-
-    await batch.commit();
-
-    state.calendarConfig = nextCalendar;
-    state.academicCalendarBulkLoaded = true;
-    bulkDatesDialog.close();
-    updateBulkAcademicDatesVisibility();
-    updateCleanupAgendaVisibility();
-    state.cursor = fromISODate("2026-08-16");
-    await loadPeriod();
-    const skipped = academicCalendarImportantDates.length - pending.length;
-    showToast(skipped ? `${pending.length} fechas nuevas cargadas · ${skipped} ya existían` : `${pending.length} fechas académicas cargadas`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga masiva. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar fechas";
-  }
-}
-
-async function cleanupAgendaKeepingAcademicDates() {
-  if (!state.canEdit || state.academicCalendarCleanupDone || state.hibridacionesBulkLoaded) return;
-  const keepPublicIds = new Set([
-    calendarConfigDocumentId,
-    ...academicCalendarImportantDates.map((item) => item.id)
-  ]);
-
-  const warning = [
-    "Esta acción eliminará de Firebase todas las actividades y fechas anteriores que no pertenezcan a la carga académica que acabamos de realizar.",
-    "",
-    `Se conservarán ${academicCalendarImportantDates.length} fechas académicas y la configuración del calendario.`,
-    "",
-    "Esta acción no se puede deshacer. ¿Querés continuar?"
-  ].join("\n");
-
-  if (!confirm(warning)) return;
-
-  const button = el("cleanupAgenda");
-  button.disabled = true;
-  button.textContent = "Limpiando…";
-
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-
-    const [publicSnapshot, privateSnapshot] = await Promise.all([
-      getDocs(collection(db, activitiesCollection)),
-      getDocs(collection(db, privateActivitiesCollection))
-    ]);
-
-    const publicToDelete = publicSnapshot.docs.filter((record) => !keepPublicIds.has(record.id));
-    const privateToDelete = privateSnapshot.docs;
-
-    const deleteInChunks = async (records, getRef) => {
-      for (let start = 0; start < records.length; start += 400) {
-        const batch = writeBatch(db);
-        records.slice(start, start + 400).forEach((record) => batch.delete(getRef(record)));
-        await batch.commit();
-      }
-    };
-
-    await deleteInChunks(publicToDelete, (record) => record.ref);
-    await deleteInChunks(privateToDelete, (record) => record.ref);
-
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      [academicCalendarCleanupMarker]: true,
-      academic_calendar_cleanup_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-
-    state.academicCalendarCleanupDone = true;
-    updateCleanupAgendaVisibility();
-    await loadPeriod();
-    showToast(`${publicToDelete.length} registros anteriores eliminados`);
-  } catch (error) {
-    alert(`No se pudo limpiar la agenda. ${friendlyError(error)}`);
-  } finally {
-    button.disabled = false;
-    button.textContent = "Eliminar datos anteriores";
-  }
-}
-
-
-function hibridacionesSummaryRows() {
-  const grouped = new Map();
-  hibridaciones2026FromAugust16.forEach((item) => {
-    const current = grouped.get(item.name) || { name: item.name, count: 0, first: item.date, last: item.date };
-    current.count += 1;
-    if (item.date < current.first) current.first = item.date;
-    if (item.date > current.last) current.last = item.date;
-    grouped.set(item.name, current);
-  });
-  return [...grouped.values()].sort((a, b) => a.first.localeCompare(b.first) || a.name.localeCompare(b.name, locale));
-}
-
-function openBulkHibridaciones() {
-  if (!state.canEdit || state.hibridacionesBulkLoaded) return;
-  const preview = el("hibridacionesPreview");
-  preview.replaceChildren();
-  hibridacionesSummaryRows().forEach((group) => {
-    const li = document.createElement("li");
-    const first = formatDate(fromISODate(group.first), { day: "numeric", month: "short" });
-    const last = formatDate(fromISODate(group.last), { day: "numeric", month: "short" });
-    const range = group.first === group.last ? first : `${first} – ${last}`;
-    const title = document.createElement("strong");
-    title.textContent = group.name;
-    const meta = document.createElement("span");
-    meta.textContent = `${group.count} ${group.count === 1 ? "evento" : "eventos"} · ${range}`;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  el("hibridacionesCount").textContent = `${hibridaciones2026FromAugust16.length} actividades`;
-  el("hibridacionesMessage").hidden = true;
-  hibridacionesDialog.showModal();
-}
-
-async function saveBulkHibridaciones(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.hibridacionesBulkLoaded) return;
-  const message = el("hibridacionesMessage");
-  const button = el("runBulkHibridaciones");
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  message.hidden = true;
-
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const knownSourceUids = new Set(existing.docs.map((record) => record.data()?.source_uid).filter(Boolean));
-    const pending = hibridaciones2026FromAugust16.filter((item) => !knownSourceUids.has(item.source_uid));
-
-    if (pending.length) await writeNewActivities(pending);
-
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [hibridacionesBulkMarker]: true,
-      hibridaciones_2026_loaded_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-
-    state.hibridacionesBulkLoaded = true;
-    updateBulkHibridacionesVisibility();
-    updateCleanupAgendaVisibility();
-    hibridacionesDialog.close();
-    await loadPeriod();
-
-    const skipped = hibridaciones2026FromAugust16.length - pending.length;
-    showToast(skipped
-      ? `${pending.length} actividades nuevas cargadas · ${skipped} ya existían`
-      : `${pending.length} actividades de Hibridaciones cargadas`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar actividades";
-  }
-}
-
-
-function gradeScheduleWeekdayNumber(code) {
-  return ({ MO: 1, TU: 2, WE: 3, TH: 4, FR: 5 })[code] || 0;
-}
-
-function gradeScheduleDateIsSuspended(date) {
-  const iso = toISODate(date);
-  return state.allActivities.some((item) =>
-    isImportantPeriod(item)
-    && periodTypeKey(item) === "suspension"
-    && item.date <= iso
-    && activityEndDate(item) >= iso
-  );
-}
-
-function gradeScheduleOccurrences() {
-  const start = fromISODate("2026-08-16");
-  const end = fromISODate("2026-11-06");
-  const records = [];
-  gradeSchedule2026Weekly.forEach((slot) => {
-    const weekdayNumber = gradeScheduleWeekdayNumber(slot.weekday);
-    for (let cursor = addDays(start, 1); cursor <= end; cursor = addDays(cursor, 1)) {
-      if (cursor.getDay() !== weekdayNumber) continue;
-      if (!isWithinConfiguredCalendar(cursor) || isHoliday(cursor) || gradeScheduleDateIsSuspended(cursor)) continue;
-      const iso = toISODate(cursor);
-      records.push({
-        record_kind: "activity",
-        date: iso,
-        end_date: iso,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        name: slot.subject,
-        secretary: academicSecretary,
-        activity_category: "class",
-        academic_activity_type: "class",
-        career: lawCareer,
-        academic_year: slot.academic_year,
-        academic_shift: /^(?:1|2)tm-/.test(slot.id) ? "TM" : /^(?:1|2)tt-/.test(slot.id) ? "TT" : "",
-        subject: slot.subject,
-        responsible: "",
-        classroom: slot.activity_type === "virtual" ? "" : slot.classroom,
-        activity_type: slot.activity_type,
-        activity_status: "scheduled",
-        postponed_date: "",
-        postponed_date_tbd: false,
-        platform: "",
-        account_used: "",
-        meeting_url: "",
-        link_is_public: false,
-        more_info_url: "",
-        requirements: "Horario de grado · Segundo semestre 2026",
-        observations: "",
-        recording_required: false,
-        source_uid: `grado-2026-${slot.id}-${iso}`,
-        calendar_source: "Horarios de Grado · Segundo semestre 2026"
-      });
-    }
-  });
-  return records.sort(sortActivities);
-}
-
-function gradeScheduleSeriesSummaryRows() {
-  return gradeSchedule2026Weekly
-    .map((slot) => ({
-      ...slot,
-      weekdayLabel: ({ MO: "Lunes", TU: "Martes", WE: "Miércoles", TH: "Jueves", FR: "Viernes" })[slot.weekday] || slot.weekday
-    }))
-    .sort((a, b) =>
-      gradeScheduleWeekdayNumber(a.weekday) - gradeScheduleWeekdayNumber(b.weekday)
-      || a.start_time.localeCompare(b.start_time)
-      || a.subject.localeCompare(b.subject, locale)
-    );
-}
-
-function openBulkGradeSchedule() {
-  if (!state.canEdit || state.gradeScheduleBulkLoaded) return;
-  const preview = el("gradeSchedulePreview");
-  preview.replaceChildren();
-  gradeScheduleSeriesSummaryRows().forEach((slot) => {
-    const li = document.createElement("li");
-    const title = document.createElement("strong");
-    title.textContent = slot.subject;
-    const meta = document.createElement("span");
-    const room = slot.activity_type === "virtual" ? "Virtual" : slot.classroom;
-    meta.textContent = `${slot.weekdayLabel} · ${slot.start_time}–${slot.end_time} · ${room}`;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  const occurrences = gradeScheduleOccurrences();
-  el("gradeScheduleCount").textContent = `${gradeSchedule2026Weekly.length} horarios semanales · ${occurrences.length} clases previstas`;
-  el("gradeScheduleMessage").hidden = true;
-  gradeScheduleDialog.showModal();
-}
-
-function gradeScheduleMatchKey(item) {
-  const subject = subjectBaseName(item?.subject || item?.name || "");
-  return `${item?.date || ""}|${normalizeSearchText(subject)}`;
-}
-
-async function saveBulkGradeSchedule(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.gradeScheduleBulkLoaded) return;
-  const button = el("runBulkGradeSchedule");
-  const message = el("gradeScheduleMessage");
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  message.hidden = true;
-
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
-    if (configRecord?.data()?.[gradeScheduleBulkMarker] === true) {
-      state.gradeScheduleBulkLoaded = true;
-      updateBulkGradeScheduleVisibility();
-      gradeScheduleDialog.close();
-      showToast("Los horarios de grado ya fueron cargados");
-      return;
-    }
-
-    const existingItems = existing.docs
-      .map((record) => ({ id: record.id, ...record.data() }))
-      .filter((item) => !isCalendarConfigRecord(item));
-    const knownSourceUids = new Set(existingItems.map((item) => item.source_uid).filter(Boolean));
-    const knownClassKeys = new Set(
-      existingItems
-        .filter((item) => !isImportantPeriod(item))
-        .map(gradeScheduleMatchKey)
-        .filter((key) => !key.endsWith("|"))
-    );
-
-    const allOccurrences = gradeScheduleOccurrences();
-    const pending = allOccurrences.filter((item) =>
-      !knownSourceUids.has(item.source_uid)
-      && !knownClassKeys.has(gradeScheduleMatchKey(item))
-    );
-
-    if (pending.length) await writeNewActivities(pending);
-
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [gradeScheduleBulkMarker]: true,
-      grade_schedule_2026_loaded_at_v2: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-
-    state.gradeScheduleBulkLoaded = true;
-    updateBulkGradeScheduleVisibility();
-    gradeScheduleDialog.close();
-    await loadPeriod();
-
-    const skipped = allOccurrences.length - pending.length;
-    showToast(skipped
-      ? `${pending.length} clases nuevas cargadas · ${skipped} ya existían o coincidían con Hibridaciones`
-      : `${pending.length} clases de grado cargadas`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar horarios";
-  }
-}
-
-
-function pregradeScheduleOccurrences() {
-  const start = fromISODate("2026-08-16");
-  const end = fromISODate("2026-11-06");
-  const records = [];
-  pregradeBuildingSchedule2026Weekly.forEach((slot) => {
-    const weekdayNumber = gradeScheduleWeekdayNumber(slot.weekday);
-    for (let cursor = addDays(start, 1); cursor <= end; cursor = addDays(cursor, 1)) {
-      if (cursor.getDay() !== weekdayNumber) continue;
-      if (!isWithinConfiguredCalendar(cursor) || isHoliday(cursor)) continue;
-      const iso = toISODate(cursor);
-      records.push({
-        record_kind: "activity",
-        date: iso,
-        end_date: iso,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        name: slot.subject,
-        secretary: academicSecretary,
-        activity_category: "class",
-        academic_activity_type: "class",
-        career: buildingCareer,
-        academic_year: "Primer año · 2° semestre",
-        academic_shift: "",
-        subject: slot.subject,
-        responsible: "",
-        responsible_is_public: false,
-        public_responsible: "",
-        classroom: slot.classroom,
-        activity_type: slot.activity_type,
-        activity_status: "scheduled",
-        postponed_date: "",
-        postponed_date_tbd: false,
-        platform: slot.platform || "",
-        account_used: "",
-        meeting_url: "",
-        link_is_public: false,
-        more_info_url: "",
-        requirements: ["Tecnicatura · Primer año · Segundo semestre 2026", slot.notes || ""].filter(Boolean).join(" · "),
-        observations: "",
-        recording_required: false,
-        source_uid: `pregrado-edificios-2026-${slot.id}-${iso}`,
-        calendar_source: "Horarios Tecnicatura · Segundo semestre 2026"
-      });
-    }
-  });
-  return records.sort(sortActivities);
-}
-
-function pregradeScheduleSeriesSummaryRows() {
-  return pregradeBuildingSchedule2026Weekly
-    .map((slot) => ({ ...slot, weekdayLabel: ({ MO: "Lunes", TU: "Martes", WE: "Miércoles", TH: "Jueves", FR: "Viernes" })[slot.weekday] || slot.weekday }))
-    .sort((a, b) => gradeScheduleWeekdayNumber(a.weekday) - gradeScheduleWeekdayNumber(b.weekday) || a.start_time.localeCompare(b.start_time) || a.subject.localeCompare(b.subject, locale));
-}
-
-function openBulkPregradeSchedule() {
-  if (!state.canEdit || state.pregradeScheduleBulkLoaded) return;
-  const preview = el("pregradeSchedulePreview");
-  preview.replaceChildren();
-  pregradeScheduleSeriesSummaryRows().forEach((slot) => {
-    const li = document.createElement("li");
-    const title = document.createElement("strong");
-    title.textContent = slot.subject;
-    const meta = document.createElement("span");
-    const room = slot.activity_type === "virtual" ? (slot.platform || "Virtual") : slot.classroom;
-    meta.textContent = `${slot.weekdayLabel} · ${slot.start_time}–${slot.end_time} · ${room}${slot.notes ? ` · ${slot.notes}` : ""}`;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  const occurrences = pregradeScheduleOccurrences();
-  el("pregradeScheduleCount").textContent = `${pregradeBuildingSchedule2026Weekly.length} horarios semanales · ${occurrences.length} clases previstas`;
-  el("pregradeScheduleMessage").hidden = true;
-  pregradeScheduleDialog.showModal();
-}
-
-async function saveBulkPregradeSchedule(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.pregradeScheduleBulkLoaded) return;
-  const button = el("runBulkPregradeSchedule");
-  const message = el("pregradeScheduleMessage");
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  message.hidden = true;
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const existingItems = existing.docs.map((record) => ({ id: record.id, ...record.data() }));
-    const knownSourceUids = new Set(existingItems.map((item) => item.source_uid).filter(Boolean));
-    const allOccurrences = pregradeScheduleOccurrences();
-    const pending = allOccurrences.filter((item) => !knownSourceUids.has(item.source_uid));
-    if (pending.length) await writeNewActivities(pending);
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [pregradeScheduleBulkMarker]: true,
-      pregrade_building_schedule_2026_loaded_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-    state.pregradeScheduleBulkLoaded = true;
-    updateBulkPregradeScheduleVisibility();
-    pregradeScheduleDialog.close();
-    await loadPeriod();
-    const skipped = allOccurrences.length - pending.length;
-    showToast(skipped ? `${pending.length} clases nuevas cargadas · ${skipped} ya existían` : `${pending.length} clases de pregrado cargadas`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar horarios";
-  }
-}
-
-
-const legalClinicSeries2026 = [
-  { id: "civil", weekday: 5, start_time: "09:30", end_time: "12:00", name: "Consultorio Jurídico Gratuito · Derecho Civil", responsible: "Abog. Blanca Mangione", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Derecho Civil", monthlyMode: true },
-  { id: "familia", weekday: 3, start_time: "11:30", end_time: "14:00", name: "Consultorio Jurídico Gratuito · Familia", responsible: "Abog. Gabriela Aromataris", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Familia", monthlyMode: true },
-  { id: "laboral", weekday: 4, start_time: "15:00", end_time: "17:20", name: "Consultorio Jurídico Gratuito · Laboral, Previsional y Administrativo", responsible: "Abog. Pablo De Bernardi", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Laboral, Previsional y Administrativo", monthlyMode: true },
-  { id: "penal", weekday: 2, start_time: "14:00", end_time: "16:20", name: "Consultorio Jurídico Gratuito · Derecho Penal", responsible: "Abog. Renzo Valente", location: "Espacio de Atención Consultorios Jurídicos Gratuitos", specialty: "Derecho Penal", monthlyMode: true },
-  { id: "discapacidad", weekday: 1, start_time: "12:00", end_time: "14:30", name: "Consultorio Jurídico Gratuito · Discapacidad y Adulto Mayor", responsible: "", location: "Defensoría · Gutiérrez 51, Ciudad de Mendoza", specialty: "Discapacidad y Adulto Mayor", monthlyMode: false }
-];
-
-function legalClinicOccurrences() {
-  const start = fromISODate("2026-08-16");
-  const end = fromISODate("2026-12-19");
-  const records = [];
-  legalClinicSeries2026.forEach((series) => {
-    for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
-      if (cursor.getDay() !== series.weekday) continue;
-      if (!isWithinConfiguredCalendar(cursor) || isHoliday(cursor)) continue;
-      const iso = toISODate(cursor);
-      let modality = "presential";
-      if (series.monthlyMode) {
-        const weekOfMonth = Math.floor((cursor.getDate() - 1) / 7) + 1;
-        modality = weekOfMonth <= 2 ? "presential" : "telephone";
-      }
-      records.push({
-        record_kind: "activity",
-        date: iso,
-        end_date: iso,
-        start_time: series.start_time,
-        end_time: series.end_time,
-        name: series.name,
-        secretary: extensionSecretary,
-        activity_category: "legal_clinic",
-        activity_category_custom: "",
-        academic_activity_type: "",
-        career: "",
-        academic_year: "",
-        subject: "",
-        responsible: series.responsible,
-        responsible_is_public: Boolean(series.responsible),
-        public_responsible: series.responsible,
-        classroom: modality === "presential" ? series.location : "",
-        activity_type: modality,
-        activity_status: "scheduled",
-        postponed_date: "",
-        postponed_date_tbd: false,
-        platform: modality === "telephone" ? "Atención telefónica" : "",
-        account_used: "",
-        meeting_url: "",
-        link_is_public: false,
-        more_info_url: "https://turnos.derecho.uncu.edu.ar",
-        requirements: modality === "telephone"
-          ? "Atención telefónica. Reserve su turno previamente a través del sistema institucional."
-          : "Atención presencial. Reserve su turno previamente a través del sistema institucional.",
-        observations: "",
-        recording_required: false,
-        source_uid: `consultorio-juridico-2026-${series.id}-${iso}`,
-        calendar_source: "Consultorios Jurídicos Gratuitos UNCUYO"
-      });
-    }
-  });
-  return records.sort(sortActivities);
-}
-
-function openBulkLegalClinics() {
-  if (!state.canEdit || state.legalClinicsBulkLoaded) return;
-  const preview = el("legalClinicsPreview");
-  preview.replaceChildren();
-  legalClinicSeries2026.forEach((series) => {
-    const li = document.createElement("li");
-    const title = document.createElement("strong");
-    title.textContent = series.name;
-    const meta = document.createElement("span");
-    const dayName = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][series.weekday];
-    meta.textContent = `${dayName} · ${series.start_time}–${series.end_time}${series.responsible ? ` · ${series.responsible}` : ""}`;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  const occurrences = legalClinicOccurrences();
-  el("legalClinicsCount").textContent = `${legalClinicSeries2026.length} consultorios · ${occurrences.length} atenciones previstas`;
-  el("legalClinicsMessage").hidden = true;
-  legalClinicsDialog.showModal();
-}
-
-async function saveBulkLegalClinics(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.legalClinicsBulkLoaded) return;
-  const button = el("runBulkLegalClinics");
-  const message = el("legalClinicsMessage");
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  message.hidden = true;
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
-    if (configRecord?.data()?.[legalClinicsBulkMarker] === true) {
-      state.legalClinicsBulkLoaded = true;
-      updateBulkLegalClinicsVisibility();
-      legalClinicsDialog.close();
-      showToast("Los Consultorios Jurídicos ya fueron cargados");
-      return;
-    }
-    const existingBySourceUid = new Map(existing.docs.map((record) => [record.data().source_uid, record]).filter(([uid]) => Boolean(uid)));
-    const allOccurrences = legalClinicOccurrences();
-    const pending = allOccurrences.filter((item) => !existingBySourceUid.has(item.source_uid));
-    const existingOccurrences = allOccurrences.filter((item) => existingBySourceUid.has(item.source_uid));
-    if (pending.length) await writeNewActivities(pending);
-    for (let start = 0; start < existingOccurrences.length; start += 100) {
-      const batch = writeBatch(db);
-      existingOccurrences.slice(start, start + 100).forEach((item) => {
-        const current = existingBySourceUid.get(item.source_uid);
-        batch.update(current.ref, { ...publicActivityUpdate(item), updated_at: serverTimestamp() });
-        batch.set(doc(db, privateActivitiesCollection, current.id), privateActivityData(item), { merge: true });
-      });
-      await batch.commit();
-    }
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [legalClinicsBulkMarker]: true,
-      legal_clinics_2026_loaded_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-    state.legalClinicsBulkLoaded = true;
-    updateBulkLegalClinicsVisibility();
-    legalClinicsDialog.close();
-    await loadPeriod();
-    const skipped = allOccurrences.length - pending.length;
-    showToast(existingOccurrences.length ? `${pending.length} atenciones nuevas · ${existingOccurrences.length} actualizadas` : `${pending.length} atenciones de Consultorios Jurídicos cargadas`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar consultorios";
-  }
-}
-
-
-const mediationCenterSeries2026 = [
-  { id: "lunes", weekday: 1, start_time: "16:00", end_time: "20:00" },
-  { id: "martes", weekday: 2, start_time: "10:00", end_time: "13:00" },
-  { id: "miercoles", weekday: 3, start_time: "10:00", end_time: "13:00" },
-  { id: "viernes", weekday: 5, start_time: "15:00", end_time: "20:00" }
-];
-
-function mediationCenterOccurrences() {
-  const start = fromISODate("2026-08-16");
-  const end = fromISODate("2026-11-27");
-  const records = [];
-  mediationCenterSeries2026.forEach((series) => {
-    for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
-      if (cursor.getDay() !== series.weekday) continue;
-      if (!isWithinConfiguredCalendar(cursor) || isHoliday(cursor)) continue;
-      const iso = toISODate(cursor);
-      records.push({
-        record_kind: "activity",
-        date: iso,
-        end_date: iso,
-        start_time: series.start_time,
-        end_time: series.end_time,
-        name: "Centro de Mediación",
-        secretary: extensionSecretary,
-        activity_category: "service",
-        activity_category_custom: "",
-        academic_activity_type: "",
-        career: "",
-        academic_year: "",
-        subject: "",
-        responsible: "Mgter. Sara Curi",
-        responsible_is_public: true,
-        public_responsible: "Mgter. Sara Curi",
-        classroom: "Área de Mediación",
-        activity_type: "presential",
-        activity_status: "scheduled",
-        postponed_date: "",
-        postponed_date_tbd: false,
-        platform: "",
-        account_used: "",
-        meeting_url: "",
-        link_is_public: false,
-        more_info_url: "",
-        requirements: "",
-        observations: "",
-        recording_required: false,
-        source_uid: `centro-mediacion-2026-${series.id}-${iso}`,
-        calendar_source: "Centro de Mediación 2026"
-      });
-    }
-  });
-  return records.sort(sortActivities);
-}
-
-function openBulkMediationCenter() {
-  if (!state.canEdit || state.mediationCenterBulkLoaded) return;
-  const preview = el("mediationCenterPreview");
-  preview.replaceChildren();
-  mediationCenterSeries2026.forEach((series) => {
-    const li = document.createElement("li");
-    const title = document.createElement("strong");
-    title.textContent = "Centro de Mediación";
-    const meta = document.createElement("span");
-    const dayName = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][series.weekday];
-    meta.textContent = `${dayName} · ${series.start_time}–${series.end_time} · Mgter. Sara Curi`;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  const occurrences = mediationCenterOccurrences();
-  el("mediationCenterCount").textContent = `${occurrences.length} atenciones previstas`;
-  el("mediationCenterMessage").hidden = true;
-  mediationCenterDialog.showModal();
-}
-
-async function saveBulkMediationCenter(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.mediationCenterBulkLoaded) return;
-  const button = el("runBulkMediationCenter");
-  const message = el("mediationCenterMessage");
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  message.hidden = true;
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
-    if (configRecord?.data()?.[mediationCenterBulkMarker] === true) {
-      state.mediationCenterBulkLoaded = true;
-      updateBulkMediationCenterVisibility();
-      mediationCenterDialog.close();
-      showToast("El Centro de Mediación ya fue cargado");
-      return;
-    }
-    const knownSourceUids = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
-    const allOccurrences = mediationCenterOccurrences();
-    const pending = allOccurrences.filter((item) => !knownSourceUids.has(item.source_uid));
-    if (pending.length) await writeNewActivities(pending);
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [mediationCenterBulkMarker]: true,
-      mediation_center_2026_loaded_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-    state.mediationCenterBulkLoaded = true;
-    updateBulkMediationCenterVisibility();
-    mediationCenterDialog.close();
-    await loadPeriod();
-    const skipped = allOccurrences.length - pending.length;
-    showToast(skipped ? `${pending.length} atenciones nuevas cargadas · ${skipped} ya existían` : `${pending.length} atenciones del Centro de Mediación cargadas`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar Centro de Mediación";
-  }
-}
-
-
-
-const ingreso2027FridayDates = [
-  "2026-08-21", "2026-08-28",
-  "2026-09-04", "2026-09-11", "2026-09-18", "2026-09-25",
-  "2026-10-02", "2026-10-09", "2026-10-16", "2026-10-23", "2026-10-30",
-  "2026-11-06", "2026-11-13", "2026-11-20"
-];
-
-const ingreso2027IntensiveModule1Dates = [
-  "2026-11-02", "2026-11-03", "2026-11-05", "2026-11-06",
-  "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12",
-  "2026-11-23", "2026-11-24", "2026-11-25", "2026-11-27",
-  "2026-11-30", "2026-12-01", "2026-12-02"
-];
-
-const ingreso2027ExamDates = [
-  { date: "2027-02-05", name: "Ingreso 2027 · Examen Módulo I", source: "ingreso-2027-examen-modulo-i" },
-  { date: "2027-02-19", name: "Ingreso 2027 · Recuperatorio Examen Módulo I", source: "ingreso-2027-recuperatorio-modulo-i" },
-  { date: "2027-03-05", name: "Ingreso 2027 · Examen Módulo II", source: "ingreso-2027-examen-modulo-ii" },
-  { date: "2027-03-19", name: "Ingreso 2027 · Recuperatorio Módulo II", source: "ingreso-2027-recuperatorio-modulo-ii" }
-];
-
-function ingreso2027BaseRecord(overrides = {}) {
-  return {
-    record_kind: "activity",
-    date: "",
-    end_date: "",
-    start_time: "",
-    end_time: "",
-    name: "Ingreso 2027",
-    secretary: academicSecretary,
-    activity_category: "class",
-    activity_category_custom: "",
-    academic_activity_type: "class",
-    career: lawCareer,
-    academic_year: "Primer año",
-    subject: "Ingreso",
-    responsible: "",
-    responsible_is_public: false,
-    public_responsible: "",
-    classroom: "",
-    activity_type: "presential",
-    activity_status: "scheduled",
-    postponed_date: "",
-    postponed_date_tbd: false,
-    platform: "",
-    account_used: "",
-    meeting_url: "",
-    link_is_public: false,
-    more_info_url: "",
-    requirements: "",
-    observations: "",
-    recording_required: false,
-    calendar_source: "Curso de Ingreso 2027",
-    ...overrides
-  };
-}
-
-function ingreso2027UpdateRecords() {
-  const commissions = [
-    { number: 1, shift: "mañana", start: "10:00", end: "12:00", room: "Aula B", type: "hybrid" },
-    { number: 2, shift: "mañana", start: "10:00", end: "12:00", room: "Aula A", type: "presential" },
-    { number: 3, shift: "tarde", start: "18:00", end: "20:00", room: "Aula C", type: "hybrid" },
-    { number: 4, shift: "tarde", start: "18:00", end: "20:00", room: "Aula A", type: "presential" },
-    { number: 5, shift: "tarde", start: "18:00", end: "20:00", room: "Aula F", type: "presential" },
-    { number: 6, shift: "tarde", start: "18:00", end: "20:00", room: "Aula K", type: "presential" }
-  ];
-
-  const records = [];
-  ingreso2027FridayDates.forEach((date) => {
-    commissions.forEach((commission) => {
-      records.push(ingreso2027BaseRecord({
-        date,
-        end_date: date,
-        start_time: commission.start,
-        end_time: commission.end,
-        name: `Ingreso 2027 · Modalidad extensiva · Comisión ${commission.number} · Turno ${commission.shift}`,
-        classroom: commission.room,
-        activity_type: commission.type,
-        platform: commission.type === "hybrid" ? "Google Meet" : "",
-        requirements: commission.type === "hybrid"
-          ? `Comisión ${commission.number} híbrida. Enlace y cuenta pendientes de carga.`
-          : `Comisión ${commission.number} presencial.`,
-        source_uid: `ingreso-extensivo-2027-${date}-viernes-c${commission.number}-${commission.shift === "mañana" ? "manana" : "tarde"}`,
-        calendar_source: "Modalidad Extensiva – Curso de Ingreso 2027"
-      }));
-    });
-  });
-
-  ingreso2027IntensiveModule1Dates.forEach((date) => {
-    records.push(ingreso2027BaseRecord({
-      date,
-      end_date: date,
-      name: "Ingreso 2027 · Modalidad intensiva · Módulo I",
-      classroom: "Aula a confirmar",
-      activity_type: "presential",
-      requirements: "Modalidad intensiva · Módulo I. Horario y aula a confirmar.",
-      source_uid: `ingreso-intensivo-2027-modulo-i-${date}`,
-      calendar_source: "Modalidad Intensiva – Curso de Ingreso 2027"
-    }));
-  });
-
-  ingreso2027ExamDates.forEach((exam) => {
-    records.push(ingreso2027BaseRecord({
-      date: exam.date,
-      end_date: exam.date,
-      name: exam.name,
-      activity_category: "global_knowledge_exam",
-      academic_activity_type: "global_knowledge_exam",
-      classroom: "Aula a confirmar",
-      activity_type: "presential",
-      requirements: "Horario y aula a confirmar.",
-      source_uid: exam.source,
-      calendar_source: "Evaluaciones – Curso de Ingreso 2027"
-    }));
-  });
-
-  return records.sort(sortActivities);
-}
-
-function openIngreso2027Update() {
-  if (!state.canEdit || state.ingreso2027UpdateLoaded) return;
-  const preview = el("ingreso2027Preview");
-  preview.replaceChildren();
-  [
-    ["Modalidad extensiva · Viernes", "6 comisiones · C1 Aula B híbrida · C2 Aula A presencial · C3 Aula C híbrida · C4 Aula A · C5 Aula F · C6 Aula K"],
-    ["Modalidad intensiva · Módulo I", `${ingreso2027IntensiveModule1Dates.length} fechas · presencial · horario y aula a confirmar`],
-    ["Evaluaciones", "Examen y recuperatorio de Módulo I y Módulo II · febrero y marzo 2027"]
-  ].forEach(([titleText, metaText]) => {
-    const li = document.createElement("li");
-    const title = document.createElement("strong");
-    title.textContent = titleText;
-    const meta = document.createElement("span");
-    meta.textContent = metaText;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  el("ingreso2027Count").textContent = `${ingreso2027UpdateRecords().length} registros definitivos`;
-  el("ingreso2027Message").hidden = true;
-  ingreso2027Dialog.showModal();
-}
-
-async function saveIngreso2027Update(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.ingreso2027UpdateLoaded) return;
-  const button = el("runIngreso2027Update");
-  const message = el("ingreso2027Message");
-  button.disabled = true;
-  button.textContent = "Actualizando…";
-  message.hidden = true;
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
-    if (configRecord?.data()?.[ingreso2027UpdateMarker] === true) {
-      state.ingreso2027UpdateLoaded = true;
-      updateIngreso2027Visibility();
-      ingreso2027Dialog.close();
-      showToast("El Ingreso 2027 ya está actualizado");
-      return;
-    }
-
-    const bySourceUid = new Map(existing.docs.map((record) => [record.data().source_uid, record]).filter(([uid]) => Boolean(uid)));
-    const desired = ingreso2027UpdateRecords();
-    const pending = desired.filter((item) => !bySourceUid.has(item.source_uid));
-    const toUpdate = desired.filter((item) => bySourceUid.has(item.source_uid));
-    const placeholders = existing.docs.filter((record) => /ingreso-extensivo-2027-\d{4}-\d{2}-\d{2}-viernes-otras-(?:manana|tarde)$/.test(String(record.data().source_uid || "")));
-
-    if (pending.length) await writeNewActivities(pending);
-
-    for (let start = 0; start < toUpdate.length; start += 100) {
-      const batch = writeBatch(db);
-      toUpdate.slice(start, start + 100).forEach((item) => {
-        const current = bySourceUid.get(item.source_uid);
-        batch.update(current.ref, { ...publicActivityUpdate(item), updated_at: serverTimestamp() });
-        batch.set(doc(db, privateActivitiesCollection, current.id), privateActivityData(item), { merge: true });
-      });
-      await batch.commit();
-    }
-
-    for (let start = 0; start < placeholders.length; start += 200) {
-      const batch = writeBatch(db);
-      placeholders.slice(start, start + 200).forEach((record) => {
-        batch.delete(record.ref);
-        batch.delete(doc(db, privateActivitiesCollection, record.id));
-      });
-      await batch.commit();
-    }
-
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [ingreso2027UpdateMarker]: true,
-      ingreso_2027_updated_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-
-    state.ingreso2027UpdateLoaded = true;
-    updateIngreso2027Visibility();
-    ingreso2027Dialog.close();
-    await loadPeriod();
-    showToast(`${pending.length} registros nuevos · ${toUpdate.length} actualizados · ${placeholders.length} provisionales eliminados`);
-  } catch (error) {
-    message.textContent = `No se pudo actualizar el Ingreso 2027. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Actualizar Ingreso 2027";
-  }
-}
-
-function programSourceLabel(source) {
-  const labels = {
-    "Modalidad Extensiva – Curso de Ingreso 2027": "Ingreso 2027 · Modalidad extensiva",
-    "CRONOGRAMA ESP y MAESTRÍA FLIAS 2026": "Especialización y Maestría en Derecho de las Familias",
-    "Cronograma Diplomatura Discapacidad 2026": "Diplomatura en Derechos de las Personas con Discapacidad",
-    "Diplomatura de Posgrado en Mediación y Gestión Participativa de Conflictos 2026": "Diplomatura en Mediación y Gestión Participativa de Conflictos"
-  };
-  return labels[source] || source || "Actividad";
-}
-
-function openBulkPrograms() {
-  if (!state.canEdit || state.programsBulkLoaded) return;
-  const preview = el("programsPreview");
-  preview.replaceChildren();
-  const grouped = new Map();
-  programs2026FromAugust16.forEach((item) => {
-    const key = item.calendar_source || "Otras actividades";
-    grouped.set(key, (grouped.get(key) || 0) + 1);
-  });
-  [...grouped.entries()].forEach(([source, count]) => {
-    const li = document.createElement("li");
-    const title = document.createElement("strong");
-    title.textContent = programSourceLabel(source);
-    const meta = document.createElement("span");
-    meta.textContent = `${count} ${count === 1 ? "evento" : "eventos"}`;
-    li.append(title, meta);
-    preview.append(li);
-  });
-  el("programsCount").textContent = `${programs2026FromAugust16.length} eventos preparados`;
-  el("programsMessage").hidden = true;
-  programsDialog.showModal();
-}
-
-async function saveBulkPrograms(event) {
-  event.preventDefault();
-  if (!state.canEdit || state.programsBulkLoaded) return;
-  const button = el("runBulkPrograms");
-  const message = el("programsMessage");
-  button.disabled = true;
-  button.textContent = "Cargando…";
-  message.hidden = true;
-  try {
-    if (!configured) throw new Error("La agenda no está conectada a Firebase.");
-    const existing = await getDocs(collection(db, activitiesCollection));
-    const configRecord = existing.docs.find((record) => isCalendarConfigRecord({ id: record.id, ...record.data() }));
-    if (configRecord?.data()?.[programsBulkMarker] === true) {
-      state.programsBulkLoaded = true;
-      updateBulkProgramsVisibility();
-      programsDialog.close();
-      showToast("La carga de ingreso y posgrados ya fue realizada");
-      return;
-    }
-
-    const knownSourceUids = new Set(existing.docs.map((record) => record.data().source_uid).filter(Boolean));
-    const pending = programs2026FromAugust16.filter((item) => !knownSourceUids.has(item.source_uid));
-    if (pending.length) await writeNewActivities(pending);
-
-    const markerBatch = writeBatch(db);
-    markerBatch.set(doc(db, activitiesCollection, calendarConfigDocumentId), {
-      record_kind: "calendar_config",
-      date: `${calendarFirstYear}-01-01`,
-      end_date: `${calendarLastYear}-12-31`,
-      name: "Configuración del calendario",
-      [programsBulkMarker]: true,
-      programs_ingreso_posgrado_2026_loaded_at: serverTimestamp(),
-      updated_at: serverTimestamp()
-    }, { merge: true });
-    await markerBatch.commit();
-
-    state.programsBulkLoaded = true;
-    updateBulkProgramsVisibility();
-    programsDialog.close();
-    await loadPeriod();
-    const skipped = programs2026FromAugust16.length - pending.length;
-    showToast(skipped ? `${pending.length} eventos nuevos cargados · ${skipped} ya existían` : `${pending.length} eventos cargados`);
-  } catch (error) {
-    message.textContent = `No se pudo realizar la carga. ${friendlyError(error)}`;
-    message.hidden = false;
-  } finally {
-    button.disabled = false;
-    button.textContent = "Cargar actividades";
-  }
 }
 
 function openImportForm() { if (!state.canEdit) return; el("importForm").reset(); el("icsFileName").textContent = "Ningún archivo seleccionado"; el("importMessage").hidden = true; importDialog.showModal(); }
@@ -3322,7 +2170,7 @@ async function importCalendarFile(event) {
       const records = loadDemoData(); const known = new Set(records.map((item) => item.source_uid).filter(Boolean)); newEvents = parsed.filter((item) => !known.has(item.source_uid));
       newEvents.forEach((item) => records.push({ ...item, id: crypto.randomUUID() })); writeDemoData(records);
     }
-    importDialog.close(); state.cursor = fromISODate(parsed[0].date); await loadPeriod(); showToast(`${newEvents.length} ${newEvents.length === 1 ? "actividad importada" : "actividades importadas"}`);
+    invalidateDataCaches(); importDialog.close(); state.cursor = fromISODate(parsed[0].date); await loadPeriod(); showToast(`${newEvents.length} ${newEvents.length === 1 ? "actividad importada" : "actividades importadas"}`);
   } catch (error) { message.textContent = `No se pudo importar. ${friendlyError(error)}`; message.hidden = false; }
   finally { button.disabled = false; button.textContent = "Importar actividades"; }
 }
@@ -3665,15 +2513,32 @@ function renderStatisticalPdf(doc, layout, items) {
   drawStatisticalBreakdown(doc, layout, "Distribución por secretaría / área", countReportItems(items, (item) => displayOrganizer(item) || "Sin secretaría / área"), items.length);
   drawStatisticalBreakdown(doc, layout, "Distribución por nivel", countReportItems(items, (item) => reportAudienceLabel(activityAudienceKey(item))), items.length);
 }
+let jsPdfLoadPromise = null;
+function ensureJsPdf() {
+  if (window.jspdf?.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (!jsPdfLoadPromise) {
+    jsPdfLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js";
+      script.async = true;
+      script.onload = () => window.jspdf?.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error("jsPDF no disponible"));
+      script.onerror = () => reject(new Error("No se pudo cargar jsPDF"));
+      document.head.append(script);
+    });
+  }
+  return jsPdfLoadPromise;
+}
+
 async function generateReportPdf(event) {
   event.preventDefault();
   if (!state.canEdit) return;
   const message = el("reportMessage"); message.hidden = true; message.textContent = "";
-  const JsPdf = window.jspdf?.jsPDF;
-  if (!JsPdf) { message.textContent = "No se pudo cargar el generador de PDF. Revisá la conexión a Internet y actualizá la página."; message.hidden = false; return; }
+  let JsPdf;
+  try { JsPdf = await ensureJsPdf(); }
+  catch (_) { message.textContent = "No se pudo cargar el generador de PDF. Revisá la conexión a Internet y actualizá la página."; message.hidden = false; return; }
   try {
     const range = selectedReportRange();
-    const reportSource = configured ? await fetchActivitiesForRange(range.start, range.end) : state.allActivities;
+    const reportSource = configured ? await fetchActivitiesForRange(range.start, range.end, { includePrivate: state.canEdit }) : state.allActivities;
     const items = selectedReportItems(range, reportSource);
     if (!items.length) throw new Error("No hay eventos para el período y los filtros seleccionados.");
     const outputType = el("reportOutputType").value;
