@@ -7,12 +7,20 @@
 <meta content="#014a7d" name="theme-color"/>
 <meta content="Agenda general de actividades de la Facultad de Derecho." name="description"/>
 <title>Agenda de Actividades | Facultad de Derecho</title>
+<script>
+(() => {
+  try {
+    const savedTheme = localStorage.getItem("agenda-derecho-theme-v1");
+    if (savedTheme === "dark" || savedTheme === "light") document.documentElement.dataset.theme = savedTheme;
+  } catch (_) {}
+})();
+</script>
 <link as="image" href="assets/logo-fd.png" rel="preload"/>
 <link crossorigin="" href="https://www.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;family=Poppins:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="styles.css?v=69-20260924" rel="stylesheet"/>
+<link href="styles.css?v=73-dark-month-20260926" rel="stylesheet"/>
 </head>
 <body>
 <header class="site-header">
@@ -24,6 +32,11 @@
 </div>
 <div class="session-area">
 <span aria-live="polite" class="header-event-total" id="headerEventTotal">0 eventos totales</span>
+<button aria-label="Cambiar a modo oscuro" class="theme-toggle" id="themeToggle" title="Cambiar a modo oscuro" type="button">
+<svg aria-hidden="true" class="theme-icon theme-icon-moon" viewBox="0 0 24 24"><path d="M20.2 15.3A8.2 8.2 0 0 1 8.7 3.8 8.7 8.7 0 1 0 20.2 15.3Z"></path></svg>
+<svg aria-hidden="true" class="theme-icon theme-icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+<span id="themeToggleText">Oscuro</span>
+</button>
 <span class="session-label" hidden="" id="sessionLabel"></span>
 <button aria-label="Administración" class="admin-icon-button" id="authButton" title="Administración" type="button">
 <img alt="" aria-hidden="true" decoding="async" height="128" src="assets/administracion.png" width="128"/>
@@ -283,8 +296,8 @@
 </div>
 </dialog>
 <div aria-live="polite" class="toast" hidden="" id="toast" role="status"></div>
-<script src="config.js?v=69-20260924"></script>
-<script src="app.js?v=69-20260924" type="module"></script>
+<script src="config.js?v=73-dark-month-20260926"></script>
+<script src="app.js?v=73-dark-month-20260926" type="module"></script>
 <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

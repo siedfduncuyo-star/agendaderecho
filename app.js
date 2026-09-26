@@ -18,6 +18,7 @@ const locale = "es-AR";
 const demoStorageKey = "agenda-hibrida-demo-firebase-v2";
 const demoCalendarStorageKey = "agenda-calendario-config-v30";
 const viewPreferencesStorageKey = "agenda-derecho-view-preferences-v1";
+const themeStorageKey = "agenda-derecho-theme-v1";
 const calendarConfigDocumentId = "agenda_calendar_config";
 const academicCalendarBulkMarker = "academic_calendar_2026_2027_loaded";
 const academicCalendarCleanupMarker = "academic_calendar_cleanup_done";
@@ -638,7 +639,41 @@ function loadDemoCalendarConfig() {
 }
 function writeDemoCalendarConfig(calendarConfig) { localStorage.setItem(demoCalendarStorageKey, JSON.stringify(calendarConfig)); }
 
+function applyTheme(theme, persist = true) {
+  const nextTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = nextTheme;
+  const toggle = el("themeToggle");
+  const label = el("themeToggleText");
+  const nextLabel = nextTheme === "dark" ? "Claro" : "Oscuro";
+  const actionLabel = nextTheme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro";
+  if (label) label.textContent = nextLabel;
+  if (toggle) {
+    toggle.setAttribute("aria-label", actionLabel);
+    toggle.title = actionLabel;
+    toggle.setAttribute("aria-pressed", String(nextTheme === "dark"));
+  }
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.content = nextTheme === "dark" ? "#0b2f46" : "#014a7d";
+  if (persist) {
+    try { localStorage.setItem(themeStorageKey, nextTheme); } catch (_) { /* preferencia opcional */ }
+  }
+}
+
+function initTheme() {
+  let savedTheme = document.documentElement.dataset.theme || "light";
+  try {
+    const stored = localStorage.getItem(themeStorageKey);
+    if (stored === "dark" || stored === "light") savedTheme = stored;
+  } catch (_) { /* usar tema claro */ }
+  applyTheme(savedTheme, false);
+}
+
+function toggleTheme() {
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+}
+
 async function init() {
+  initTheme();
   state.calendarConfig = cloneDefaultCalendarConfig();
   el("demoBanner").hidden = true;
   populateFormOptions();
@@ -692,6 +727,7 @@ async function initAuth() {
 }
 
 function bindEvents() {
+  el("themeToggle").addEventListener("click", toggleTheme);
   el("dayView").addEventListener("click", () => setView("day"));
   el("weekView").addEventListener("click", () => setView("week"));
   el("monthView").addEventListener("click", () => setView("month"));
@@ -2841,7 +2877,7 @@ async function generateReportPdf(event) {
 
 function friendlyError(error) {
   const code = error?.code || "";
-  if (code === "auth/unauthorized-domain") return "Falta autorizar el dominio de GitHub Pages en Firebase.";
+  if (code === "auth/unauthorized-domain") return "Falta autorizar este dominio en Firebase Authentication.";
   if (code === "auth/popup-blocked") return "El navegador bloqueó la ventana de Google. Permití ventanas emergentes e intentá nuevamente.";
   if (code === "auth/network-request-failed") return "No se pudo contactar a Google/Firebase. Revisá la conexión a Internet.";
   if (code === "permission-denied" || code === "firestore/permission-denied") return "La cuenta no tiene permiso para realizar esta acción.";
