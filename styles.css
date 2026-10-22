@@ -1389,3 +1389,8 @@ html[data-theme="dark"] .toast { background: #c4ddec; color: #10212b; }
     opacity: .72;
   }
 }
+
+
+/* v74 · selección de varios espacios para una actividad */
+.form-grid select[multiple] { min-height: 132px; padding: 5px; }
+.form-grid select[multiple] option { padding: 6px 8px; border-radius: 3px; }

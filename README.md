@@ -81,3 +81,27 @@ La cabecera incluye un selector para alternar entre modo claro y oscuro. La pref
 - Hace legibles las modalidades Presencial, Virtual, Híbrida y Telefónica sobre tarjetas oscuras.
 - Refuerza horario, títulos, badges de grupos y fechas destacadas sin perder el apagado de días pasados.
 - No modifica Firebase ni los datos almacenados.
+
+
+## v74 — carga por secretaría, aulas múltiples y aviso de superposición
+
+- Cada correo institucional habilitado puede cargar, editar y eliminar actividades únicamente de su secretaría. La cuenta administradora conserva permisos generales.
+- Una actividad puede incluir más de un aula/lugar. Los datos anteriores en `classroom` se siguen leyendo sin migración.
+- Al guardar, se advierte si otra actividad tiene fechas y horarios superpuestos. La persona puede cancelar o confirmar la carga.
+- Se mantiene el mismo `projectId` de Firebase y no se ejecuta ninguna importación, migración ni modificación automática de Firestore.
+
+### Activar los permisos de secretaría
+
+Para que las cuentas de secretaría puedan escribir, publicar el contenido de `firestore.rules` en Firebase Console → Firestore Database → Rules. Hasta actualizar estas reglas, las cuentas nuevas no podrán guardar. No se debe ejecutar ni reemplazar la base de datos.
+
+Cuentas habilitadas:
+
+- Secretaría Académica — `sec_academica@derecho.uncu.edu.ar`
+- Secretaría de Posgrado — `posgrado1@derecho.uncu.edu.ar`
+- Secretaría de Relaciones Estudiantiles y Egresados/as — `bienestar@derecho.uncu.edu.ar`
+- Secretaría de Extensión, Vinculación y Territorio — `extension@derecho.uncu.edu.ar`
+- Secretaría Económica-Financiera — `sececofi@derecho.uncu.edu.ar`
+- Secretaría General — `administrativa@derecho.uncu.edu.ar`
+- Secretaría de Investigación, Ciencia y Técnica — `cienciaytecnica@derecho.uncu.edu.ar`
+
+La cuenta `facultad@derecho.uncu.edu.ar` mantiene el acceso de administración general.
