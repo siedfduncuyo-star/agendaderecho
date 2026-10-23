@@ -2,10 +2,29 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAgendaEditor() {
+    function callerEmail() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == "facultad@derecho.uncu.edu.ar";
+        ? request.auth.token.email
+        : "";
+    }
+
+    function isAgendaAdmin() {
+      return callerEmail() == "facultad@derecho.uncu.edu.ar";
+    }
+
+    function callerSecretary() {
+      return callerEmail() == "sec_academica@derecho.uncu.edu.ar" ? "Secretaría Académica" :
+        callerEmail() == "posgrado1@derecho.uncu.edu.ar" ? "Secretaría de Posgrado" :
+        callerEmail() == "bienestar@derecho.uncu.edu.ar" ? "Secretaría de Relaciones Estudiantiles y Egresados/as" :
+        callerEmail() == "extension@derecho.uncu.edu.ar" ? "Secretaría de Extensión, Vinculación y Territorio" :
+        callerEmail() == "sececofi@derecho.uncu.edu.ar" ? "Secretaría Económica - Financiera" :
+        callerEmail() == "administrativa@derecho.uncu.edu.ar" ? "Secretaría General" :
+        callerEmail() == "cienciaytecnica@derecho.uncu.edu.ar" ? "Secretaría de Investigación, Ciencia y Técnica" : "";
+    }
+
+    function isAgendaSecretary() {
+      return callerSecretary() != "";
     }
 
     function publicActivityIsSafe() {
@@ -17,14 +36,38 @@ service cloud.firestore {
         );
     }
 
+    function ownSecretaryActivity(data) {
+      return isAgendaSecretary() && (
+        data.secretary == callerSecretary()
+        || (callerSecretary() == "Secretaría Económica - Financiera" && data.secretary == "Secretaría Económica-Financiera")
+        || (callerSecretary() == "Secretaría General" && data.secretary == "Secretaría Administrativa")
+        || (callerSecretary() == "Secretaría de Extensión, Vinculación y Territorio" && data.secretary == "Secretaría de Extensión, Vinculación Y Territorio")
+      );
+    }
+
+    function ownsActivityAfter(activityId) {
+      let activity = getAfter(/databases/$(database)/documents/actividades/$(activityId));
+      return activity != null && ownSecretaryActivity(activity.data);
+    }
+
+    function ownsActivityBefore(activityId) {
+      let activity = get(/databases/$(database)/documents/actividades/$(activityId));
+      return activity != null && ownSecretaryActivity(activity.data);
+    }
+
     match /actividades/{actividadId} {
       allow read: if true;
-      allow create, update: if isAgendaEditor() && publicActivityIsSafe();
-      allow delete: if isAgendaEditor();
+      allow create: if publicActivityIsSafe()
+        && (isAgendaAdmin() || ownSecretaryActivity(request.resource.data));
+      allow update: if publicActivityIsSafe()
+        && (isAgendaAdmin() || (ownSecretaryActivity(resource.data) && ownSecretaryActivity(request.resource.data)));
+      allow delete: if isAgendaAdmin() || ownSecretaryActivity(resource.data);
     }
 
     match /actividades_privadas/{actividadId} {
-      allow read, create, update, delete: if isAgendaEditor();
+      allow read: if isAgendaAdmin() || ownsActivityBefore(actividadId);
+      allow create, update: if isAgendaAdmin() || ownsActivityAfter(actividadId);
+      allow delete: if isAgendaAdmin() || ownsActivityBefore(actividadId);
     }
   }
 }

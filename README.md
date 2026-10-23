@@ -83,11 +83,11 @@ La cabecera incluye un selector para alternar entre modo claro y oscuro. La pref
 - No modifica Firebase ni los datos almacenados.
 
 
-## v74 — carga por secretaría, aulas múltiples y aviso de superposición
+## v75 — carga por secretaría, aulas múltiples y conflictos de aula
 
 - Cada correo institucional habilitado puede cargar, editar y eliminar actividades únicamente de su secretaría. La cuenta administradora conserva permisos generales.
 - Una actividad puede incluir más de un aula/lugar. Los datos anteriores en `classroom` se siguen leyendo sin migración.
-- Al guardar, se advierte si otra actividad tiene fechas y horarios superpuestos. La persona puede cancelar o confirmar la carga.
+- Al guardar, se advierte solo si otra actividad coincide en al menos un día, una parte del horario y una misma aula/lugar. Si la superposición es en otro espacio, no aparece el aviso. La persona puede cancelar o confirmar la carga.
 - Se mantiene el mismo `projectId` de Firebase y no se ejecuta ninguna importación, migración ni modificación automática de Firestore.
 
 ### Activar los permisos de secretaría

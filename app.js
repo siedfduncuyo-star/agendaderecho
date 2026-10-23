@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v74-secretarias-aulas-superposiciones-20261022";
+const AGENDA_BUILD = "v75-superposicion-dia-horario-aula-20261023";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
@@ -2182,6 +2182,12 @@ function recurrenceRecords(payload) {
   return records;
 }
 
+function classroomNames(item) {
+  const raw = Array.isArray(item?.classrooms) ? item.classrooms : String(item?.classroom || "").split(/\s*(?:·|,)\s*/);
+  return [...new Set(raw.map((room) => String(room || "").trim().toLocaleLowerCase("es-AR")).filter(Boolean)
+    .map((room) => ["aula h", "aula h (magnita)"].includes(room) ? "aula h" : room))];
+}
+
 async function findScheduleConflicts(records, ignoredId = "") {
   if (!configured || !records.length) return [];
   const latest = records.map((record) => record.end_date || record.date).sort().at(-1);
@@ -2189,12 +2195,20 @@ async function findScheduleConflicts(records, ignoredId = "") {
   const existing = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
   const found = new Map();
   for (const candidate of records) {
+    const candidateRooms = classroomNames(candidate);
+    if (!candidateRooms.length) continue;
     const startMinutes = timeToMinutes(candidate.start_time); const endMinutes = timeToMinutes(candidate.end_time);
     for (const item of existing) {
       if (item.id === ignoredId || item.record_kind === "period" || !item.start_time || !item.end_time) continue;
+      const itemRooms = classroomNames(item);
+      const sharedRooms = candidateRooms.filter((room) => itemRooms.includes(room));
+      if (!sharedRooms.length) continue;
       const itemEndDate = item.end_date || item.date;
       if (itemEndDate < candidate.date || item.date > (candidate.end_date || candidate.date)) continue;
-      if (timeToMinutes(item.start_time) < endMinutes && startMinutes < timeToMinutes(item.end_time)) found.set(item.id, item);
+      if (timeToMinutes(item.start_time) < endMinutes && startMinutes < timeToMinutes(item.end_time)) {
+        const overlapDate = item.date > candidate.date ? item.date : candidate.date;
+        if (!found.has(item.id)) found.set(item.id, { ...item, overlapDate, sharedRooms });
+      }
     }
   }
   return [...found.values()];
@@ -2212,9 +2226,9 @@ async function saveActivity(event) {
     const recordsToSave = id ? [payload] : recurrenceRecords(payload);
     const conflicts = await findScheduleConflicts(recordsToSave, id);
     if (conflicts.length) {
-      const preview = conflicts.slice(0, 6).map((item) => `• ${item.date} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)} · ${item.name}${item.classroom ? ` · ${item.classroom}` : ""}`).join("\n");
+      const preview = conflicts.slice(0, 6).map((item) => `• ${item.overlapDate} · ${cleanTime(item.start_time)}–${cleanTime(item.end_time)} · ${item.name} · ${item.sharedRooms.join(", ")}`).join("\n");
       const remaining = conflicts.length > 6 ? `\n…y ${conflicts.length - 6} superposición(es) más.` : "";
-      if (!confirm(`Hay ${conflicts.length} actividad(es) con fecha y horario superpuestos:\n\n${preview}${remaining}\n\n¿Querés guardar de todos modos?`)) return;
+      if (!confirm(`Hay ${conflicts.length} actividad(es) que coinciden en día, horario y aula:\n\n${preview}${remaining}\n\n¿Querés guardar de todos modos?`)) return;
     }
     let successMessage = isImportantPeriod(payload) ? (id ? "Fecha destacada actualizada" : "Fecha destacada guardada") : (id ? "Actividad actualizada" : "Actividad guardada");
     if (configured) {
