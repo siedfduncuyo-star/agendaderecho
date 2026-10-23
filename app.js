@@ -1,12 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v75-superposicion-dia-horario-aula-20261023";
+const AGENDA_BUILD = "v76-admin-principal-20261023";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
 const configured = Boolean(config.firebaseConfig?.apiKey);
-const adminEmail = String(config.adminEmail || "").trim().toLowerCase();
+const adminEmail = "facultad@derecho.uncu.edu.ar";
 const secretaryAccounts = new Map([
   ["sec_academica@derecho.uncu.edu.ar", "Secretaría Académica"],
   ["posgrado1@derecho.uncu.edu.ar", "Secretaría de Posgrado"],

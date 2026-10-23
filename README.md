@@ -83,6 +83,10 @@ La cabecera incluye un selector para alternar entre modo claro y oscuro. La pref
 - No modifica Firebase ni los datos almacenados.
 
 
+## v76 — permisos de administración para calendario e informes
+
+- Solo `facultad@derecho.uncu.edu.ar` ve los controles y puede abrir/guardar la actualización del calendario o generar informes PDF. Las cuentas de secretaría no tienen esas opciones.
+
 ## v75 — carga por secretaría, aulas múltiples y conflictos de aula
 
 - Cada correo institucional habilitado puede cargar, editar y eliminar actividades únicamente de su secretaría. La cuenta administradora conserva permisos generales.
