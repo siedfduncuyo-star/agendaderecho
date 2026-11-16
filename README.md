@@ -83,6 +83,10 @@ La cabecera incluye un selector para alternar entre modo claro y oscuro. La pref
 - No modifica Firebase ni los datos almacenados.
 
 
+## v79 — simplificación del selector de calendarios
+
+- Se retira el texto “Calendario de trabajo · Las actividades permanecen también en la agenda general” del selector.
+
 ## v78 — repetición diaria en días consecutivos
 
 - El formulario permite generar una actividad por cada día consecutivo hasta la fecha final elegida, conservando horario, aula y demás datos.
