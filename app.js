@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { collection, deleteField, doc, documentId, getCountFromServer, getDoc, getDocs, getFirestore, query, serverTimestamp, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const AGENDA_BUILD = "v76-admin-principal-20261023";
+const AGENDA_BUILD = "v78-repeticion-diaria-consecutiva-20261116";
 console.info(`Agenda Derecho ${AGENDA_BUILD}`);
 
 const config = window.AGENDA_CONFIG || {};
@@ -179,7 +179,7 @@ function inferAcademicYear(career, subject) {
 
 // Historical one-time bulk import payloads were removed from the production bundle after migration to Firestore.
 
-const state = { view: "day", cursor: new Date(), activities: [], allActivities: [], totalEventCount: 0, user: null, canEdit: false, isAdmin: false, secretaryScope: "", filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", searchTerms: [], calendarConfig: null, calendarMetaLoaded: false, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false, mediationCenterBulkLoaded: false, programsBulkLoaded: false, ingreso2027UpdateLoaded: false, pregradeScheduleBulkLoaded: false, dayIndex: new Map(), visibleFilteredItems: [], suspensionIndex: new Map(), rangeCache: new Map(), privateCache: new Map(), periodCache: { at: 0, records: [] } };
+const state = { view: "day", calendarScope: "general", cursor: new Date(), activities: [], allActivities: [], totalEventCount: 0, user: null, canEdit: false, isAdmin: false, secretaryScope: "", filters: new Set(["presential", "hybrid", "virtual", "telephone", "featured"]), audienceFilters: new Set(["pregrado", "grado", "posgrado", "general"]), searchQuery: "", searchTerms: [], calendarConfig: null, calendarMetaLoaded: false, academicCalendarBulkLoaded: false, academicCalendarCleanupDone: false, hibridacionesBulkLoaded: false, gradeScheduleBulkLoaded: false, legalClinicsBulkLoaded: false, mediationCenterBulkLoaded: false, programsBulkLoaded: false, ingreso2027UpdateLoaded: false, pregradeScheduleBulkLoaded: false, dayIndex: new Map(), visibleFilteredItems: [], suspensionIndex: new Map(), rangeCache: new Map(), privateCache: new Map(), periodCache: { at: 0, records: [] } };
 const el = (id) => document.getElementById(id);
 const agenda = el("agenda");
 const status = el("status");
@@ -246,6 +246,15 @@ function isTelephone(item) { return normalizedModality(item) === "telephone"; }
 function isRemote(item) { return isVirtual(item) || isTelephone(item); }
 function isPresential(item) { return normalizedModality(item) === "presential"; }
 function isHybrid(item) { return normalizedModality(item) === "hybrid"; }
+function isClassroomSupport(item) {
+  if (item?.classroom_support === true) return true;
+  const legacyText = [item?.activity_category_custom, item?.name, item?.requirements, item?.observations]
+    .filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale);
+  return /soporte.{0,24}aula|aula.{0,24}soporte/.test(legacyText);
+}
+function belongsToHybridSupportCalendar(item) {
+  return !isImportantPeriod(item) && (isHybrid(item) || isClassroomSupport(item) || item?.recording_required === true);
+}
 function activityTypeLabel(item) { return isTelephone(item) ? "Telefónica" : isVirtual(item) ? "Virtual" : isPresential(item) ? "Presencial" : "Híbrida"; }
 function activityTypeKey(item) { return normalizedModality(item); }
 
@@ -739,10 +748,12 @@ async function initAuth() {
     state.isAdmin = Boolean(user && email === adminEmail);
     state.secretaryScope = user && !state.isAdmin ? (secretaryAccounts.get(email) || "") : "";
     state.canEdit = Boolean(state.isAdmin || state.secretaryScope);
+    if (!state.canEdit) state.calendarScope = "general";
     if (previousEmail !== email) state.privateCache.clear();
     updateAuthUI();
-      // No Firebase reload is needed: private fields are fetched lazily only when opened.
-    render();
+    applyViewStateUI();
+    if (previousEmail !== email) loadPeriod();
+    else render();
   });
 }
 
@@ -751,6 +762,8 @@ function bindEvents() {
   el("dayView").addEventListener("click", () => setView("day"));
   el("weekView").addEventListener("click", () => setView("week"));
   el("monthView").addEventListener("click", () => setView("month"));
+  el("generalCalendarScope").addEventListener("click", () => setCalendarScope("general"));
+  el("hybridSupportCalendarScope").addEventListener("click", () => setCalendarScope("hybrid_support"));
   el("previousPeriod").addEventListener("click", () => movePeriod(-1));
   el("nextPeriod").addEventListener("click", () => movePeriod(1));
   el("currentPeriod").addEventListener("click", () => { const today = localDate(new Date()); state.cursor = today < calendarMinDate ? calendarMinDate : today > calendarMaxDate ? calendarMaxDate : today; loadPeriod(); });
@@ -998,7 +1011,19 @@ function applyViewStateUI() {
     const button = el(`${name}View`); const active = name === state.view;
     button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
   });
-  el("viewEyebrow").textContent = { day: "Vista diaria", week: "Vista semanal", month: "Vista mensual" }[state.view];
+  const viewLabel = { day: "Vista diaria", week: "Vista semanal", month: "Vista mensual" }[state.view];
+  el("viewEyebrow").textContent = state.calendarScope === "general" ? viewLabel : `${viewLabel} · Hibridaciones, soporte y grabaciones`;
+  ["generalCalendarScope", "hybridSupportCalendarScope"].forEach((id) => {
+    const button = el(id); const active = (id === "generalCalendarScope") === (state.calendarScope === "general");
+    button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function setCalendarScope(scope) {
+  if (!state.canEdit || !["general", "hybrid_support"].includes(scope)) return;
+  state.calendarScope = scope;
+  applyViewStateUI();
+  render();
 }
 
 function setView(view) {
@@ -1157,7 +1182,7 @@ async function loadPeriod() {
     if (configured) {
       // La configuración es un solo documento y ya no obliga a descargar toda la colección.
       await loadCalendarConfigAndMarkers();
-      const records = await fetchActivitiesForRange(start, end, { includePrivate: false });
+      const records = await fetchActivitiesForRange(start, end, { includePrivate: state.canEdit });
       state.allActivities = records;
       state.activities = records;
       // El total se obtiene en segundo plano: no retrasa el dibujo de la agenda.
@@ -1219,7 +1244,7 @@ function buildRenderCache() {
   state.suspensionIndex = suspensions;
 
   expanded.forEach((item) => {
-    if (!matchesQuickFilter(item) || !overlapsPeriod(item, start, end)) return;
+    if (!matchesQuickFilter(item) || (state.calendarScope === "hybrid_support" && !belongsToHybridSupportCalendar(item)) || !overlapsPeriod(item, start, end)) return;
     filtered.push(item);
     let first = fromISODate(item.date); let last = fromISODate(activityEndDate(item));
     if (first < start) first = new Date(start);
@@ -1391,6 +1416,8 @@ function createActivityRow(item) {
   const labels = document.createElement("span"); labels.className = "summary-labels";
   const type = document.createElement("span"); type.className = "summary-type"; type.textContent = activityTypeLabel(item); labels.append(type);
   const categoryBadge = document.createElement("span"); categoryBadge.className = "activity-category-badge"; categoryBadge.textContent = activityDescriptor(item); labels.append(categoryBadge);
+  if (isClassroomSupport(item)) { const supportBadge = document.createElement("span"); supportBadge.className = "activity-category-badge"; supportBadge.textContent = "Soporte de aula"; labels.append(supportBadge); }
+  if (canManageActivity(item) && item.recording_required) { const recordingBadge = document.createElement("span"); recordingBadge.className = "activity-category-badge"; recordingBadge.textContent = "Requiere grabación"; labels.append(recordingBadge); }
   if (isSuspended(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge suspended"; stateBadge.textContent = suspensionStateLabel(item); labels.append(stateBadge); }
   if (isPostponed(item)) { const stateBadge = document.createElement("span"); stateBadge.className = "activity-status-badge postponed"; stateBadge.textContent = `Postergada · ${postponedDateLabel(item)}`; labels.append(stateBadge); }
   if (isInProgress(item)) { const live = document.createElement("span"); live.className = "in-progress-badge"; live.innerHTML = '<span class="live-arrow" aria-hidden="true">▶</span> En curso'; labels.append(live); }
@@ -2093,7 +2120,7 @@ function openActivityForm(item = null) {
   el("otherClassroom").value = customRooms.join(" · ");
   toggleActivityTypeFields();
   el("platform").value = item?.platform || ""; el("accountUsed").value = item?.account_used || ""; el("meetingUrl").value = item?.meeting_url || ""; el("publicLink").checked = item?.link_is_public === true; el("moreInfoUrl").value = item?.more_info_url || "";
-  el("requirements").value = [...new Set([item?.requirements, item?.period_description, item?.observations].filter(Boolean))].join(" · "); el("recordingRequired").checked = Boolean(item?.recording_required);
+  el("requirements").value = [...new Set([item?.requirements, item?.period_description, item?.observations].filter(Boolean))].join(" · "); el("recordingRequired").checked = Boolean(item?.recording_required); el("classroomSupport").checked = isClassroomSupport(item);
   updateDateInputs(); toggleRecordKindFields(); activityDialog.showModal();
 }
 
@@ -2107,7 +2134,18 @@ function updateDateInputs() {
 function updateDateRangeInputs() {
   if (el("endDate").value < el("date").value) el("endDate").value = el("date").value;
 }
-function toggleRecurrenceFields() { const repeats = el("recordKind").value === "activity" && el("recurrence").value !== "none"; el("repeatUntilField").hidden = !repeats; el("repeatUntil").required = repeats; }
+function toggleRecurrenceFields() {
+  const recurrence = el("recurrence").value;
+  const repeats = el("recordKind").value === "activity" && recurrence !== "none";
+  el("repeatUntilField").hidden = !repeats;
+  el("repeatUntil").required = repeats;
+  const hints = {
+    daily: "Se creará un registro por cada día consecutivo; los domingos no se incluyen. Dejá iguales la fecha de inicio y la de finalización.",
+    weekly: "Se creará un registro por semana hasta la fecha indicada.",
+    biweekly: "Se creará un registro cada 15 días hasta la fecha indicada."
+  };
+  el("recurrenceHint").textContent = hints[recurrence] || "";
+}
 function toggleActivityStatusFields() {
   const scheduled = el("recordKind").value === "activity";
   const postponed = scheduled && el("activityStatus").value === "postponed";
@@ -2138,7 +2176,7 @@ function activityPayload() {
   const classroom = ["virtual", "telephone"].includes(el("activityType").value) ? "" : [...new Set([...selectedRooms, ...customRooms])].join(" · ");
   const activityStatus = el("activityStatus").value || "scheduled";
   const postponedDateTbd = activityStatus === "postponed" && el("postponedDateTbd").checked;
-  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, activity_category_custom: category === "other" ? el("otherActivityType").value.trim() : "", academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), responsible_is_public: el("publicResponsible").checked, public_responsible: el("publicResponsible").checked ? el("responsible").value.trim() : "", classroom, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
+  return { record_kind: "activity", date: el("date").value, end_date: el("endDate").value, start_time: el("startTime").value, end_time: el("endTime").value, name: el("name").value.trim(), secretary, activity_category: category, activity_category_custom: category === "other" ? el("otherActivityType").value.trim() : "", academic_activity_type: academic && ["class", "open_class", "exam"].includes(category) ? category : "", career: detailedAcademic ? el("career").value : "", academic_year: detailedAcademic ? normalizeAcademicYear(el("academicYear").value) : "", subject: detailedAcademic ? el("subject").value : "", responsible: el("responsible").value.trim(), responsible_is_public: el("publicResponsible").checked, public_responsible: el("publicResponsible").checked ? el("responsible").value.trim() : "", classroom, classroom_support: el("classroomSupport").checked, activity_type: category === "exam" ? "presential" : el("activityType").value, activity_status: activityStatus, postponed_date: activityStatus === "postponed" && !postponedDateTbd ? el("postponedDate").value : "", postponed_date_tbd: postponedDateTbd, platform: el("platform").value.trim(), account_used: el("accountUsed").value.trim(), meeting_url: el("meetingUrl").value.trim(), link_is_public: el("publicLink").checked, more_info_url: el("moreInfoUrl").value.trim(), requirements: el("requirements").value.trim(), observations: "", recording_required: el("recordingRequired").checked };
 }
 
 function validateActivity(payload) {
@@ -2166,15 +2204,17 @@ function validateActivity(payload) {
   if (payload.activity_status === "postponed" && payload.postponed_date && fromISODate(payload.postponed_date) <= fromISODate(payload.date)) return "La nueva fecha de una actividad postergada debe ser posterior a la fecha original.";
   if (payload.postponed_date && !isWithinConfiguredCalendar(fromISODate(payload.postponed_date))) return "La nueva fecha está fuera del calendario habilitado para ese año.";
   if (el("recurrence").value !== "none" && fromISODate(el("repeatUntil").value) < fromISODate(payload.date)) return "La fecha final de repetición no puede ser anterior a la actividad.";
+  if (el("recurrence").value === "daily" && payload.end_date !== payload.date) return "Para repetir una actividad cada día, usá la misma fecha de inicio y finalización. Indicá el último día en el campo de repetición. Si es una actividad continua de varios días, elegí ‘No se repite’ y usá el rango de fechas.";
   return "";
 }
 
 function recurrenceRecords(payload) {
   if (isImportantPeriod(payload)) return [payload];
   const recurrence = el("recurrence").value; if (recurrence === "none") return [payload];
-  const step = recurrence === "weekly" ? 7 : 14; const until = fromISODate(el("repeatUntil").value); const seriesId = crypto.randomUUID(); const records = [];
+  const step = recurrence === "daily" ? 1 : recurrence === "weekly" ? 7 : 14; const until = fromISODate(el("repeatUntil").value); const seriesId = crypto.randomUUID(); const records = [];
   const durationDays = Math.round((fromISODate(payload.end_date) - fromISODate(payload.date)) / 86400000);
   for (let date = fromISODate(payload.date); date <= until && date <= calendarMaxDate; date = addDays(date, step)) {
+    if (recurrence === "daily" && date.getDay() === 0) continue;
     const occurrenceEnd = addDays(date, durationDays);
     if (!isWithinConfiguredCalendar(date) || !isWithinConfiguredCalendar(occurrenceEnd)) continue;
     records.push({ ...payload, date: toISODate(date), end_date: toISODate(occurrenceEnd), series_id: seriesId });

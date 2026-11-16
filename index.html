@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;family=Poppins:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="styles.css?v=73-dark-month-20260926" rel="stylesheet"/>
+<link href="styles.css?v=77-calendario-operativo-20261113" rel="stylesheet"/>
 </head>
 <body>
 <header class="site-header">
@@ -82,6 +82,16 @@
 </div>
 </div>
 </section>
+<section aria-label="Calendarios de trabajo" class="calendar-scope-switch editor-only" hidden="">
+<div class="calendar-scope-intro">
+<strong>Calendario de trabajo</strong>
+<span>Las actividades permanecen también en la agenda general.</span>
+</div>
+<div aria-label="Seleccionar calendario" class="view-switch" role="group">
+<button aria-pressed="true" class="view-button active" id="generalCalendarScope" type="button">Agenda general</button>
+<button aria-pressed="false" class="view-button" id="hybridSupportCalendarScope" type="button">Hibridaciones · soporte · grabaciones</button>
+</div>
+</section>
 <div class="agenda-summary-bar">
 <div class="filter-stack">
 <div aria-label="Filtrar eventos por modalidad" class="type-filters quick-check-filters" role="group">
@@ -127,11 +137,12 @@
 <label data-scheduled-only="" id="recurrenceField">Repetición
             <select id="recurrence">
 <option value="none">No se repite</option>
+<option value="daily">Todos los días consecutivos</option>
 <option value="weekly">Todas las semanas</option>
 <option value="biweekly">Cada 15 días</option>
 </select>
 </label>
-<label data-scheduled-only="" hidden="" id="repeatUntilField">Repetir hasta<input id="repeatUntil" max="2030-12-31" min="2026-01-01" type="date"/></label>
+<label data-scheduled-only="" hidden="" id="repeatUntilField">Último día de repetición<input id="repeatUntil" max="2030-12-31" min="2026-01-01" type="date"/><small id="recurrenceHint">Se crearán actividades independientes para cada fecha.</small></label>
 <label data-scheduled-only="" id="activityStatusField">Estado de la actividad<select id="activityStatus"><option value="scheduled">Programada</option><option value="suspended">Suspendida</option><option value="postponed">Postergada</option></select></label>
 <label data-scheduled-only="" hidden="" id="postponedDateField">Nueva fecha<input id="postponedDate" max="2030-12-31" min="2026-01-01" type="date"/></label>
 <label class="recording-field wide" data-scheduled-only="" hidden="" id="postponedTbdField"><input id="postponedDateTbd" type="checkbox"/><span><strong>Fecha a confirmar</strong><small>Usá esta opción si todavía no se definió la nueva fecha de la actividad.</small></span></label>
@@ -155,6 +166,7 @@
 <label class="wide">Enlace para más información<input id="moreInfoUrl" maxlength="500" placeholder="Página, formulario de inscripción, cronograma…" type="url"/><small>Este enlace será público.</small></label>
 <label class="wide"><span id="requirementsLabel">Requerimientos / observaciones</span><textarea id="requirements" maxlength="1000" placeholder="Micrófonos, cámara, presentación, indicaciones especiales…" rows="4"></textarea></label>
 <label class="recording-field" data-scheduled-only=""><input id="recordingRequired" type="checkbox"/><span><strong>Requiere grabación</strong><small>Marcar si la actividad debe registrarse.</small></span></label>
+<label class="recording-field wide" data-scheduled-only=""><input id="classroomSupport" type="checkbox"/><span><strong>Requiere soporte de aula</strong><small>Incluye la actividad en el calendario de Hibridaciones · soporte · grabaciones y la mantiene en la agenda general.</small></span></label>
 <label class="recording-field wide" data-scheduled-only="" hidden="" id="bulkEditField"><input id="updateSameName" type="checkbox"/><span><strong>Aplicar estos cambios a las actividades con el mismo nombre y día</strong><small>Solo se actualizarán las que coincidan también en el día de la semana; se conservarán sus fechas.</small></span></label>
 </div>
 <div class="form-error" hidden="" id="formError" role="alert"></div>
@@ -297,7 +309,7 @@
 </dialog>
 <div aria-live="polite" class="toast" hidden="" id="toast" role="status"></div>
 <script src="config.js?v=73-dark-month-20260926"></script>
-<script src="app.js?v=73-dark-month-20260926" type="module"></script>
+<script src="app.js?v=78-repeticion-diaria-20261116" type="module"></script>
 <script>
       window.setTimeout(function () {
         var message = document.getElementById("status");

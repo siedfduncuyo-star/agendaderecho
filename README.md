@@ -83,6 +83,22 @@ La cabecera incluye un selector para alternar entre modo claro y oscuro. La pref
 - No modifica Firebase ni los datos almacenados.
 
 
+## v78 — repetición diaria en días consecutivos
+
+- El formulario permite generar una actividad por cada día consecutivo hasta la fecha final elegida, conservando horario, aula y demás datos.
+- Cada día se guarda como un registro independiente vinculado a una misma serie, para poder corregir una fecha sin cambiar las otras.
+- Los domingos se omiten, de acuerdo con el calendario de la agenda. Las repeticiones semanales y cada 15 días siguen disponibles.
+- Para una actividad continua que ocupa un rango de fechas como un solo evento, se usa “No se repite” y se completan las fechas de inicio y finalización.
+- No modifica actividades existentes.
+
+## v77 — calendario de Hibridaciones, soporte y grabaciones
+
+- La cuenta de administración y las cuentas de secretaría habilitadas pueden cambiar entre Agenda general y el calendario operativo de Hibridaciones, soporte y grabaciones.
+- Las actividades híbridas siguen apareciendo en la agenda general y también se muestran en el calendario operativo.
+- El formulario agrega “Requiere soporte de aula”. Las actividades marcadas aparecen en ambos calendarios. Las actividades que requieren grabación también aparecen en el operativo.
+- La vista operativa usa los mismos registros e identificadores de Firebase: no duplica actividades ni migra, importa o modifica automáticamente datos cargados.
+- Los datos privados de grabación mantienen los permisos existentes: cada secretaría ve esa información en sus propias actividades; la administración puede verla en todas.
+
 ## v76 — permisos de administración para calendario e informes
 
 - Solo `facultad@derecho.uncu.edu.ar` ve los controles y puede abrir/guardar la actualización del calendario o generar informes PDF. Las cuentas de secretaría no tienen esas opciones.
